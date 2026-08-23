@@ -1,1 +1,88 @@
-import{describe,expect,it,vi}from'vitest';import type{ApiClient}from'../../core/api/apiClient';import{productionKey}from'./productionQueries';import{mapDailyProduction,mapSalesProduction,productionService}from'./productionService';import type{ProductionFilters}from'./productionTypes';const filters:ProductionFilters={mode:'orders',customer:'C1',item:'I1',status:'Orden Abierta',from:'2026-01-01',to:'2026-01-31',delivery:'2026-02-01',page:2};describe('production',()=>{it('sends exact order-production request',async()=>{const post=vi.fn().mockResolvedValue({production:[],pagination:{}});await productionService({post}as unknown as ApiClient).list('CO','V',filters);expect(post).toHaveBeenCalledWith('/production',{company:'CO',cust_id:'C1',item_id:'I1',sales_group:'V',from_date:'2026-01-01',to_date:'2026-01-31',sales_status:'Orden Abierta',deliverydate:'2026-02-01',pagination:{perpage:20,page:2}},{signal:undefined})});it('uses the real daily endpoint',async()=>{const post=vi.fn().mockResolvedValue({production:[],pagination:{}});await productionService({post}as unknown as ApiClient).list('CO','V',{...filters,mode:'daily'});expect(post.mock.calls[0][0]).toBe('/production/daily')});it('maps real fields without inventing production status labels',()=>expect(mapSalesProduction({ProdId:'P1',prodstatus:4,qtysched:2.5,backorderstatus:'Terminado'})).toMatchObject({productionId:'P1',productionStatus:4,scheduledQuantity:2.5,backorderStatus:'Terminado'}));it('maps daily production fields',()=>expect(mapDailyProduction({orden:'P1',iniciado:'2026-01-01',cantidad:3,kilolitros:1.2,estatus:'Terminado'})).toMatchObject({productionId:'P1',started:'2026-01-01',quantity:3,kiloliters:1.2,status:'Terminado'}));it('segregates company, vendor, mode and filters in key',()=>expect(productionKey('CO','V',filters)).toEqual(['production','CO','V','orders','C1','I1','Orden Abierta','2026-01-01','2026-01-31','2026-02-01',2]))});
+import { describe, expect, it, vi } from 'vitest';
+import type { ApiClient } from '../../core/api/apiClient';
+import { productionKey } from './productionQueries';
+import { mapDailyProduction, mapSalesProduction, productionService } from './productionService';
+import type { ProductionFilters } from './productionTypes';
+const filters: ProductionFilters = {
+  mode: 'orders',
+  customer: 'C1',
+  item: 'I1',
+  status: 'Orden Abierta',
+  from: '2026-01-01',
+  to: '2026-01-31',
+  delivery: '2026-02-01',
+  page: 2,
+};
+describe('production', () => {
+  it('sends exact order-production request', async () => {
+    const post = vi.fn().mockResolvedValue({ production: [], pagination: {} });
+    await productionService({ post } as unknown as ApiClient).list('CO', 'V', filters);
+    expect(post).toHaveBeenCalledWith(
+      '/production',
+      {
+        company: 'CO',
+        cust_id: 'C1',
+        item_id: 'I1',
+        sales_group: 'V',
+        from_date: '2026-01-01',
+        to_date: '2026-01-31',
+        sales_status: 'Orden Abierta',
+        deliverydate: '2026-02-01',
+        pagination: { perpage: 20, page: 2 },
+      },
+      { signal: undefined },
+    );
+  });
+  it('uses the real daily endpoint', async () => {
+    const post = vi.fn().mockResolvedValue({ production: [], pagination: {} });
+    await productionService({ post } as unknown as ApiClient).list('CO', 'V', {
+      ...filters,
+      mode: 'daily',
+    });
+    expect(post.mock.calls[0][0]).toBe('/production/daily');
+  });
+  it('maps real fields without inventing production status labels', () =>
+    expect(
+      mapSalesProduction({
+        ProdId: 'P1',
+        prodstatus: 4,
+        qtysched: 2.5,
+        backorderstatus: 'Terminado',
+      }),
+    ).toMatchObject({
+      productionId: 'P1',
+      productionStatus: 4,
+      scheduledQuantity: 2.5,
+      backorderStatus: 'Terminado',
+    }));
+  it('maps daily production fields', () =>
+    expect(
+      mapDailyProduction({
+        orden: 'P1',
+        iniciado: '2026-01-01',
+        cantidad: 3,
+        kilolitros: 1.2,
+        estatus: 'Terminado',
+      }),
+    ).toMatchObject({
+      productionId: 'P1',
+      started: '2026-01-01',
+      quantity: 3,
+      kiloliters: 1.2,
+      status: 'Terminado',
+    }));
+  it('segregates company, vendor, mode and filters in key', () =>
+    expect(productionKey('CO', 'V', filters)).toEqual([
+      'production',
+      'CO',
+      'V',
+      'orders',
+      'C1',
+      'I1',
+      'Orden Abierta',
+      '2026-01-01',
+      '2026-01-31',
+      '2026-02-01',
+      2,
+    ]));
+});

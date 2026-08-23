@@ -4,15 +4,110 @@ import { catalogService } from './catalogService';
 import { catalogKeys } from './queryKeys';
 import type { Product } from './types';
 
-export const useCustomers = (search: string, page: number) => { const { api, context } = useSession(); const company = context.company?.id ?? '', vendor = context.vendor?.id ?? ''; return useQuery({ queryKey: catalogKeys.customers(company, vendor, search, page), queryFn: ({ signal }) => catalogService(api).customers({ company, salesGroup: vendor, search, page, perPage: 25, signal }), enabled: Boolean(company && vendor), placeholderData: keepPreviousData }); };
-export const useCustomerAddresses = (account: string) => { const { api, context } = useSession(); const company = context.company?.id ?? ''; return useQuery({ queryKey: catalogKeys.addresses(company, account), queryFn: ({ signal }) => catalogService(api).customerAddresses(company, account, { signal }), enabled: Boolean(company && account) }); };
-export const useProducts = (search: string, page: number) => { const { api, context } = useSession(); const company = context.company?.id ?? ''; return useQuery({ queryKey: catalogKeys.products(company, search, page), queryFn: ({ signal }) => catalogService(api).products({ company, search, page, perPage: 10, signal }), enabled: Boolean(company), placeholderData: keepPreviousData }); };
-export const useVariants = (product: Product | null) => { const { api, context } = useSession(); const company = context.company?.id ?? ''; return useQuery({ queryKey: catalogKeys.variants(company, product?.itemId ?? ''), queryFn: ({ signal }) => catalogService(api).variants({ company, itemId: product!.itemId, signal }), enabled: Boolean(company && product?.requiresVariant) }); };
-export const useInventory = (product: Product | null, variantNumber: string, page: number) => { const { api, context } = useSession(); const company = context.company?.id ?? '', vendor = context.vendor?.id ?? ''; return useQuery({ queryKey: catalogKeys.inventory(company, vendor, product?.itemId ?? '', variantNumber, page), queryFn: ({ signal }) => product?.requiresVariant ? catalogService(api).variantInventory({ company, salesGroup: vendor, itemId: product.itemId, displayProductNumber: variantNumber, page, signal }) : catalogService(api).inventory({ company, salesGroup: vendor, itemId: product?.itemId, page, signal }), enabled: Boolean(company && vendor && product && (!product.requiresVariant || variantNumber)), placeholderData: keepPreviousData }); };
-export const useReferenceCatalogs = (customerAccount = '', countryId = '') => { const { api, context } = useSession(); const company = context.company?.id ?? ''; return {
-  delivery: useQuery({ queryKey: catalogKeys.catalog('delivery', company), queryFn: ({ signal }) => catalogService(api).deliveryModes(company, { signal }), enabled: Boolean(company) }),
-  origins: useQuery({ queryKey: catalogKeys.catalog('origins', company), queryFn: ({ signal }) => catalogService(api).salesOrigins(company, { signal }), enabled: Boolean(company) }),
-  promotions: useQuery({ queryKey: catalogKeys.catalog('promotions', company), queryFn: ({ signal }) => catalogService(api).promotions(company, { signal }), enabled: Boolean(company) }),
-  agreements: useQuery({ queryKey: catalogKeys.catalog('agreements', company, customerAccount), queryFn: ({ signal }) => catalogService(api).agreements(company, customerAccount, { signal }), enabled: Boolean(company && customerAccount) }),
-  documents: useQuery({ queryKey: catalogKeys.catalog('documents', company, countryId), queryFn: ({ signal }) => catalogService(api).documentTypes(company, countryId, { signal }), enabled: Boolean(company && countryId) }),
-}; };
+export const useCustomers = (search: string, page: number) => {
+  const { api, context } = useSession();
+  const company = context.company?.id ?? '',
+    vendor = context.vendor?.id ?? '';
+  return useQuery({
+    queryKey: catalogKeys.customers(company, vendor, search, page),
+    queryFn: ({ signal }) =>
+      catalogService(api).customers({
+        company,
+        salesGroup: vendor,
+        search,
+        page,
+        perPage: 25,
+        signal,
+      }),
+    enabled: Boolean(company && vendor),
+    placeholderData: keepPreviousData,
+  });
+};
+export const useCustomerAddresses = (account: string) => {
+  const { api, context } = useSession();
+  const company = context.company?.id ?? '';
+  return useQuery({
+    queryKey: catalogKeys.addresses(company, account),
+    queryFn: ({ signal }) => catalogService(api).customerAddresses(company, account, { signal }),
+    enabled: Boolean(company && account),
+  });
+};
+export const useProducts = (search: string, page: number) => {
+  const { api, context } = useSession();
+  const company = context.company?.id ?? '';
+  return useQuery({
+    queryKey: catalogKeys.products(company, search, page),
+    queryFn: ({ signal }) =>
+      catalogService(api).products({ company, search, page, perPage: 10, signal }),
+    enabled: Boolean(company),
+    placeholderData: keepPreviousData,
+  });
+};
+export const useVariants = (product: Product | null) => {
+  const { api, context } = useSession();
+  const company = context.company?.id ?? '';
+  return useQuery({
+    queryKey: catalogKeys.variants(company, product?.itemId ?? ''),
+    queryFn: ({ signal }) =>
+      catalogService(api).variants({ company, itemId: product!.itemId, signal }),
+    enabled: Boolean(company && product?.requiresVariant),
+  });
+};
+export const useInventory = (product: Product | null, variantNumber: string, page: number) => {
+  const { api, context } = useSession();
+  const company = context.company?.id ?? '',
+    vendor = context.vendor?.id ?? '';
+  return useQuery({
+    queryKey: catalogKeys.inventory(company, vendor, product?.itemId ?? '', variantNumber, page),
+    queryFn: ({ signal }) =>
+      product?.requiresVariant
+        ? catalogService(api).variantInventory({
+            company,
+            salesGroup: vendor,
+            itemId: product.itemId,
+            displayProductNumber: variantNumber,
+            page,
+            signal,
+          })
+        : catalogService(api).inventory({
+            company,
+            salesGroup: vendor,
+            itemId: product?.itemId,
+            page,
+            signal,
+          }),
+    enabled: Boolean(company && vendor && product && (!product.requiresVariant || variantNumber)),
+    placeholderData: keepPreviousData,
+  });
+};
+export const useReferenceCatalogs = (customerAccount = '', countryId = '') => {
+  const { api, context } = useSession();
+  const company = context.company?.id ?? '';
+  return {
+    delivery: useQuery({
+      queryKey: catalogKeys.catalog('delivery', company),
+      queryFn: ({ signal }) => catalogService(api).deliveryModes(company, { signal }),
+      enabled: Boolean(company),
+    }),
+    origins: useQuery({
+      queryKey: catalogKeys.catalog('origins', company),
+      queryFn: ({ signal }) => catalogService(api).salesOrigins(company, { signal }),
+      enabled: Boolean(company),
+    }),
+    promotions: useQuery({
+      queryKey: catalogKeys.catalog('promotions', company),
+      queryFn: ({ signal }) => catalogService(api).promotions(company, { signal }),
+      enabled: Boolean(company),
+    }),
+    agreements: useQuery({
+      queryKey: catalogKeys.catalog('agreements', company, customerAccount),
+      queryFn: ({ signal }) => catalogService(api).agreements(company, customerAccount, { signal }),
+      enabled: Boolean(company && customerAccount),
+    }),
+    documents: useQuery({
+      queryKey: catalogKeys.catalog('documents', company, countryId),
+      queryFn: ({ signal }) => catalogService(api).documentTypes(company, countryId, { signal }),
+      enabled: Boolean(company && countryId),
+    }),
+  };
+};

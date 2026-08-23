@@ -1,7 +1,36 @@
 import type { OrderSubmission } from './types';
 export const ORDER_SUBMISSION_KEY = 'sales4app.orderSubmission.v1';
-const key = (accountId: string, companyId: string) => `${ORDER_SUBMISSION_KEY}.${encodeURIComponent(accountId)}.${encodeURIComponent(companyId)}`;
-export const saveSubmission = (s: OrderSubmission) => localStorage.setItem(key(s.accountId, s.companyId), JSON.stringify(s));
-export const clearSubmission = (accountId: string, companyId: string) => localStorage.removeItem(key(accountId, companyId));
-export const peekSubmission = (accountId?: string): OrderSubmission | null => { let completed: OrderSubmission | null = null; for (let i = 0; i < localStorage.length; i += 1) { const storageKey = localStorage.key(i); if (!storageKey?.startsWith(`${ORDER_SUBMISSION_KEY}.`)) continue; try { const s = JSON.parse(localStorage.getItem(storageKey) ?? '') as OrderSubmission; if (s.schemaVersion !== 1 || (accountId && s.accountId !== accountId)) continue; if (s.status !== 'completed') return s; completed = s; } catch { continue; } } return completed; };
-export const loadSubmission = (accountId: string, companyId: string) => { try { const raw = localStorage.getItem(key(accountId, companyId)); if (!raw) return null; const s = JSON.parse(raw) as OrderSubmission; return s.schemaVersion === 1 && s.accountId === accountId && s.companyId === companyId ? s : null; } catch { return null; } };
+const key = (accountId: string, companyId: string) =>
+  `${ORDER_SUBMISSION_KEY}.${encodeURIComponent(accountId)}.${encodeURIComponent(companyId)}`;
+export const saveSubmission = (s: OrderSubmission) =>
+  localStorage.setItem(key(s.accountId, s.companyId), JSON.stringify(s));
+export const clearSubmission = (accountId: string, companyId: string) =>
+  localStorage.removeItem(key(accountId, companyId));
+export const peekSubmission = (accountId?: string): OrderSubmission | null => {
+  let completed: OrderSubmission | null = null;
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const storageKey = localStorage.key(i);
+    if (!storageKey?.startsWith(`${ORDER_SUBMISSION_KEY}.`)) continue;
+    try {
+      const s = JSON.parse(localStorage.getItem(storageKey) ?? '') as OrderSubmission;
+      if (s.schemaVersion !== 1 || (accountId && s.accountId !== accountId)) continue;
+      if (s.status !== 'completed') return s;
+      completed = s;
+    } catch {
+      continue;
+    }
+  }
+  return completed;
+};
+export const loadSubmission = (accountId: string, companyId: string) => {
+  try {
+    const raw = localStorage.getItem(key(accountId, companyId));
+    if (!raw) return null;
+    const s = JSON.parse(raw) as OrderSubmission;
+    return s.schemaVersion === 1 && s.accountId === accountId && s.companyId === companyId
+      ? s
+      : null;
+  } catch {
+    return null;
+  }
+};

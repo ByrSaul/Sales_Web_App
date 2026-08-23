@@ -11,16 +11,29 @@ interface TopBarProps {
   onBack?: () => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ searchPlaceholder = 'Buscar...', user, onSearch, onMenuOpen, title, onBack }) => (
+const TopBar: React.FC<TopBarProps> = ({
+  searchPlaceholder = 'Buscar...',
+  user,
+  onSearch,
+  onMenuOpen,
+  title,
+  onBack,
+}) => (
   <header className="h-12 fixed top-0 left-0 md:left-56 right-0 bg-white border-b border-outline-variant flex items-center px-4 gap-3 z-30 shadow-sm">
     {/* Mobile: hamburger or back */}
     <div className="flex md:hidden">
       {onBack ? (
-        <button onClick={onBack} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container">
+        <button
+          onClick={onBack}
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container"
+        >
           <Icon name="arrow_back" size={18} className="text-on-surface-variant" />
         </button>
       ) : (
-        <button onClick={onMenuOpen} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container">
+        <button
+          onClick={onMenuOpen}
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container"
+        >
           <Icon name="menu" size={18} className="text-on-surface-variant" />
         </button>
       )}

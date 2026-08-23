@@ -18,40 +18,52 @@ interface AppLayoutProps {
 }
 
 const BOTTOM_NAV = [
-  { label: 'Pedidos',    icon: 'receipt_long',    href: '/pedidos' },
-  { label: 'Clientes',   icon: 'group',            href: '/clientes' },
-  { label: 'Inventario', icon: 'inventory_2',      href: '/inventario' },
-  { label: 'Facturas',   icon: 'description',      href: '/facturas' },
+  { label: 'Pedidos', icon: 'receipt_long', href: '/pedidos' },
+  { label: 'Clientes', icon: 'group', href: '/clientes' },
+  { label: 'Inventario', icon: 'inventory_2', href: '/inventario' },
+  { label: 'Facturas', icon: 'description', href: '/facturas' },
 ];
 
 const AppLayout: React.FC<AppLayoutProps> = ({
-  children, activeRoute, user, searchPlaceholder, pageTitle,
-  onNavigate, onSearch, onBack, showFab, onFab,
+  children,
+  activeRoute,
+  user,
+  searchPlaceholder,
+  pageTitle,
+  onNavigate,
+  onSearch,
+  onBack,
+  showFab,
+  onFab,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background font-sans">
       <Sidebar
-        activeRoute={activeRoute} user={user} onNavigate={onNavigate}
-        mobileOpen={drawerOpen} onMobileClose={() => setDrawerOpen(false)}
+        activeRoute={activeRoute}
+        user={user}
+        onNavigate={onNavigate}
+        mobileOpen={drawerOpen}
+        onMobileClose={() => setDrawerOpen(false)}
       />
       <TopBar
-        user={user} searchPlaceholder={searchPlaceholder}
-        title={pageTitle} onSearch={onSearch}
-        onMenuOpen={() => setDrawerOpen(true)} onBack={onBack}
+        user={user}
+        searchPlaceholder={searchPlaceholder}
+        title={pageTitle}
+        onSearch={onSearch}
+        onMenuOpen={() => setDrawerOpen(true)}
+        onBack={onBack}
       />
 
       {/* Main content */}
       <main className="md:ml-56 pt-12 min-h-screen pb-16 md:pb-0">
-        <div className="p-3 md:p-5 max-w-7xl mx-auto">
-          {children}
-        </div>
+        <div className="p-3 md:p-5 max-w-7xl mx-auto">{children}</div>
       </main>
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-outline-variant flex z-30">
-        {BOTTOM_NAV.map(item => {
+        {BOTTOM_NAV.map((item) => {
           const isActive = activeRoute === item.href;
           return (
             <button
@@ -59,7 +71,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               onClick={() => onNavigate(item.href)}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2 transition-colors ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}
             >
-              <Icon name={item.icon} size={20} fill={isActive} className={isActive ? 'text-primary' : ''} />
+              <Icon
+                name={item.icon}
+                size={20}
+                fill={isActive}
+                className={isActive ? 'text-primary' : ''}
+              />
               <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           );

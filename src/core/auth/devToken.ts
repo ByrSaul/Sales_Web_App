@@ -1,7 +1,10 @@
 export type DevTokenErrorKind = 'configuration' | 'identity';
 
 export class DevTokenConfigurationError extends Error {
-  constructor(message: string, public readonly kind: DevTokenErrorKind = 'configuration') {
+  constructor(
+    message: string,
+    public readonly kind: DevTokenErrorKind = 'configuration',
+  ) {
     super(message);
     this.name = 'DevTokenConfigurationError';
   }
@@ -9,9 +12,13 @@ export class DevTokenConfigurationError extends Error {
 
 const decodePayload = (token: string): Record<string, unknown> => {
   const payload = token.split('.')[1];
-  if (!payload) throw new DevTokenConfigurationError('El token de desarrollo no tiene un payload JWT válido.');
+  if (!payload)
+    throw new DevTokenConfigurationError('El token de desarrollo no tiene un payload JWT válido.');
   try {
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    const normalized = payload
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(payload.length / 4) * 4, '=');
     return JSON.parse(atob(normalized)) as Record<string, unknown>;
   } catch {
     throw new DevTokenConfigurationError('El token de desarrollo no tiene un payload JWT válido.');
@@ -22,7 +29,11 @@ export const devAccountId = (token: string): string => {
   if (!token) throw new DevTokenConfigurationError('El token de desarrollo no está configurado.');
   const claims = decodePayload(token);
   const id = claims.oid ?? claims.sub;
-  if (typeof id !== 'string' || !id.trim()) throw new DevTokenConfigurationError('El token de desarrollo no contiene un identificador oid/sub utilizable.', 'identity');
+  if (typeof id !== 'string' || !id.trim())
+    throw new DevTokenConfigurationError(
+      'El token de desarrollo no contiene un identificador oid/sub utilizable.',
+      'identity',
+    );
   return `dev-token:${id.trim()}`;
 };
 

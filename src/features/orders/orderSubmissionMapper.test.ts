@@ -1,13 +1,98 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { isDraftLineAlreadyCreated, lineEndpoint, mapAgreementLineRequest, mapExistingLines, mapHeaderRequest, mapNormalLineRequest } from './orderSubmissionMapper';
+import {
+  isDraftLineAlreadyCreated,
+  lineEndpoint,
+  mapAgreementLineRequest,
+  mapExistingLines,
+  mapHeaderRequest,
+  mapNormalLineRequest,
+} from './orderSubmissionMapper';
 import { validDraft } from './testFixtures';
 beforeEach(() => vi.stubGlobal('crypto', { randomUUID: () => `id-${Math.random()}` }));
 describe('transactional mappers', () => {
-  it('maps the exact Mobile header casing and date format', () => { const d = validDraft(); const r = mapHeaderRequest(d); expect(r).toMatchObject({ dataAreaId: 'CO', CurrencyCode: 'GTQ', InvoiceCustomerAccountNumber: 'C1', RequestedShippingDate: '2026-08-22', ConfirmedShippingDate: '2026-08-22', CommissionSalesRepresentativeGroupId: 'V1' }); expect(Object.keys(r)).not.toContain('customer'); });
-  it('maps normal lines without local IDs', () => { const d = validDraft(); const r = mapNormalLineRequest(d, d.lines[0], 'OV-1'); expect(r).toMatchObject({ dataAreaId: 'CO', SalesOrderNumber: 'OV-1', ItemNumber: 'I1', OrderedSalesQuantity: 1, FABonification: '0' }); expect(r).not.toHaveProperty('localId'); });
-  it('maps agreement fields and endpoint', () => { const d = validDraft(); const line = { ...d.lines[0], source: 'agreement' as const, matchingAgreementLine: 77 }; expect(mapAgreementLineRequest(d, line, 'OV-1')).toMatchObject({ MatchingAgreementLine: 77, ChangeShippingWarehouseId: '' }); expect(lineEndpoint(line)).toBe('/d365/sales/line/agreement'); expect(lineEndpoint(d.lines[0])).toBe('/d365/sales/line'); });
-  it('maps bonus contract fields', () => { const d = validDraft(); const line = { ...d.lines[0], isBonification: true, price: 0, promotion: { groupId: 'BON', name: 'Bonus', forecastDiscount: 10 } }; expect(mapNormalLineRequest(d, line, 'OV')).toMatchObject({ SalesPrice: 0, CSFASuppItemGroupId: 'BON', FABonification: '1' }); });
-  it('preserves decimal quantities in JSON mapping', () => { const d = validDraft(); d.lines[0].quantity = 1.5; expect(mapNormalLineRequest(d, d.lines[0], 'OV').OrderedSalesQuantity).toBe(1.5); });
-  it('normalizes existing responses and uses full Mobile matching', () => { const d = validDraft(); const existing = mapExistingLines([{ ItemNumber: 'I1', OrderedSalesQuantity: 1, SalesPrice: 25, ShippingSiteId: 'S', ShippingWarehouseId: 'W', FABonification: 'No' }]); expect(isDraftLineAlreadyCreated(d.lines[0], existing)).toBe(true); expect(isDraftLineAlreadyCreated({ ...d.lines[0], warehouseId: 'OTHER' }, existing)).toBe(false); });
-  it('uses multiplicity for identical lines', () => { const d = validDraft(); const existing = mapExistingLines([{ ItemNumber: 'I1', OrderedSalesQuantity: 1, SalesPrice: 25, ShippingSiteId: 'S', ShippingWarehouseId: 'W', FABonification: 'No' }]); expect(isDraftLineAlreadyCreated(d.lines[0], existing, 1)).toBe(false); });
+  it('maps the exact Mobile header casing and date format', () => {
+    const d = validDraft();
+    const r = mapHeaderRequest(d);
+    expect(r).toMatchObject({
+      dataAreaId: 'CO',
+      CurrencyCode: 'GTQ',
+      InvoiceCustomerAccountNumber: 'C1',
+      RequestedShippingDate: '2026-08-22',
+      ConfirmedShippingDate: '2026-08-22',
+      CommissionSalesRepresentativeGroupId: 'V1',
+    });
+    expect(Object.keys(r)).not.toContain('customer');
+  });
+  it('maps normal lines without local IDs', () => {
+    const d = validDraft();
+    const r = mapNormalLineRequest(d, d.lines[0], 'OV-1');
+    expect(r).toMatchObject({
+      dataAreaId: 'CO',
+      SalesOrderNumber: 'OV-1',
+      ItemNumber: 'I1',
+      OrderedSalesQuantity: 1,
+      FABonification: '0',
+    });
+    expect(r).not.toHaveProperty('localId');
+  });
+  it('maps agreement fields and endpoint', () => {
+    const d = validDraft();
+    const line = { ...d.lines[0], source: 'agreement' as const, matchingAgreementLine: 77 };
+    expect(mapAgreementLineRequest(d, line, 'OV-1')).toMatchObject({
+      MatchingAgreementLine: 77,
+      ChangeShippingWarehouseId: '',
+    });
+    expect(lineEndpoint(line)).toBe('/d365/sales/line/agreement');
+    expect(lineEndpoint(d.lines[0])).toBe('/d365/sales/line');
+  });
+  it('maps bonus contract fields', () => {
+    const d = validDraft();
+    const line = {
+      ...d.lines[0],
+      isBonification: true,
+      price: 0,
+      promotion: { groupId: 'BON', name: 'Bonus', forecastDiscount: 10 },
+    };
+    expect(mapNormalLineRequest(d, line, 'OV')).toMatchObject({
+      SalesPrice: 0,
+      CSFASuppItemGroupId: 'BON',
+      FABonification: '1',
+    });
+  });
+  it('preserves decimal quantities in JSON mapping', () => {
+    const d = validDraft();
+    d.lines[0].quantity = 1.5;
+    expect(mapNormalLineRequest(d, d.lines[0], 'OV').OrderedSalesQuantity).toBe(1.5);
+  });
+  it('normalizes existing responses and uses full Mobile matching', () => {
+    const d = validDraft();
+    const existing = mapExistingLines([
+      {
+        ItemNumber: 'I1',
+        OrderedSalesQuantity: 1,
+        SalesPrice: 25,
+        ShippingSiteId: 'S',
+        ShippingWarehouseId: 'W',
+        FABonification: 'No',
+      },
+    ]);
+    expect(isDraftLineAlreadyCreated(d.lines[0], existing)).toBe(true);
+    expect(isDraftLineAlreadyCreated({ ...d.lines[0], warehouseId: 'OTHER' }, existing)).toBe(
+      false,
+    );
+  });
+  it('uses multiplicity for identical lines', () => {
+    const d = validDraft();
+    const existing = mapExistingLines([
+      {
+        ItemNumber: 'I1',
+        OrderedSalesQuantity: 1,
+        SalesPrice: 25,
+        ShippingSiteId: 'S',
+        ShippingWarehouseId: 'W',
+        FABonification: 'No',
+      },
+    ]);
+    expect(isDraftLineAlreadyCreated(d.lines[0], existing, 1)).toBe(false);
+  });
 });

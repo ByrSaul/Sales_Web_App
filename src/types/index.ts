@@ -179,6 +179,16 @@ export type InvoiceFilters = {
 
 // ─── App types (already defined inline in pages, kept for reference) ───────────
 export type AppRoute =
-  | '/' | '/pedidos' | '/pedidos/detalle' | '/clientes' | '/inventario'
-  | '/facturas' | '/facturas/busqueda' | '/crear-pedido' | '/crear-pedido/linea'
-  | '/estado-cuenta' | '/empresas' | '/vendedores' | '/soporte';
+  | '/'
+  | '/pedidos'
+  | '/pedidos/detalle'
+  | '/clientes'
+  | '/inventario'
+  | '/facturas'
+  | '/facturas/busqueda'
+  | '/crear-pedido'
+  | '/crear-pedido/linea'
+  | '/estado-cuenta'
+  | '/empresas'
+  | '/vendedores'
+  | '/soporte';

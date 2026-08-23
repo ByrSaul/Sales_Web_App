@@ -1,8 +1,70 @@
-export type Pagination = { currentPage: number; perPage: number; totalPages: number; totalRecords: number; hasMore: boolean };
-export type InvoiceFilters = { customer: string; from: string; to: string; openOnly: boolean; page: number };
-export type Invoice = { salesId: string; customerAccount: string; customerName: string; invoiceId: string; documentType: string; transactionType: string; transactionDate: string; currency: string; customerGroup: string; salesGroup: string; invoiceDate: string; dueDate: string; invoiceAmount: number; transactionAmount: number; balance: number; text: string; companyName: string; overdueDays: number; status: string; timePeriod: string };
+export type Pagination = {
+  currentPage: number;
+  perPage: number;
+  totalPages: number;
+  totalRecords: number;
+  hasMore: boolean;
+};
+export type InvoiceFilters = {
+  customer: string;
+  from: string;
+  to: string;
+  openOnly: boolean;
+  page: number;
+};
+export type Invoice = {
+  salesId: string;
+  customerAccount: string;
+  customerName: string;
+  invoiceId: string;
+  documentType: string;
+  transactionType: string;
+  transactionDate: string;
+  currency: string;
+  customerGroup: string;
+  salesGroup: string;
+  invoiceDate: string;
+  dueDate: string;
+  invoiceAmount: number;
+  transactionAmount: number;
+  balance: number;
+  text: string;
+  companyName: string;
+  overdueDays: number;
+  status: string;
+  timePeriod: string;
+};
 export type InvoiceResult = { items: Invoice[]; pagination: Pagination };
-export type StatementDocument = { voucher: string; transactionType: string; transactionDate: string; dueDate: string; internalInvoice: string; externalInvoice: string; text: string; currency: string; amount: number; balanceUsd: number; balance: number; companyId: string; companyName: string; overdueDays: number; status: string; timePeriod: string };
-export type AgingBucket = { label: string; totalUsd: number; documents: StatementDocument[]; severity: string };
-export type StatementSummary = { documents: StatementDocument[]; currentTotalUsd: number; overdueTotalUsd: number; current: AgingBucket; overdue: AgingBucket; aging: AgingBucket[] };
+export type StatementDocument = {
+  voucher: string;
+  transactionType: string;
+  transactionDate: string;
+  dueDate: string;
+  internalInvoice: string;
+  externalInvoice: string;
+  text: string;
+  currency: string;
+  amount: number;
+  balanceUsd: number;
+  balance: number;
+  companyId: string;
+  companyName: string;
+  overdueDays: number;
+  status: string;
+  timePeriod: string;
+};
+export type AgingBucket = {
+  label: string;
+  totalUsd: number;
+  documents: StatementDocument[];
+  severity: string;
+};
+export type StatementSummary = {
+  documents: StatementDocument[];
+  currentTotalUsd: number;
+  overdueTotalUsd: number;
+  current: AgingBucket;
+  overdue: AgingBucket;
+  aging: AgingBucket[];
+};
 export type PdfReport = { fileName: string; base64: string };

@@ -1,1 +1,38 @@
-import{cleanup,fireEvent,render,screen,waitFor}from'@testing-library/react';import{MemoryRouter}from'react-router-dom';import{afterEach,describe,expect,it,vi}from'vitest';const mocks=vi.hoisted(()=>({send:vi.fn()}));vi.mock('../../app/providers/AuthProvider',()=>({useAuth:()=>({account:{username:'user@x.com'}})}));vi.mock('../../features/support/supportMutation',()=>({useSendSupport:()=>({mutateAsync:mocks.send})}));import SupportPage from'./SupportPage';afterEach(cleanup);describe('SupportPage',()=>{it('blocks double submit and clears fields on success',async()=>{vi.spyOn(window,'confirm').mockReturnValue(true);let release!:(v:unknown)=>void;mocks.send.mockImplementation(()=>new Promise(resolve=>{release=resolve}));render(<MemoryRouter><SupportPage/></MemoryRouter>);const area=screen.getByLabelText('Mensaje');fireEvent.change(area,{target:{value:'mensaje suficientemente largo'}});const button=screen.getByText('Enviar al soporte técnico');fireEvent.click(button);fireEvent.click(button);expect(mocks.send).toHaveBeenCalledTimes(1);release({success:true,message:'enviado',errorMessage:''});await waitFor(()=>expect(area).toHaveValue(''));expect(screen.getByText('enviado')).toBeInTheDocument()})});
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+const mocks = vi.hoisted(() => ({ send: vi.fn() }));
+vi.mock('../../app/providers/AuthProvider', () => ({
+  useAuth: () => ({ account: { username: 'user@x.com' } }),
+}));
+vi.mock('../../features/support/supportMutation', () => ({
+  useSendSupport: () => ({ mutateAsync: mocks.send }),
+}));
+import SupportPage from './SupportPage';
+afterEach(cleanup);
+describe('SupportPage', () => {
+  it('blocks double submit and clears fields on success', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let release!: (v: unknown) => void;
+    mocks.send.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    render(
+      <MemoryRouter>
+        <SupportPage />
+      </MemoryRouter>,
+    );
+    const area = screen.getByLabelText('Mensaje');
+    fireEvent.change(area, { target: { value: 'mensaje suficientemente largo' } });
+    const button = screen.getByText('Enviar al soporte técnico');
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    release({ success: true, message: 'enviado', errorMessage: '' });
+    await waitFor(() => expect(area).toHaveValue(''));
+    expect(screen.getByText('enviado')).toBeInTheDocument();
+  });
+});

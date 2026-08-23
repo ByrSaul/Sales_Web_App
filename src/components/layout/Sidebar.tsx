@@ -13,25 +13,36 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Mis pedidos de venta',  icon: 'receipt_long',   href: '/pedidos' },
-  { label: 'Mis clientes',          icon: 'group',           href: '/clientes' },
-  { label: 'Consulta de Inventario',icon: 'inventory_2',     href: '/inventario' },
-  { label: 'Catálogo de productos', icon: 'category',        href: '/productos' },
-  { label: 'Catálogos operativos',  icon: 'list_alt',        href: '/catalogos' },
-  { label: 'Crear pedidos de venta',icon: 'add_shopping_cart',href: '/crear-pedido' },
-  { label: 'Facturas de venta',     icon: 'description',     href: '/facturas' },
+  { label: 'Mis pedidos de venta', icon: 'receipt_long', href: '/pedidos' },
+  { label: 'Mis clientes', icon: 'group', href: '/clientes' },
+  { label: 'Consulta de Inventario', icon: 'inventory_2', href: '/inventario' },
+  { label: 'Catálogo de productos', icon: 'category', href: '/productos' },
+  { label: 'Catálogos operativos', icon: 'list_alt', href: '/catalogos' },
+  { label: 'Crear pedidos de venta', icon: 'add_shopping_cart', href: '/crear-pedido' },
+  { label: 'Facturas de venta', icon: 'description', href: '/facturas' },
   // Producción/Forecast ya están implementados; solo ocultos temporalmente vía feature flag (fail closed).
-  ...(appConfig.featureProduction ? [{ label: 'Producción', icon: 'factory', href: '/produccion' }] : []),
-  ...(appConfig.featureForecast ? [{ label: 'Forecast de ventas', icon: 'monitoring', href: '/forecast' }] : []),
-  { label: 'Soporte Técnico',       icon: 'headset_mic',     href: '/soporte' },
+  ...(appConfig.featureProduction
+    ? [{ label: 'Producción', icon: 'factory', href: '/produccion' }]
+    : []),
+  ...(appConfig.featureForecast
+    ? [{ label: 'Forecast de ventas', icon: 'monitoring', href: '/forecast' }]
+    : []),
+  { label: 'Soporte Técnico', icon: 'headset_mic', href: '/soporte' },
 ];
 
 const BOTTOM_ITEMS = [
   { label: 'Cambiar Empresa', icon: 'business', href: '/company' },
-  { label: 'Cerrar Sesión',   icon: 'logout',   href: '/logout', danger: true },
+  { label: 'Cerrar Sesión', icon: 'logout', href: '/logout', danger: true },
 ];
 
-interface NavLinkProps { label: string; icon: string; href: string; isActive: boolean; danger?: boolean; onClick: () => void; }
+interface NavLinkProps {
+  label: string;
+  icon: string;
+  href: string;
+  isActive: boolean;
+  danger?: boolean;
+  onClick: () => void;
+}
 const NavLink: React.FC<NavLinkProps> = ({ label, icon, isActive, danger, onClick }) => (
   <button
     onClick={onClick}
@@ -48,10 +59,23 @@ const NavLink: React.FC<NavLinkProps> = ({ label, icon, isActive, danger, onClic
   </button>
 );
 
-const Sidebar: React.FC<SidebarProps> = ({ activeRoute, user, onNavigate, mobileOpen, onMobileClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  activeRoute,
+  user,
+  onNavigate,
+  mobileOpen,
+  onMobileClose,
+}) => {
   const { changeCompany, logout } = useSession();
-  const handleNav = (href: string) => { onNavigate(href); onMobileClose?.(); };
-  const handleBottomNav = (href: string) => { onMobileClose?.(); if (href === '/company') changeCompany(); else if (href === '/logout') void logout(); };
+  const handleNav = (href: string) => {
+    onNavigate(href);
+    onMobileClose?.();
+  };
+  const handleBottomNav = (href: string) => {
+    onMobileClose?.();
+    if (href === '/company') changeCompany();
+    else if (href === '/logout') void logout();
+  };
 
   const content = (
     <div className="flex flex-col h-full">
@@ -66,15 +90,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activeRoute, user, onNavigate, mobile
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(item => (
-          <NavLink key={item.href} {...item} isActive={activeRoute === item.href} onClick={() => handleNav(item.href)} />
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.href}
+            {...item}
+            isActive={activeRoute === item.href}
+            onClick={() => handleNav(item.href)}
+          />
         ))}
       </nav>
 
       {/* Bottom */}
       <div className="p-3 border-t border-outline-variant space-y-0.5">
-        {BOTTOM_ITEMS.map(item => (
-          <NavLink key={item.href} {...item} isActive={false} danger={item.danger} onClick={() => handleBottomNav(item.href)} />
+        {BOTTOM_ITEMS.map((item) => (
+          <NavLink
+            key={item.href}
+            {...item}
+            isActive={false}
+            danger={item.danger}
+            onClick={() => handleBottomNav(item.href)}
+          />
         ))}
       </div>
     </div>
@@ -95,9 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeRoute, user, onNavigate, mobile
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={onMobileClose} />
-          <div className="relative w-64 bg-surface h-full shadow-xl overflow-y-auto">
-            {content}
-          </div>
+          <div className="relative w-64 bg-surface h-full shadow-xl overflow-y-auto">{content}</div>
         </div>
       )}
     </>

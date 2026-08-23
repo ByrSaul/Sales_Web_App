@@ -5,21 +5,326 @@ import { useSession } from '../../app/providers/SessionProvider';
 import { isAmbiguousError } from '../../features/orders/mutationOutcome';
 import { statusLabel } from '../../features/orders/orderMappers';
 import { useOrderDetail, useOrderMutations } from '../../features/orders/orderQueries';
-import { canAddOrderLine, canCancelOrderLine, canConfirmOrder, canEditOrderLine, canEditPrice } from '../../features/orders/orderRules';
+import {
+  canAddOrderLine,
+  canCancelOrderLine,
+  canConfirmOrder,
+  canEditOrderLine,
+  canEditPrice,
+} from '../../features/orders/orderRules';
 import type { ExistingOrderLine } from '../../features/orders/orderTypes';
 import { Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
-const OrderDetailPage = () => { const { salesOrderNumber = '' } = useParams(); const [search] = useSearchParams(); const navigate = useNavigate(); const { context } = useSession(); const data = useOrderDetail(salesOrderNumber); const mutations = useOrderMutations(salesOrderNumber); const locks = useRef({ update: false, cancel: false, confirm: false }); const [editing, setEditing] = useState<ExistingOrderLine | null>(null); const [quantity, setQuantity] = useState(''); const [price, setPrice] = useState(''); const [message, setMessage] = useState<string | null>(null); const order = data.header.data; const lines = data.lines.data ?? []; const pricePermission = canEditPrice(context.permissions);
-  const beginEdit = (line: ExistingOrderLine) => { setEditing(line); setQuantity(String(line.quantity)); setPrice(String(line.price)); setMessage(null); };
-  const save = async () => { if (!editing || !order || locks.current.update) return; const qty = Number(quantity), value = editing.isBonification ? 0 : Number(price); if (qty <= 0 || (!editing.isBonification && value <= 0)) { setMessage('Cantidad y precio deben ser mayores que cero.'); return; } locks.current.update = true; try { await mutations.update.mutateAsync({ companyId: order.companyId, salesOrderNumber, inventoryLotId: editing.inventoryLotId, quantity: qty, price: value }); setEditing(null); setMessage('Línea actualizada; se consultó nuevamente Dynamics.'); } catch (e) { setMessage(`${userErrorMessage(e)}${isAmbiguousError(e) ? ' No fue posible verificar el resultado automáticamente.' : ''}`); } finally { locks.current.update = false; } };
-  const cancel = async (line: ExistingOrderLine) => { if (!order || locks.current.cancel || !window.confirm(`¿Cancelar la línea ${line.itemId}, cantidad ${line.quantity}, del pedido ${salesOrderNumber}?`)) return; locks.current.cancel = true; try { const result = await mutations.cancel.mutateAsync(line.inventoryLotId); setMessage(result.success ? 'Cancelación aceptada; se actualizó el detalle.' : result.errorMessage || 'Dynamics no aceptó la cancelación.'); } catch (e) { setMessage(`${userErrorMessage(e)}${isAmbiguousError(e) ? ' No fue posible verificar el resultado de la cancelación.' : ''}`); } finally { locks.current.cancel = false; } };
-  const confirm = async () => { if (locks.current.confirm || !window.confirm(`Se enviará la solicitud de confirmación del pedido ${salesOrderNumber} a Dynamics 365.`)) return; locks.current.confirm = true; try { const result = await mutations.confirm.mutateAsync(); setMessage(!result.success ? result.errorMessage || 'Dynamics rechazó la solicitud.' : result.confirmed ? `Pedido confirmado${result.documentNumber ? ` · documento ${result.documentNumber}` : ''}.` : `Solicitud aceptada, pero el pedido continúa pendiente. ${result.debugMessage}`); } catch (e) { setMessage(`${userErrorMessage(e)} No fue posible verificar el resultado de la confirmación.`); } finally { locks.current.confirm = false; } };
-  if (data.header.isLoading) return <LoadingState message="Cargando pedido..."/>; if (data.header.isError) return <ErrorState message="No se pudo cargar el encabezado." onRetry={() => data.header.refetch()}/>; if (!order) return <EmptyState title="Pedido no encontrado"/>;
-  return <div className="space-y-4"><button className="text-sm text-primary" onClick={() => navigate(`/pedidos${search.toString() ? `?${search}` : ''}`)}>← Volver a pedidos</button><Card className="p-4"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-xl font-bold">{order.salesOrderNumber}</h1><p className="text-primary font-semibold">{order.customerAccount} · {order.customerName}</p></div><div className="text-right"><span className="border rounded-full px-2 py-1 text-xs">{statusLabel(order.status)}</span><p className="font-bold mt-2">{order.currencyCode} {order.salesAmount.toFixed(2)}</p></div></div><div className="grid sm:grid-cols-3 gap-3 text-sm mt-4"><p>Creación<br/><strong>{order.createdDate || '—'}</strong></p><p>Entrega<br/><strong>{order.deliveryDate || '—'}</strong></p><p>Vendedor<br/><strong>{order.salesGroup || '—'}</strong></p><p>Dirección<br/><strong>{order.address || '—'}</strong></p><p>Referencia<br/><strong>{order.customerReference || '—'}</strong></p><p>Acuerdo<br/><strong>{order.agreementId || 'Sin acuerdo'}</strong></p></div>{order.observations && <p className="text-sm mt-3">Observaciones: {order.observations}</p>}</Card>
-    <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/adjuntos${search.toString() ? `?${search}` : ''}`)}>Adjuntos</Button>{canAddOrderLine(order) && <Button variant="outline" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/lineas/nueva`)}>Agregar línea</Button>}</div>
-    {message && <div role="status" className="p-3 bg-amber-50 border rounded text-sm">{message}</div>}
-    <Card className="overflow-hidden"><div className="p-3 flex justify-between"><h2 className="font-bold">Líneas</h2>{canConfirmOrder(order, lines) && <Button loading={mutations.confirm.isPending} onClick={confirm}>Confirmar pedido</Button>}</div>{data.lines.isLoading && <LoadingState message="Cargando líneas..."/>}{data.lines.isError && <ErrorState message="No se pudieron consultar las líneas mediante POST /sales/details." onRetry={() => data.lines.refetch()}/>} {!data.lines.isLoading && !lines.length && <EmptyState title="Sin líneas disponibles"/>}<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-surface-container"><tr><th className="p-2 text-left">Producto</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Acciones</th></tr></thead><tbody>{lines.map(line => <tr key={`${line.lineNumber}-${line.itemId}`} className="border-t"><td className="p-2"><strong>{line.itemId}</strong><small className="block">{line.itemName || line.displayProductNumber}</small></td><td className="text-center">{line.quantity}</td><td className="text-center">{order.currencyCode} {line.price.toFixed(2)}</td><td className="text-center">{order.currencyCode} {line.lineAmount.toFixed(2)}</td><td className="p-2"><div className="flex gap-1"><Button size="sm" variant="outline" disabled={!canEditOrderLine(order,line)} onClick={() => beginEdit(line)}>Editar</Button><Button size="sm" variant="danger" disabled={!canCancelOrderLine(order,line) || mutations.cancel.isPending} onClick={() => cancel(line)}>Cancelar</Button></div></td></tr>)}</tbody></table></div></Card>
-    {lines.length > 0 && lines.every(line => !line.inventoryLotId) && <Card className="p-3 bg-amber-50"><strong>BLOQUEANTE BACKEND</strong><p className="text-xs">POST /sales/details permite visualizar líneas, pero no devuelve InventoryLotId ni estado/dimensiones. El GET alternativo requiere body y es incompatible con Fetch. Edición y cancelación permanecen deshabilitadas para no inventar claves.</p></Card>}
-    {editing && <Card className="p-4 space-y-3"><h2 className="font-bold">Editar {editing.itemId}</h2><Input label="Cantidad" type="number" step="any" value={quantity} onChange={e => setQuantity(e.target.value)}/><Input label="Precio" type="number" step="any" value={price} disabled={editing.isBonification || !pricePermission} onChange={e => setPrice(e.target.value)}/>{!pricePermission && !editing.isBonification && <p className="text-xs text-amber-700">Sin permiso Create Sales Orders → Price Sales Line → Editar.</p>}<div className="flex gap-2"><Button loading={mutations.update.isPending} onClick={save}>Guardar</Button><Button variant="outline" disabled={mutations.update.isPending} onClick={() => setEditing(null)}>Cerrar</Button></div></Card>}
-  </div>; };
+const OrderDetailPage = () => {
+  const { salesOrderNumber = '' } = useParams();
+  const [search] = useSearchParams();
+  const navigate = useNavigate();
+  const { context } = useSession();
+  const data = useOrderDetail(salesOrderNumber);
+  const mutations = useOrderMutations(salesOrderNumber);
+  const locks = useRef({ update: false, cancel: false, confirm: false });
+  const [editing, setEditing] = useState<ExistingOrderLine | null>(null);
+  const [quantity, setQuantity] = useState('');
+  const [price, setPrice] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const order = data.header.data;
+  const lines = data.lines.data ?? [];
+  const pricePermission = canEditPrice(context.permissions);
+  const beginEdit = (line: ExistingOrderLine) => {
+    setEditing(line);
+    setQuantity(String(line.quantity));
+    setPrice(String(line.price));
+    setMessage(null);
+  };
+  const save = async () => {
+    if (!editing || !order || locks.current.update) return;
+    const qty = Number(quantity),
+      value = editing.isBonification ? 0 : Number(price);
+    if (qty <= 0 || (!editing.isBonification && value <= 0)) {
+      setMessage('Cantidad y precio deben ser mayores que cero.');
+      return;
+    }
+    locks.current.update = true;
+    try {
+      await mutations.update.mutateAsync({
+        companyId: order.companyId,
+        salesOrderNumber,
+        inventoryLotId: editing.inventoryLotId,
+        quantity: qty,
+        price: value,
+      });
+      setEditing(null);
+      setMessage('Línea actualizada; se consultó nuevamente Dynamics.');
+    } catch (e) {
+      setMessage(
+        `${userErrorMessage(e)}${isAmbiguousError(e) ? ' No fue posible verificar el resultado automáticamente.' : ''}`,
+      );
+    } finally {
+      locks.current.update = false;
+    }
+  };
+  const cancel = async (line: ExistingOrderLine) => {
+    if (
+      !order ||
+      locks.current.cancel ||
+      !window.confirm(
+        `¿Cancelar la línea ${line.itemId}, cantidad ${line.quantity}, del pedido ${salesOrderNumber}?`,
+      )
+    )
+      return;
+    locks.current.cancel = true;
+    try {
+      const result = await mutations.cancel.mutateAsync(line.inventoryLotId);
+      setMessage(
+        result.success
+          ? 'Cancelación aceptada; se actualizó el detalle.'
+          : result.errorMessage || 'Dynamics no aceptó la cancelación.',
+      );
+    } catch (e) {
+      setMessage(
+        `${userErrorMessage(e)}${isAmbiguousError(e) ? ' No fue posible verificar el resultado de la cancelación.' : ''}`,
+      );
+    } finally {
+      locks.current.cancel = false;
+    }
+  };
+  const confirm = async () => {
+    if (
+      locks.current.confirm ||
+      !window.confirm(
+        `Se enviará la solicitud de confirmación del pedido ${salesOrderNumber} a Dynamics 365.`,
+      )
+    )
+      return;
+    locks.current.confirm = true;
+    try {
+      const result = await mutations.confirm.mutateAsync();
+      setMessage(
+        !result.success
+          ? result.errorMessage || 'Dynamics rechazó la solicitud.'
+          : result.confirmed
+            ? `Pedido confirmado${result.documentNumber ? ` · documento ${result.documentNumber}` : ''}.`
+            : `Solicitud aceptada, pero el pedido continúa pendiente. ${result.debugMessage}`,
+      );
+    } catch (e) {
+      setMessage(
+        `${userErrorMessage(e)} No fue posible verificar el resultado de la confirmación.`,
+      );
+    } finally {
+      locks.current.confirm = false;
+    }
+  };
+  if (data.header.isLoading) return <LoadingState message="Cargando pedido..." />;
+  if (data.header.isError)
+    return (
+      <ErrorState
+        message="No se pudo cargar el encabezado."
+        onRetry={() => data.header.refetch()}
+      />
+    );
+  if (!order) return <EmptyState title="Pedido no encontrado" />;
+  return (
+    <div className="space-y-4">
+      <button
+        className="text-sm text-primary"
+        onClick={() => navigate(`/pedidos${search.toString() ? `?${search}` : ''}`)}
+      >
+        ← Volver a pedidos
+      </button>
+      <Card className="p-4">
+        <div className="flex flex-wrap justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold">{order.salesOrderNumber}</h1>
+            <p className="text-primary font-semibold">
+              {order.customerAccount} · {order.customerName}
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="border rounded-full px-2 py-1 text-xs">
+              {statusLabel(order.status)}
+            </span>
+            <p className="font-bold mt-2">
+              {order.currencyCode} {order.salesAmount.toFixed(2)}
+            </p>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3 text-sm mt-4">
+          <p>
+            Creación
+            <br />
+            <strong>{order.createdDate || '—'}</strong>
+          </p>
+          <p>
+            Entrega
+            <br />
+            <strong>{order.deliveryDate || '—'}</strong>
+          </p>
+          <p>
+            Vendedor
+            <br />
+            <strong>{order.salesGroup || '—'}</strong>
+          </p>
+          <p>
+            Dirección
+            <br />
+            <strong>{order.address || '—'}</strong>
+          </p>
+          <p>
+            Referencia
+            <br />
+            <strong>{order.customerReference || '—'}</strong>
+          </p>
+          <p>
+            Acuerdo
+            <br />
+            <strong>{order.agreementId || 'Sin acuerdo'}</strong>
+          </p>
+        </div>
+        {order.observations && <p className="text-sm mt-3">Observaciones: {order.observations}</p>}
+      </Card>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate(
+              `/pedidos/${encodeURIComponent(salesOrderNumber)}/adjuntos${search.toString() ? `?${search}` : ''}`,
+            )
+          }
+        >
+          Adjuntos
+        </Button>
+        {canAddOrderLine(order) && (
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/lineas/nueva`)
+            }
+          >
+            Agregar línea
+          </Button>
+        )}
+      </div>
+      {message && (
+        <div role="status" className="p-3 bg-amber-50 border rounded text-sm">
+          {message}
+        </div>
+      )}
+      <Card className="overflow-hidden">
+        <div className="p-3 flex justify-between">
+          <h2 className="font-bold">Líneas</h2>
+          {canConfirmOrder(order, lines) && (
+            <Button loading={mutations.confirm.isPending} onClick={confirm}>
+              Confirmar pedido
+            </Button>
+          )}
+        </div>
+        {data.lines.isLoading && <LoadingState message="Cargando líneas..." />}
+        {data.lines.isError && (
+          <ErrorState
+            message="No se pudieron consultar las líneas mediante POST /sales/details."
+            onRetry={() => data.lines.refetch()}
+          />
+        )}{' '}
+        {!data.lines.isLoading && !lines.length && <EmptyState title="Sin líneas disponibles" />}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-container">
+              <tr>
+                <th className="p-2 text-left">Producto</th>
+                <th>Cantidad</th>
+                <th>Precio</th>
+                <th>Total</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line) => (
+                <tr key={`${line.lineNumber}-${line.itemId}`} className="border-t">
+                  <td className="p-2">
+                    <strong>{line.itemId}</strong>
+                    <small className="block">{line.itemName || line.displayProductNumber}</small>
+                  </td>
+                  <td className="text-center">{line.quantity}</td>
+                  <td className="text-center">
+                    {order.currencyCode} {line.price.toFixed(2)}
+                  </td>
+                  <td className="text-center">
+                    {order.currencyCode} {line.lineAmount.toFixed(2)}
+                  </td>
+                  <td className="p-2">
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!canEditOrderLine(order, line)}
+                        onClick={() => beginEdit(line)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={!canCancelOrderLine(order, line) || mutations.cancel.isPending}
+                        onClick={() => cancel(line)}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      {lines.length > 0 && lines.every((line) => !line.inventoryLotId) && (
+        <Card className="p-3 bg-amber-50">
+          <strong>BLOQUEANTE BACKEND</strong>
+          <p className="text-xs">
+            POST /sales/details permite visualizar líneas, pero no devuelve InventoryLotId ni
+            estado/dimensiones. El GET alternativo requiere body y es incompatible con Fetch.
+            Edición y cancelación permanecen deshabilitadas para no inventar claves.
+          </p>
+        </Card>
+      )}
+      {editing && (
+        <Card className="p-4 space-y-3">
+          <h2 className="font-bold">Editar {editing.itemId}</h2>
+          <Input
+            label="Cantidad"
+            type="number"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+          <Input
+            label="Precio"
+            type="number"
+            step="any"
+            value={price}
+            disabled={editing.isBonification || !pricePermission}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+          {!pricePermission && !editing.isBonification && (
+            <p className="text-xs text-amber-700">
+              Sin permiso Create Sales Orders → Price Sales Line → Editar.
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button loading={mutations.update.isPending} onClick={save}>
+              Guardar
+            </Button>
+            <Button
+              variant="outline"
+              disabled={mutations.update.isPending}
+              onClick={() => setEditing(null)}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
 export default OrderDetailPage;

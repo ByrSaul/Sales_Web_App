@@ -26,7 +26,10 @@ export const appConfig: AppConfig = {
   featureForecast: flag('VITE_FEATURE_FORECAST'),
 };
 
-export const getConfigurationErrors = (config = appConfig, production = import.meta.env.PROD): string[] => {
+export const getConfigurationErrors = (
+  config = appConfig,
+  production = import.meta.env.PROD,
+): string[] => {
   const missing: string[] = [];
   if (!config.apiBaseUrl) missing.push('VITE_API_BASE_URL');
   if (config.authMode === 'dev-token') {

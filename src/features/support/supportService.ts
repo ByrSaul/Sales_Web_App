@@ -1,3 +1,32 @@
-import type{ApiClient}from'../../core/api/apiClient';import{fileToBase64}from'../attachments/attachmentService';import type{SupportRequest,SupportResponse}from'./supportTypes';
-type Json=Record<string,unknown>;export const validateSupport=(body:string,files:File[])=>{if(body.trim().length<10)return'El mensaje debe tener al menos 10 caracteres.';const tooLarge=files.find(f=>f.size>5*1024*1024);if(tooLarge)return`${tooLarge.name} supera el máximo de 5 MB.`;const invalid=files.find(f=>!f.type.startsWith('image/'));return invalid?'Soporte permite únicamente imágenes.':null};
-export const supportService=(api:ApiClient)=>({send:async(email:string,body:string,files:File[]):Promise<SupportResponse>=>{const attachments=await Promise.all(files.map(async file=>({file_name:file.name,file_content:await fileToBase64(file)})));const request:SupportRequest={to:'soporte@foragro.com',cc:email,from_email:'dynamics@foragro.com',subject:'Sales4App',body:body.trim(),...(attachments.length?{attachments}:{})};const value=await api.post<Json>('/support/send_email',request,{timeoutMs:60_000});return{success:Boolean(value.Success??value.success),message:String(value.DebugMessage??value.message??''),errorMessage:String(value.ErrorMessage??value.error??'')}}});
+import type { ApiClient } from '../../core/api/apiClient';
+import { fileToBase64 } from '../attachments/attachmentService';
+import type { SupportRequest, SupportResponse } from './supportTypes';
+type Json = Record<string, unknown>;
+export const validateSupport = (body: string, files: File[]) => {
+  if (body.trim().length < 10) return 'El mensaje debe tener al menos 10 caracteres.';
+  const tooLarge = files.find((f) => f.size > 5 * 1024 * 1024);
+  if (tooLarge) return `${tooLarge.name} supera el máximo de 5 MB.`;
+  const invalid = files.find((f) => !f.type.startsWith('image/'));
+  return invalid ? 'Soporte permite únicamente imágenes.' : null;
+};
+export const supportService = (api: ApiClient) => ({
+  send: async (email: string, body: string, files: File[]): Promise<SupportResponse> => {
+    const attachments = await Promise.all(
+      files.map(async (file) => ({ file_name: file.name, file_content: await fileToBase64(file) })),
+    );
+    const request: SupportRequest = {
+      to: 'soporte@foragro.com',
+      cc: email,
+      from_email: 'dynamics@foragro.com',
+      subject: 'Sales4App',
+      body: body.trim(),
+      ...(attachments.length ? { attachments } : {}),
+    };
+    const value = await api.post<Json>('/support/send_email', request, { timeoutMs: 60_000 });
+    return {
+      success: Boolean(value.Success ?? value.success),
+      message: String(value.DebugMessage ?? value.message ?? ''),
+      errorMessage: String(value.ErrorMessage ?? value.error ?? ''),
+    };
+  },
+});

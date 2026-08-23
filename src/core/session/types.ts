@@ -16,12 +16,32 @@ export type Company = {
 export type VendorDto = { company: string; groupid: string; name: string };
 export type Vendor = { companyId: string; id: string; name: string };
 export type UserDataDto = {
-  id?: string; name?: string; enable?: number; defaultcompany?: string;
-  networkalias?: string; language?: string; personnelnumber?: string;
+  id?: string;
+  name?: string;
+  enable?: number;
+  defaultcompany?: string;
+  networkalias?: string;
+  language?: string;
+  personnelnumber?: string;
 };
-export type OperationalUser = { id: string; name: string; language: string; personnelNumber: string };
-export type MenuPermissionDto = { menu?: string; company?: string; permmisionlevel?: string; children?: MenuPermissionDto[] };
-export type MenuPermission = { menu: string; company: string; permissionLevel: string; children: MenuPermission[] };
+export type OperationalUser = {
+  id: string;
+  name: string;
+  language: string;
+  personnelNumber: string;
+};
+export type MenuPermissionDto = {
+  menu?: string;
+  company?: string;
+  permmisionlevel?: string;
+  children?: MenuPermissionDto[];
+};
+export type MenuPermission = {
+  menu: string;
+  company: string;
+  permissionLevel: string;
+  children: MenuPermission[];
+};
 
 export type OperationalContext = {
   accountId: string;
@@ -31,4 +51,3 @@ export type OperationalContext = {
   permissions: MenuPermission[];
   warning: string | null;
 };
-

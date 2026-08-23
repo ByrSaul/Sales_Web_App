@@ -5,35 +5,348 @@ import { validateOrderDraft } from '../../features/orderDraft/validation';
 import { useOrderSubmission } from '../../features/orders/OrderSubmissionProvider';
 import { Button, Card } from '../ui';
 
-const labels = { pending: 'Pendiente', creating: 'Creando…', created: 'Creada', failed: 'Fallida' } as const;
+const labels = {
+  pending: 'Pendiente',
+  creating: 'Creando…',
+  created: 'Creada',
+  failed: 'Fallida',
+} as const;
 const OrderDraftReviewPage = () => {
-  const navigate = useNavigate(); const { draft: editableDraft, updateLine, removeLine, reset } = useOrderDraft(); const flow = useOrderSubmission();
-  const submission = flow.submission; const draft = submission?.salesOrderNumber ? submission.snapshot : editableDraft;
-  const errors = validateOrderDraft(draft); const locked = flow.active || Boolean(submission?.salesOrderNumber) || Boolean(submission?.headerAmbiguous);
-  const create = async () => { if (!window.confirm('Se creará un pedido real en Dynamics 365. ¿Desea continuar?')) return; await flow.submit(); };
-  if (submission?.status === 'completed') return <div className="space-y-4"><Card className="p-6 bg-primary/5"><h1 className="text-xl font-bold">Pedido creado correctamente</h1><p className="text-3xl font-black text-primary mt-2">{submission.salesOrderNumber}</p><p className="text-sm mt-2">{submission.lines.length} de {submission.lines.length} líneas creadas.</p><p className="text-xs mt-2">El detalle consultará Dynamics; no utiliza este snapshot como fuente oficial.</p></Card><div className="flex flex-wrap gap-2"><Button onClick={() => navigate(`/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}`)}>Ver detalle real</Button><Button variant="outline" onClick={() => navigate(`/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}/adjuntos`)}>Agregar adjuntos</Button><Button variant="outline" onClick={() => { flow.createAnother(); navigate('/crear-pedido'); }}>Crear otro pedido</Button><Button variant="outline" onClick={() => navigate('/home')}>Volver al inicio</Button></div></div>;
-  return <div className="space-y-4 pb-12"><div><h1 className="text-xl font-bold">Revisión y creación</h1><p className="text-xs text-on-surface-variant">El envío crea primero el encabezado y luego cada línea secuencialmente.</p></div>
-    {submission && <Card className="p-4 space-y-3"><div className="flex justify-between gap-2"><div><h2 className="font-bold">{submission.salesOrderNumber ? `Pedido ${submission.salesOrderNumber}` : 'Creación del encabezado'}</h2><p className="text-xs">Estado: {submission.status}</p></div><strong>{submission.lines.filter(x => x.status === 'created').length} / {submission.lines.length}</strong></div><div className="h-2 bg-surface-container rounded overflow-hidden"><div className="h-full bg-primary" style={{ width: `${submission.lines.length ? submission.lines.filter(x => x.status === 'created').length / submission.lines.length * 100 : 0}%` }} /></div>
-      <ul className="space-y-2">{submission.lines.map(line => <li key={line.localId} className="flex items-start justify-between gap-3 border-t pt-2 text-sm"><span>{line.draftLine.itemId} · {line.draftLine.itemName}<small className="block text-on-surface-variant">Intentos: {line.attempts}{line.error ? ` · ${line.error}` : ''}</small></span><strong>{labels[line.status]}</strong></li>)}</ul>
-      {submission.status === 'partial-failure' && <div className="bg-amber-50 p-3 rounded"><strong>Pedido creado parcialmente</strong><p className="text-xs">Se verificará Dynamics antes de volver a intentar cada línea pendiente.</p><div className="flex flex-wrap gap-2 mt-2"><Button onClick={() => flow.retryPending()}>Reintentar líneas pendientes</Button><Button variant="danger" onClick={() => { if (window.confirm('Esto solo dejará de intentar completar el pedido. No elimina el pedido existente en Dynamics. ¿Descartar recuperación?')) flow.discardRecovery(); }}>Descartar recuperación</Button></div></div>}
-      {submission.status === 'failed' && <div className="bg-red-50 p-3 rounded text-error"><strong>No fue posible completar el encabezado</strong><p className="text-xs">{submission.error}</p>
-        {submission.headerAmbiguous ? <>
-          <p className="text-xs font-bold mt-1">No es posible determinar si Dynamics creó el pedido. No se habilita otro POST para evitar un pedido duplicado.</p>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <Button variant="outline" onClick={() => navigate('/pedidos')}>Ir a Mis pedidos</Button>
-            <Button variant="danger" onClick={() => { if (window.confirm('Descartar esta recuperación no elimina ningún pedido que pueda existir en Dynamics. Únicamente elimina el estado local de recuperación. ¿Continuar?')) flow.discardRecovery(); }}>Descartar recuperación local</Button>
+  const navigate = useNavigate();
+  const { draft: editableDraft, updateLine, removeLine, reset } = useOrderDraft();
+  const flow = useOrderSubmission();
+  const submission = flow.submission;
+  const draft = submission?.salesOrderNumber ? submission.snapshot : editableDraft;
+  const errors = validateOrderDraft(draft);
+  const locked =
+    flow.active || Boolean(submission?.salesOrderNumber) || Boolean(submission?.headerAmbiguous);
+  const create = async () => {
+    if (!window.confirm('Se creará un pedido real en Dynamics 365. ¿Desea continuar?')) return;
+    await flow.submit();
+  };
+  if (submission?.status === 'completed')
+    return (
+      <div className="space-y-4">
+        <Card className="p-6 bg-primary/5">
+          <h1 className="text-xl font-bold">Pedido creado correctamente</h1>
+          <p className="text-3xl font-black text-primary mt-2">{submission.salesOrderNumber}</p>
+          <p className="text-sm mt-2">
+            {submission.lines.length} de {submission.lines.length} líneas creadas.
+          </p>
+          <p className="text-xs mt-2">
+            El detalle consultará Dynamics; no utiliza este snapshot como fuente oficial.
+          </p>
+        </Card>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => navigate(`/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}`)}
+          >
+            Ver detalle real
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(`/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}/adjuntos`)
+            }
+          >
+            Agregar adjuntos
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              flow.createAnother();
+              navigate('/crear-pedido');
+            }}
+          >
+            Crear otro pedido
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/home')}>
+            Volver al inicio
+          </Button>
+        </div>
+      </div>
+    );
+  return (
+    <div className="space-y-4 pb-12">
+      <div>
+        <h1 className="text-xl font-bold">Revisión y creación</h1>
+        <p className="text-xs text-on-surface-variant">
+          El envío crea primero el encabezado y luego cada línea secuencialmente.
+        </p>
+      </div>
+      {submission && (
+        <Card className="p-4 space-y-3">
+          <div className="flex justify-between gap-2">
+            <div>
+              <h2 className="font-bold">
+                {submission.salesOrderNumber
+                  ? `Pedido ${submission.salesOrderNumber}`
+                  : 'Creación del encabezado'}
+              </h2>
+              <p className="text-xs">Estado: {submission.status}</p>
+            </div>
+            <strong>
+              {submission.lines.filter((x) => x.status === 'created').length} /{' '}
+              {submission.lines.length}
+            </strong>
           </div>
-        </> : <div className="flex flex-wrap gap-2 mt-2">
-          <Button onClick={create}>Reintentar encabezado</Button>
-          <Button variant="outline" onClick={() => flow.discardRecovery()}>Volver al borrador</Button>
-          <Button variant="danger" onClick={() => { if (window.confirm('¿Descartar este borrador y crear otro pedido?')) { flow.createAnother(); navigate('/crear-pedido'); } }}>Descartar y crear otro pedido</Button>
-        </div>}
-      </div>}
-    </Card>}
-    <Card className="p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm"><p><small>Empresa / vendedor</small><br/><strong>{draft.dataAreaId} / {draft.vendorId}</strong></p><p><small>Cliente</small><br/><strong>{draft.customer?.account} · {draft.customer?.name}</strong></p><p><small>Moneda</small><br/><strong>{draft.currencyCode}</strong></p><p><small>Entrega</small><br/><strong>{draft.deliveryMode?.code} · {draft.deliveryAddress?.description}</strong></p><p><small>Fecha / origen</small><br/><strong>{draft.requestedShippingDate} · {draft.salesOrigin?.id}</strong></p><p><small>Acuerdo</small><br/><strong>{draft.agreement?.number ?? 'Sin acuerdo'}</strong></p></Card>
-    <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-surface-container"><tr><th className="p-3 text-left">Producto</th><th>Dimensiones</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Tipo</th><th></th></tr></thead><tbody>{draft.lines.map(line => <tr key={line.localId} className="border-t"><td className="p-3"><strong>{line.itemId}</strong><br/><small>{line.itemName}</small></td><td className="p-2 text-xs">{line.presentationCode ?? 'Simple'}<br/>{line.siteId}/{line.warehouseId}</td><td className="p-2"><input aria-label={`Cantidad ${line.itemId}`} type="number" min="0" step="any" value={line.quantity} disabled={locked || (line.isBonification && line.parentLineId != null)} onChange={e => updateLine(line.localId, { quantity: Number(e.target.value) })} className="w-20 border rounded p-1" /></td><td className="text-center">{line.price.toFixed(2)}</td><td className="text-center">{(line.quantity * line.price).toFixed(2)}</td><td className="text-center text-xs">{line.isBonification ? `Bonus ${line.promotion?.groupId ?? 'independiente'}` : line.source}</td><td className="p-2"><Button size="sm" variant="danger" disabled={locked} onClick={() => removeLine(line.localId)}>Eliminar</Button></td></tr>)}</tbody></table></div><div className="p-4 text-right"><span className="text-xs">Total visual previo a Dynamics</span><p className="text-2xl font-bold">{draft.currencyCode} {draftTotal(draft).toFixed(2)}</p></div></Card>
-    {errors.length ? <Card className="p-4 border-error"><h2 className="font-bold text-error">El borrador aún no está listo</h2><ul className="list-disc pl-5 text-sm text-error">{errors.map((e, i) => <li key={`${e.code}-${i}`}>{e.message}</li>)}</ul></Card> : !submission && <Card className="p-4 bg-primary/5"><strong>Borrador listo</strong><p className="text-xs">La validación se ejecutará nuevamente inmediatamente antes del primer POST.</p></Card>}
-    <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={locked} onClick={() => navigate('/crear-pedido')}>Editar encabezado</Button><Button variant="outline" disabled={locked} onClick={() => navigate('/crear-pedido/linea')}>Editar líneas</Button>{!submission && <><Button variant="danger" onClick={() => { if (window.confirm('¿Descartar este borrador local?')) { reset(); navigate('/crear-pedido'); } }}>Descartar</Button><Button disabled={Boolean(errors.length)} onClick={create}>Crear pedido real</Button></>}</div>
-  </div>;
+          <div className="h-2 bg-surface-container rounded overflow-hidden">
+            <div
+              className="h-full bg-primary"
+              style={{
+                width: `${submission.lines.length ? (submission.lines.filter((x) => x.status === 'created').length / submission.lines.length) * 100 : 0}%`,
+              }}
+            />
+          </div>
+          <ul className="space-y-2">
+            {submission.lines.map((line) => (
+              <li
+                key={line.localId}
+                className="flex items-start justify-between gap-3 border-t pt-2 text-sm"
+              >
+                <span>
+                  {line.draftLine.itemId} · {line.draftLine.itemName}
+                  <small className="block text-on-surface-variant">
+                    Intentos: {line.attempts}
+                    {line.error ? ` · ${line.error}` : ''}
+                  </small>
+                </span>
+                <strong>{labels[line.status]}</strong>
+              </li>
+            ))}
+          </ul>
+          {submission.status === 'partial-failure' && (
+            <div className="bg-amber-50 p-3 rounded">
+              <strong>Pedido creado parcialmente</strong>
+              <p className="text-xs">
+                Se verificará Dynamics antes de volver a intentar cada línea pendiente.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button onClick={() => flow.retryPending()}>Reintentar líneas pendientes</Button>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Esto solo dejará de intentar completar el pedido. No elimina el pedido existente en Dynamics. ¿Descartar recuperación?',
+                      )
+                    )
+                      flow.discardRecovery();
+                  }}
+                >
+                  Descartar recuperación
+                </Button>
+              </div>
+            </div>
+          )}
+          {submission.status === 'failed' && (
+            <div className="bg-red-50 p-3 rounded text-error">
+              <strong>No fue posible completar el encabezado</strong>
+              <p className="text-xs">{submission.error}</p>
+              {submission.headerAmbiguous ? (
+                <>
+                  <p className="text-xs font-bold mt-1">
+                    No es posible determinar si Dynamics creó el pedido. No se habilita otro POST
+                    para evitar un pedido duplicado.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Button variant="outline" onClick={() => navigate('/pedidos')}>
+                      Ir a Mis pedidos
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            'Descartar esta recuperación no elimina ningún pedido que pueda existir en Dynamics. Únicamente elimina el estado local de recuperación. ¿Continuar?',
+                          )
+                        )
+                          flow.discardRecovery();
+                      }}
+                    >
+                      Descartar recuperación local
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button onClick={create}>Reintentar encabezado</Button>
+                  <Button variant="outline" onClick={() => flow.discardRecovery()}>
+                    Volver al borrador
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      if (window.confirm('¿Descartar este borrador y crear otro pedido?')) {
+                        flow.createAnother();
+                        navigate('/crear-pedido');
+                      }
+                    }}
+                  >
+                    Descartar y crear otro pedido
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+      <Card className="p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+        <p>
+          <small>Empresa / vendedor</small>
+          <br />
+          <strong>
+            {draft.dataAreaId} / {draft.vendorId}
+          </strong>
+        </p>
+        <p>
+          <small>Cliente</small>
+          <br />
+          <strong>
+            {draft.customer?.account} · {draft.customer?.name}
+          </strong>
+        </p>
+        <p>
+          <small>Moneda</small>
+          <br />
+          <strong>{draft.currencyCode}</strong>
+        </p>
+        <p>
+          <small>Entrega</small>
+          <br />
+          <strong>
+            {draft.deliveryMode?.code} · {draft.deliveryAddress?.description}
+          </strong>
+        </p>
+        <p>
+          <small>Fecha / origen</small>
+          <br />
+          <strong>
+            {draft.requestedShippingDate} · {draft.salesOrigin?.id}
+          </strong>
+        </p>
+        <p>
+          <small>Acuerdo</small>
+          <br />
+          <strong>{draft.agreement?.number ?? 'Sin acuerdo'}</strong>
+        </p>
+      </Card>
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-container">
+              <tr>
+                <th className="p-3 text-left">Producto</th>
+                <th>Dimensiones</th>
+                <th>Cantidad</th>
+                <th>Precio</th>
+                <th>Subtotal</th>
+                <th>Tipo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {draft.lines.map((line) => (
+                <tr key={line.localId} className="border-t">
+                  <td className="p-3">
+                    <strong>{line.itemId}</strong>
+                    <br />
+                    <small>{line.itemName}</small>
+                  </td>
+                  <td className="p-2 text-xs">
+                    {line.presentationCode ?? 'Simple'}
+                    <br />
+                    {line.siteId}/{line.warehouseId}
+                  </td>
+                  <td className="p-2">
+                    <input
+                      aria-label={`Cantidad ${line.itemId}`}
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={line.quantity}
+                      disabled={locked || (line.isBonification && line.parentLineId != null)}
+                      onChange={(e) =>
+                        updateLine(line.localId, { quantity: Number(e.target.value) })
+                      }
+                      className="w-20 border rounded p-1"
+                    />
+                  </td>
+                  <td className="text-center">{line.price.toFixed(2)}</td>
+                  <td className="text-center">{(line.quantity * line.price).toFixed(2)}</td>
+                  <td className="text-center text-xs">
+                    {line.isBonification
+                      ? `Bonus ${line.promotion?.groupId ?? 'independiente'}`
+                      : line.source}
+                  </td>
+                  <td className="p-2">
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={locked}
+                      onClick={() => removeLine(line.localId)}
+                    >
+                      Eliminar
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="p-4 text-right">
+          <span className="text-xs">Total visual previo a Dynamics</span>
+          <p className="text-2xl font-bold">
+            {draft.currencyCode} {draftTotal(draft).toFixed(2)}
+          </p>
+        </div>
+      </Card>
+      {errors.length ? (
+        <Card className="p-4 border-error">
+          <h2 className="font-bold text-error">El borrador aún no está listo</h2>
+          <ul className="list-disc pl-5 text-sm text-error">
+            {errors.map((e, i) => (
+              <li key={`${e.code}-${i}`}>{e.message}</li>
+            ))}
+          </ul>
+        </Card>
+      ) : (
+        !submission && (
+          <Card className="p-4 bg-primary/5">
+            <strong>Borrador listo</strong>
+            <p className="text-xs">
+              La validación se ejecutará nuevamente inmediatamente antes del primer POST.
+            </p>
+          </Card>
+        )
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={locked} onClick={() => navigate('/crear-pedido')}>
+          Editar encabezado
+        </Button>
+        <Button variant="outline" disabled={locked} onClick={() => navigate('/crear-pedido/linea')}>
+          Editar líneas
+        </Button>
+        {!submission && (
+          <>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (window.confirm('¿Descartar este borrador local?')) {
+                  reset();
+                  navigate('/crear-pedido');
+                }
+              }}
+            >
+              Descartar
+            </Button>
+            <Button disabled={Boolean(errors.length)} onClick={create}>
+              Crear pedido real
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 };
 export default OrderDraftReviewPage;

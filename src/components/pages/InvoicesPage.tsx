@@ -1,4 +1,201 @@
-import { useRef,useState } from 'react';import { useSearchParams } from 'react-router-dom';import { useInvoices,useReportService } from '../../features/billing/billingQueries';import { openPdfReport } from '../../features/billing/billingService';import type { InvoiceFilters } from '../../features/billing/billingTypes';import { userErrorMessage } from '../../core/api/errors';import { Button,Card,EmptyState,Input } from '../ui';import { ErrorState,LoadingState } from '../ui/PageState';
-const money=(value:number,currency:string)=>{try{return new Intl.NumberFormat('es-GT',{style:'currency',currency:currency||'USD'}).format(value)}catch{return `${currency} ${value.toFixed(2)}`}};
-const InvoicesPage=()=>{const[params,setParams]=useSearchParams();const filters:InvoiceFilters={customer:params.get('customer')??'',from:params.get('from')??'',to:params.get('to')??'',openOnly:params.get('openOnly')==='true',page:Math.max(1,Number(params.get('page')??1))};const[form,setForm]=useState(filters);const query=useInvoices(filters);const report=useReportService();const locks=useRef(new Set<string>());const[pdfError,setPdfError]=useState('');const apply=(f:InvoiceFilters)=>setParams({...(f.customer?{customer:f.customer}:{}),...(f.from?{from:f.from}:{}),...(f.to?{to:f.to}:{}),...(f.openOnly?{openOnly:'true'}:{}),page:String(f.page)});const pdf=async(id:string,company:string)=>{if(!id||locks.current.has(id))return;locks.current.add(id);setPdfError('');try{const r=await report.pdf(company,id);openPdfReport(r.fileName||`Factura_${id}.pdf`,r.base64)}catch(e){setPdfError(userErrorMessage(e))}finally{locks.current.delete(id)}};
-return <div className="space-y-4"><div><h1 className="text-xl font-bold">Facturas de venta</h1><p className="text-xs">Datos oficiales de Dynamics · vendedor activo</p></div><Card className="p-4 grid gap-3 md:grid-cols-5"><Input label="Cuenta de cliente" value={form.customer} onChange={e=>setForm({...form,customer:e.target.value})}/><Input label="Fecha inicial" type="date" value={form.from} onChange={e=>setForm({...form,from:e.target.value})}/><Input label="Fecha final" type="date" value={form.to} onChange={e=>setForm({...form,to:e.target.value})}/><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.openOnly} onChange={e=>setForm({...form,openOnly:e.target.checked})}/>Saldo pendiente</label><div className="flex items-end gap-2"><Button disabled={Boolean(form.from&&form.to&&form.from>form.to)} onClick={()=>apply({...form,page:1})}>Consultar</Button><Button variant="outline" onClick={()=>{const empty={customer:'',from:'',to:'',openOnly:false,page:1};setForm(empty);apply(empty)}}>Limpiar</Button></div></Card>{form.from&&form.to&&form.from>form.to&&<p className="text-error text-sm">La fecha inicial no puede ser posterior a la final.</p>}{pdfError&&<p role="alert" className="bg-red-50 p-3 text-error">Error generando PDF: {pdfError}</p>}{query.isLoading?<LoadingState message="Consultando facturas..."/>:query.isError?<ErrorState message="No se pudieron consultar las facturas." onRetry={()=>query.refetch()}/>:!query.data?.items.length?<EmptyState title={filters.customer?'El cliente no tiene facturas para estos filtros':'La consulta no devolvió facturas'}/>:<><div className="overflow-x-auto"><table className="w-full bg-white text-sm"><thead><tr><th className="p-2 text-left">Factura</th><th>Cliente</th><th>Fecha</th><th>Vence</th><th>Estado</th><th>Importe</th><th>Saldo</th><th></th></tr></thead><tbody>{query.data.items.map(x=><tr key={`${x.invoiceId}-${x.customerAccount}`} className="border-t"><td className="p-2"><strong>{x.invoiceId}</strong><small className="block">Pedido {x.salesId}</small></td><td>{x.customerAccount}<small className="block">{x.customerName}</small></td><td>{x.invoiceDate}</td><td>{x.dueDate}</td><td>{x.status}</td><td className="text-right">{money(x.invoiceAmount,x.currency)}</td><td className="text-right">{money(x.balance,x.currency)}</td><td className="p-2"><Button size="sm" variant="outline" onClick={()=>pdf(x.invoiceId,x.companyName)}>PDF</Button></td></tr>)}</tbody></table></div><div className="flex justify-between text-sm"><span>{query.data.pagination.totalRecords} facturas</span><div className="flex gap-2"><Button variant="outline" disabled={filters.page<=1} onClick={()=>apply({...filters,page:filters.page-1})}>Anterior</Button><span className="p-2">{filters.page} / {Math.max(1,query.data.pagination.totalPages)}</span><Button variant="outline" disabled={filters.page>=query.data.pagination.totalPages} onClick={()=>apply({...filters,page:filters.page+1})}>Siguiente</Button></div></div></>}</div>};export default InvoicesPage;
+import { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useInvoices, useReportService } from '../../features/billing/billingQueries';
+import { openPdfReport } from '../../features/billing/billingService';
+import type { InvoiceFilters } from '../../features/billing/billingTypes';
+import { userErrorMessage } from '../../core/api/errors';
+import { Button, Card, EmptyState, Input } from '../ui';
+import { ErrorState, LoadingState } from '../ui/PageState';
+const money = (value: number, currency: string) => {
+  try {
+    return new Intl.NumberFormat('es-GT', {
+      style: 'currency',
+      currency: currency || 'USD',
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+};
+const InvoicesPage = () => {
+  const [params, setParams] = useSearchParams();
+  const filters: InvoiceFilters = {
+    customer: params.get('customer') ?? '',
+    from: params.get('from') ?? '',
+    to: params.get('to') ?? '',
+    openOnly: params.get('openOnly') === 'true',
+    page: Math.max(1, Number(params.get('page') ?? 1)),
+  };
+  const [form, setForm] = useState(filters);
+  const query = useInvoices(filters);
+  const report = useReportService();
+  const locks = useRef(new Set<string>());
+  const [pdfError, setPdfError] = useState('');
+  const apply = (f: InvoiceFilters) =>
+    setParams({
+      ...(f.customer ? { customer: f.customer } : {}),
+      ...(f.from ? { from: f.from } : {}),
+      ...(f.to ? { to: f.to } : {}),
+      ...(f.openOnly ? { openOnly: 'true' } : {}),
+      page: String(f.page),
+    });
+  const pdf = async (id: string, company: string) => {
+    if (!id || locks.current.has(id)) return;
+    locks.current.add(id);
+    setPdfError('');
+    try {
+      const r = await report.pdf(company, id);
+      openPdfReport(r.fileName || `Factura_${id}.pdf`, r.base64);
+    } catch (e) {
+      setPdfError(userErrorMessage(e));
+    } finally {
+      locks.current.delete(id);
+    }
+  };
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold">Facturas de venta</h1>
+        <p className="text-xs">Datos oficiales de Dynamics · vendedor activo</p>
+      </div>
+      <Card className="p-4 grid gap-3 md:grid-cols-5">
+        <Input
+          label="Cuenta de cliente"
+          value={form.customer}
+          onChange={(e) => setForm({ ...form, customer: e.target.value })}
+        />
+        <Input
+          label="Fecha inicial"
+          type="date"
+          value={form.from}
+          onChange={(e) => setForm({ ...form, from: e.target.value })}
+        />
+        <Input
+          label="Fecha final"
+          type="date"
+          value={form.to}
+          onChange={(e) => setForm({ ...form, to: e.target.value })}
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.openOnly}
+            onChange={(e) => setForm({ ...form, openOnly: e.target.checked })}
+          />
+          Saldo pendiente
+        </label>
+        <div className="flex items-end gap-2">
+          <Button
+            disabled={Boolean(form.from && form.to && form.from > form.to)}
+            onClick={() => apply({ ...form, page: 1 })}
+          >
+            Consultar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const empty = { customer: '', from: '', to: '', openOnly: false, page: 1 };
+              setForm(empty);
+              apply(empty);
+            }}
+          >
+            Limpiar
+          </Button>
+        </div>
+      </Card>
+      {form.from && form.to && form.from > form.to && (
+        <p className="text-error text-sm">La fecha inicial no puede ser posterior a la final.</p>
+      )}
+      {pdfError && (
+        <p role="alert" className="bg-red-50 p-3 text-error">
+          Error generando PDF: {pdfError}
+        </p>
+      )}
+      {query.isLoading ? (
+        <LoadingState message="Consultando facturas..." />
+      ) : query.isError ? (
+        <ErrorState
+          message="No se pudieron consultar las facturas."
+          onRetry={() => query.refetch()}
+        />
+      ) : !query.data?.items.length ? (
+        <EmptyState
+          title={
+            filters.customer
+              ? 'El cliente no tiene facturas para estos filtros'
+              : 'La consulta no devolvió facturas'
+          }
+        />
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full bg-white text-sm">
+              <thead>
+                <tr>
+                  <th className="p-2 text-left">Factura</th>
+                  <th>Cliente</th>
+                  <th>Fecha</th>
+                  <th>Vence</th>
+                  <th>Estado</th>
+                  <th>Importe</th>
+                  <th>Saldo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {query.data.items.map((x) => (
+                  <tr key={`${x.invoiceId}-${x.customerAccount}`} className="border-t">
+                    <td className="p-2">
+                      <strong>{x.invoiceId}</strong>
+                      <small className="block">Pedido {x.salesId}</small>
+                    </td>
+                    <td>
+                      {x.customerAccount}
+                      <small className="block">{x.customerName}</small>
+                    </td>
+                    <td>{x.invoiceDate}</td>
+                    <td>{x.dueDate}</td>
+                    <td>{x.status}</td>
+                    <td className="text-right">{money(x.invoiceAmount, x.currency)}</td>
+                    <td className="text-right">{money(x.balance, x.currency)}</td>
+                    <td className="p-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => pdf(x.invoiceId, x.companyName)}
+                      >
+                        PDF
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>{query.data.pagination.totalRecords} facturas</span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                disabled={filters.page <= 1}
+                onClick={() => apply({ ...filters, page: filters.page - 1 })}
+              >
+                Anterior
+              </Button>
+              <span className="p-2">
+                {filters.page} / {Math.max(1, query.data.pagination.totalPages)}
+              </span>
+              <Button
+                variant="outline"
+                disabled={filters.page >= query.data.pagination.totalPages}
+                onClick={() => apply({ ...filters, page: filters.page + 1 })}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+export default InvoicesPage;

@@ -1,9 +1,71 @@
-import type { ApiClient } from '../../core/api/apiClient'; import { buildStatementSummary,mapInvoices,mapPdf } from './billingMappers'; import type { InvoiceFilters } from './billingTypes';
-export const billingService=(api:ApiClient)=>({
- invoices:async(company:string,vendor:string,f:InvoiceFilters,signal?:AbortSignal)=>mapInvoices(await api.post('/custumer/invoice',{company,cust_id:f.customer,sales_group:vendor,has_pending_balance:f.openOnly,pagination:{perpage:10,page:f.page},...(f.from?{from_date:f.from}:{}),...(f.to?{to_date:f.to}:{})},{signal})),
- periods:()=>api.get<{success:boolean;data:{order:number;time_period:string}[]}>('/custumer/invoice/time_period'),
- statement:async(company:string,account:string,multiCompany=false,signal?:AbortSignal)=>buildStatementSummary(await api.post('/customer/statement',{company,account_id:account,multi_company:multiCompany},{signal})),
- pdf:async(company:string,documentId:string)=>mapPdf(await api.post('/d365_services/get_ssrs_report_pdf',{Company:company,DocumentId:documentId,DocumentType:1},{timeoutMs:120000})),
+import type { ApiClient } from '../../core/api/apiClient';
+import { buildStatementSummary, mapInvoices, mapPdf } from './billingMappers';
+import type { InvoiceFilters } from './billingTypes';
+export const billingService = (api: ApiClient) => ({
+  invoices: async (company: string, vendor: string, f: InvoiceFilters, signal?: AbortSignal) =>
+    mapInvoices(
+      await api.post(
+        '/custumer/invoice',
+        {
+          company,
+          cust_id: f.customer,
+          sales_group: vendor,
+          has_pending_balance: f.openOnly,
+          pagination: { perpage: 10, page: f.page },
+          ...(f.from ? { from_date: f.from } : {}),
+          ...(f.to ? { to_date: f.to } : {}),
+        },
+        { signal },
+      ),
+    ),
+  periods: () =>
+    api.get<{ success: boolean; data: { order: number; time_period: string }[] }>(
+      '/custumer/invoice/time_period',
+    ),
+  statement: async (company: string, account: string, multiCompany = false, signal?: AbortSignal) =>
+    buildStatementSummary(
+      await api.post(
+        '/customer/statement',
+        { company, account_id: account, multi_company: multiCompany },
+        { signal },
+      ),
+    ),
+  pdf: async (company: string, documentId: string) =>
+    mapPdf(
+      await api.post(
+        '/d365_services/get_ssrs_report_pdf',
+        { Company: company, DocumentId: documentId, DocumentType: 1 },
+        { timeoutMs: 120000 },
+      ),
+    ),
 });
-const validBase64=(value:string)=>{try{if(!value.trim())return false;atob(value);return true}catch{return false}};
-export const openPdfReport=(fileName:string,base64:string,mode:'open'|'download'='open')=>{if(!validBase64(base64))throw new Error('El PDF recibido no contiene Base64 válido.');const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));if(bytes.length<4||String.fromCharCode(...bytes.slice(0,4))!=='%PDF')throw new Error('La respuesta no contiene un documento PDF válido.');const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));const name=(fileName||'Factura.pdf').replace(/^.*[\\/]/,'').replace(/[^a-zA-Z0-9._-]/g,'_');if(mode==='open')window.open(url,'_blank','noopener');else{const a=document.createElement('a');a.href=url;a.download=name.endsWith('.pdf')?name:`${name}.pdf`;a.click()}window.setTimeout(()=>URL.revokeObjectURL(url),0);return name};
+const validBase64 = (value: string) => {
+  try {
+    if (!value.trim()) return false;
+    atob(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+export const openPdfReport = (
+  fileName: string,
+  base64: string,
+  mode: 'open' | 'download' = 'open',
+) => {
+  if (!validBase64(base64)) throw new Error('El PDF recibido no contiene Base64 válido.');
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  if (bytes.length < 4 || String.fromCharCode(...bytes.slice(0, 4)) !== '%PDF')
+    throw new Error('La respuesta no contiene un documento PDF válido.');
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  const name = (fileName || 'Factura.pdf').replace(/^.*[\\/]/, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+  if (mode === 'open') window.open(url, '_blank', 'noopener');
+  else {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name.endsWith('.pdf') ? name : `${name}.pdf`;
+    a.click();
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  return name;
+};

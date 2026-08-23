@@ -3,7 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../app/providers/SessionProvider';
 import { catalogService } from '../../features/catalogs/catalogService';
-import { useInventory, useProducts, useReferenceCatalogs, useVariants } from '../../features/catalogs/hooks';
+import {
+  useInventory,
+  useProducts,
+  useReferenceCatalogs,
+  useVariants,
+} from '../../features/catalogs/hooks';
 import { catalogKeys } from '../../features/catalogs/queryKeys';
 import type { InventoryItem, Product, ProductVariant } from '../../features/catalogs/types';
 import { buildDraftLines } from '../../features/orderDraft/domain';
@@ -14,40 +19,361 @@ import { Button, Card, Input, Select, Toggle } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
 const AddOrderLinePage = () => {
-  const navigate = useNavigate(); const { api, context } = useSession(); const { draft, addLines, removeLine } = useOrderDraft();
-  const [search, setSearch] = useState(''); const [product, setProduct] = useState<Product | null>(null); const [variant, setVariant] = useState<ProductVariant | null>(null); const [stock, setStock] = useState<InventoryItem | null>(null); const [quantity, setQuantity] = useState('1'); const [promotionId, setPromotionId] = useState(''); const [independent, setIndependent] = useState(false); const [agreementLine, setAgreementLine] = useState(''); const [priceOverride, setPriceOverride] = useState('');
-  const products = useProducts(search, 1); const variants = useVariants(product); const inventory = useInventory(product, variant?.displayProductNumber ?? '', 1); const refs = useReferenceCatalogs(draft.customer?.account ?? '', '');
-  const agreementLines = useQuery({ queryKey: catalogKeys.catalog('agreement-lines', draft.dataAreaId, draft.customer?.account ?? '', String(draft.agreement?.recId ?? '')), queryFn: ({ signal }) => catalogService(api).partialAgreementLines(draft.dataAreaId, draft.customer!.account, draft.agreement!.recId, { signal }), enabled: Boolean(draft.customer && draft.agreement) });
-  const price = useQuery({ queryKey: catalogKeys.price(draft.dataAreaId, draft.customer?.account ?? '', draft.currencyCode, product?.itemId ?? '', variant), queryFn: ({ signal }) => catalogService(api).getPrice({ company: draft.dataAreaId, currency: draft.currencyCode, customerAccount: draft.customer!.account, itemId: product!.itemId, configId: variant?.configId, colorId: variant?.colorId, sizeId: variant?.sizeId, styleId: variant?.styleId, versionId: variant?.versionId, signal }), enabled: Boolean(draft.customer && product && (!product.requiresVariant || variant)) });
+  const navigate = useNavigate();
+  const { api, context } = useSession();
+  const { draft, addLines, removeLine } = useOrderDraft();
+  const [search, setSearch] = useState('');
+  const [product, setProduct] = useState<Product | null>(null);
+  const [variant, setVariant] = useState<ProductVariant | null>(null);
+  const [stock, setStock] = useState<InventoryItem | null>(null);
+  const [quantity, setQuantity] = useState('1');
+  const [promotionId, setPromotionId] = useState('');
+  const [independent, setIndependent] = useState(false);
+  const [agreementLine, setAgreementLine] = useState('');
+  const [priceOverride, setPriceOverride] = useState('');
+  const products = useProducts(search, 1);
+  const variants = useVariants(product);
+  const inventory = useInventory(product, variant?.displayProductNumber ?? '', 1);
+  const refs = useReferenceCatalogs(draft.customer?.account ?? '', '');
+  const agreementLines = useQuery({
+    queryKey: catalogKeys.catalog(
+      'agreement-lines',
+      draft.dataAreaId,
+      draft.customer?.account ?? '',
+      String(draft.agreement?.recId ?? ''),
+    ),
+    queryFn: ({ signal }) =>
+      catalogService(api).partialAgreementLines(
+        draft.dataAreaId,
+        draft.customer!.account,
+        draft.agreement!.recId,
+        { signal },
+      ),
+    enabled: Boolean(draft.customer && draft.agreement),
+  });
+  const price = useQuery({
+    queryKey: catalogKeys.price(
+      draft.dataAreaId,
+      draft.customer?.account ?? '',
+      draft.currencyCode,
+      product?.itemId ?? '',
+      variant,
+    ),
+    queryFn: ({ signal }) =>
+      catalogService(api).getPrice({
+        company: draft.dataAreaId,
+        currency: draft.currencyCode,
+        customerAccount: draft.customer!.account,
+        itemId: product!.itemId,
+        configId: variant?.configId,
+        colorId: variant?.colorId,
+        sizeId: variant?.sizeId,
+        styleId: variant?.styleId,
+        versionId: variant?.versionId,
+        signal,
+      }),
+    enabled: Boolean(draft.customer && product && (!product.requiresVariant || variant)),
+  });
   // A new product/variant/customer/currency invalidates any manual price override and the previous DebugMessage.
-  useEffect(() => { setPriceOverride(''); }, [product?.itemId, variant?.displayProductNumber, draft.customer?.account, draft.currencyCode]);
+  useEffect(() => {
+    setPriceOverride('');
+  }, [product?.itemId, variant?.displayProductNumber, draft.customer?.account, draft.currencyCode]);
   const pricePermission = canEditPrice(context.permissions);
-  const effectivePrice = price.data ? { ...price.data, price: priceOverride !== '' ? Number(priceOverride) || 0 : price.data.price } : null;
-  const promotion = refs.promotions.data?.find(x => x.groupId === promotionId) ?? null; const selectedAgreement = agreementLines.data?.find(x => String(x.matchingLine) === agreementLine);
-  const selection = useMemo(() => product && stock ? { product, variant, quantity: Number(quantity), siteId: stock.siteId, warehouseId: stock.warehouseId, availablePhysical: stock.availablePhysical, price: independent ? null : effectivePrice, independentBonification: independent, promotion: independent ? null : promotion, matchingAgreementLine: selectedAgreement?.matchingLine ?? null, agreementRemainingQuantity: selectedAgreement?.lineQuantity ?? null } : null, [product, stock, variant, quantity, independent, effectivePrice, promotion, selectedAgreement]);
-  const errors = selection ? buildDraftLines(draft, selection).flatMap(validateDraftLine) : [{ message: 'Seleccione producto e inventario.' }];
-  const reset = () => { setProduct(null); setVariant(null); setStock(null); setSearch(''); setQuantity('1'); setPromotionId(''); setIndependent(false); setAgreementLine(''); setPriceOverride(''); };
-  const submit = () => { if (!selection || errors.length) return; addLines(selection); reset(); };
-  return <div className="space-y-4 pb-12"><div className="flex flex-wrap justify-between gap-2"><div><h1 className="text-xl font-bold">Líneas del borrador</h1><p className="text-xs">{draft.customer?.account} · {draft.currencyCode}</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => navigate('/crear-pedido')}>Encabezado</Button><Button onClick={() => navigate('/crear-pedido/revision')}>Revisar ({draft.lines.length})</Button></div></div>
-    <div className="grid lg:grid-cols-2 gap-4"><Card className="p-4 space-y-3"><h2 className="font-bold">Producto y precio</h2><Input label="Buscar producto" value={search} onChange={e => { setSearch(e.target.value); setProduct(null); setStock(null); }} icon="search" />
-      {products.isLoading && <LoadingState message="Cargando productos..." />}{products.isError && <ErrorState message="No se pudieron cargar los productos." onRetry={() => products.refetch()} />}
-      {!product && search && <div className="max-h-40 overflow-auto border rounded">{products.data?.items.map(p => <button key={p.itemId} className="block w-full text-left p-2 border-b text-sm hover:bg-surface-container" onClick={() => { setProduct(p); setSearch(`${p.itemId} · ${p.name}`); }}>{p.itemId} · {p.name} <small>{p.productType}</small></button>)}</div>}
-      {product?.requiresVariant && <Select label="Variante obligatoria" value={variant?.displayProductNumber ?? ''} onChange={e => { setVariant(variants.data?.items.find(v => v.displayProductNumber === e.target.value) ?? null); setStock(null); }} options={[{ value: '', label: variants.isLoading ? 'Cargando...' : 'Seleccione...' }, ...(variants.data?.items ?? []).map(v => ({ value: v.displayProductNumber, label: `${v.displayProductNumber} · ${v.name}` }))]} />}
-      <Input label="Cantidad" type="number" min="0" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} /><div className="flex justify-between border p-3 rounded"><span className="text-sm">Bonificación independiente</span><Toggle checked={independent} onChange={v => { setIndependent(v); if (v) setPromotionId(''); }} /></div>
-      {!independent && <Select label="Promoción vinculada (opcional)" value={promotionId} onChange={e => setPromotionId(e.target.value)} options={[{ value: '', label: 'Sin promoción' }, ...(refs.promotions.data ?? []).map(p => ({ value: p.groupId, label: `${p.groupId} · ${p.name} (${p.forecastDiscount}%)` }))]} />}
-      {draft.agreement && <Select label="Línea de acuerdo (opcional)" value={agreementLine} onChange={e => setAgreementLine(e.target.value)} options={[{ value: '', label: agreementLines.isLoading ? 'Cargando...' : 'Línea normal' }, ...(agreementLines.data ?? []).filter(l => !product || l.itemId === product.itemId).map(l => ({ value: String(l.matchingLine), label: `${l.itemId} · restante ${l.lineQuantity}` }))]} />}
-      {independent ? <div className="p-3 bg-surface-container rounded text-sm">Precio: 0 (bonificación independiente)</div> : <div className="space-y-1">
-        {price.isLoading && <p className="text-xs">Calculando precio...</p>}
-        {price.isError && <p className="text-xs text-error">Error al consultar precio. <button className="underline" onClick={() => price.refetch()}>Reintentar</button></p>}
-        {price.data && price.data.price === 0 && price.data.debugMessage.trim() && <p className="text-xs text-amber-700">{price.data.debugMessage}</p>}
-        <Input label={`Precio${price.data ? ` (${price.data.currency})` : ''}`} type="number" step="any" value={priceOverride !== '' ? priceOverride : price.data ? String(price.data.price) : ''} disabled={!pricePermission || !price.data} onChange={e => setPriceOverride(e.target.value)} />
-        {!pricePermission && <p className="text-xs text-on-surface-variant">Sin permiso Create Sales Orders → Price Sales Line → Editar.</p>}
-        {price.data && <p className="text-xs text-on-surface-variant">PriceUnit {price.data.priceUnit}</p>}
-      </div>}
-    </Card><Card className="p-4 space-y-3"><h2 className="font-bold">Inventario, sitio y almacén</h2>{inventory.isLoading && <LoadingState message="Consultando inventario..." />}{inventory.isError && <ErrorState message="No se pudo consultar inventario." onRetry={() => inventory.refetch()} />}{inventory.data && !inventory.data.items.length && <p className="text-sm">Sin inventario para la selección.</p>}
-      <div className="space-y-2 max-h-96 overflow-auto">{inventory.data?.items.map((item, i) => <button key={`${item.siteId}-${item.warehouseId}-${i}`} onClick={() => setStock(item)} className={`w-full text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}><strong>{item.siteId} · {item.warehouseId}</strong><p className="text-xs">Físico: {item.physical} · Disponible físico: {item.availablePhysical} · Total: {item.totalAvailable}</p></button>)}</div>{stock && <p className="text-xs text-amber-700">Disponibilidad informativa; Dynamics es la fuente final.</p>}
-      {errors.length > 0 && <ul role="alert" className="text-sm text-error list-disc pl-5">{errors.map((e, i) => <li key={i}>{e.message}</li>)}</ul>}<Button fullWidth disabled={!selection || errors.length > 0 || price.isLoading} onClick={submit}>Agregar línea</Button></Card></div>
-    <Card className="overflow-hidden"><div className="p-3 font-bold">Líneas agregadas</div><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-surface-container"><tr><th className="p-2 text-left">Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Origen</th><th></th></tr></thead><tbody>{draft.lines.map(line => <tr key={line.localId} className="border-t"><td className="p-2">{line.itemId} · {line.itemName}{line.isBonification && <small className="block text-primary">Bonificación</small>}</td><td className="text-center">{line.quantity}</td><td className="text-center">{line.price.toFixed(2)}</td><td className="text-center">{(line.quantity * line.price).toFixed(2)}</td><td className="text-center">{line.source}</td><td className="p-2"><Button size="sm" variant="danger" onClick={() => removeLine(line.localId)}>Eliminar</Button></td></tr>)}</tbody></table></div></Card>
-  </div>;
+  const effectivePrice = price.data
+    ? { ...price.data, price: priceOverride !== '' ? Number(priceOverride) || 0 : price.data.price }
+    : null;
+  const promotion = refs.promotions.data?.find((x) => x.groupId === promotionId) ?? null;
+  const selectedAgreement = agreementLines.data?.find(
+    (x) => String(x.matchingLine) === agreementLine,
+  );
+  const selection = useMemo(
+    () =>
+      product && stock
+        ? {
+            product,
+            variant,
+            quantity: Number(quantity),
+            siteId: stock.siteId,
+            warehouseId: stock.warehouseId,
+            availablePhysical: stock.availablePhysical,
+            price: independent ? null : effectivePrice,
+            independentBonification: independent,
+            promotion: independent ? null : promotion,
+            matchingAgreementLine: selectedAgreement?.matchingLine ?? null,
+            agreementRemainingQuantity: selectedAgreement?.lineQuantity ?? null,
+          }
+        : null,
+    [product, stock, variant, quantity, independent, effectivePrice, promotion, selectedAgreement],
+  );
+  const errors = selection
+    ? buildDraftLines(draft, selection).flatMap(validateDraftLine)
+    : [{ message: 'Seleccione producto e inventario.' }];
+  const reset = () => {
+    setProduct(null);
+    setVariant(null);
+    setStock(null);
+    setSearch('');
+    setQuantity('1');
+    setPromotionId('');
+    setIndependent(false);
+    setAgreementLine('');
+    setPriceOverride('');
+  };
+  const submit = () => {
+    if (!selection || errors.length) return;
+    addLines(selection);
+    reset();
+  };
+  return (
+    <div className="space-y-4 pb-12">
+      <div className="flex flex-wrap justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold">Líneas del borrador</h1>
+          <p className="text-xs">
+            {draft.customer?.account} · {draft.currencyCode}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/crear-pedido')}>
+            Encabezado
+          </Button>
+          <Button onClick={() => navigate('/crear-pedido/revision')}>
+            Revisar ({draft.lines.length})
+          </Button>
+        </div>
+      </div>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <Card className="p-4 space-y-3">
+          <h2 className="font-bold">Producto y precio</h2>
+          <Input
+            label="Buscar producto"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setProduct(null);
+              setStock(null);
+            }}
+            icon="search"
+          />
+          {products.isLoading && <LoadingState message="Cargando productos..." />}
+          {products.isError && (
+            <ErrorState
+              message="No se pudieron cargar los productos."
+              onRetry={() => products.refetch()}
+            />
+          )}
+          {!product && search && (
+            <div className="max-h-40 overflow-auto border rounded">
+              {products.data?.items.map((p) => (
+                <button
+                  key={p.itemId}
+                  className="block w-full text-left p-2 border-b text-sm hover:bg-surface-container"
+                  onClick={() => {
+                    setProduct(p);
+                    setSearch(`${p.itemId} · ${p.name}`);
+                  }}
+                >
+                  {p.itemId} · {p.name} <small>{p.productType}</small>
+                </button>
+              ))}
+            </div>
+          )}
+          {product?.requiresVariant && (
+            <Select
+              label="Variante obligatoria"
+              value={variant?.displayProductNumber ?? ''}
+              onChange={(e) => {
+                setVariant(
+                  variants.data?.items.find((v) => v.displayProductNumber === e.target.value) ??
+                    null,
+                );
+                setStock(null);
+              }}
+              options={[
+                { value: '', label: variants.isLoading ? 'Cargando...' : 'Seleccione...' },
+                ...(variants.data?.items ?? []).map((v) => ({
+                  value: v.displayProductNumber,
+                  label: `${v.displayProductNumber} · ${v.name}`,
+                })),
+              ]}
+            />
+          )}
+          <Input
+            label="Cantidad"
+            type="number"
+            min="0"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+          <div className="flex justify-between border p-3 rounded">
+            <span className="text-sm">Bonificación independiente</span>
+            <Toggle
+              checked={independent}
+              onChange={(v) => {
+                setIndependent(v);
+                if (v) setPromotionId('');
+              }}
+            />
+          </div>
+          {!independent && (
+            <Select
+              label="Promoción vinculada (opcional)"
+              value={promotionId}
+              onChange={(e) => setPromotionId(e.target.value)}
+              options={[
+                { value: '', label: 'Sin promoción' },
+                ...(refs.promotions.data ?? []).map((p) => ({
+                  value: p.groupId,
+                  label: `${p.groupId} · ${p.name} (${p.forecastDiscount}%)`,
+                })),
+              ]}
+            />
+          )}
+          {draft.agreement && (
+            <Select
+              label="Línea de acuerdo (opcional)"
+              value={agreementLine}
+              onChange={(e) => setAgreementLine(e.target.value)}
+              options={[
+                { value: '', label: agreementLines.isLoading ? 'Cargando...' : 'Línea normal' },
+                ...(agreementLines.data ?? [])
+                  .filter((l) => !product || l.itemId === product.itemId)
+                  .map((l) => ({
+                    value: String(l.matchingLine),
+                    label: `${l.itemId} · restante ${l.lineQuantity}`,
+                  })),
+              ]}
+            />
+          )}
+          {independent ? (
+            <div className="p-3 bg-surface-container rounded text-sm">
+              Precio: 0 (bonificación independiente)
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {price.isLoading && <p className="text-xs">Calculando precio...</p>}
+              {price.isError && (
+                <p className="text-xs text-error">
+                  Error al consultar precio.{' '}
+                  <button className="underline" onClick={() => price.refetch()}>
+                    Reintentar
+                  </button>
+                </p>
+              )}
+              {price.data && price.data.price === 0 && price.data.debugMessage.trim() && (
+                <p className="text-xs text-amber-700">{price.data.debugMessage}</p>
+              )}
+              <Input
+                label={`Precio${price.data ? ` (${price.data.currency})` : ''}`}
+                type="number"
+                step="any"
+                value={
+                  priceOverride !== '' ? priceOverride : price.data ? String(price.data.price) : ''
+                }
+                disabled={!pricePermission || !price.data}
+                onChange={(e) => setPriceOverride(e.target.value)}
+              />
+              {!pricePermission && (
+                <p className="text-xs text-on-surface-variant">
+                  Sin permiso Create Sales Orders → Price Sales Line → Editar.
+                </p>
+              )}
+              {price.data && (
+                <p className="text-xs text-on-surface-variant">PriceUnit {price.data.priceUnit}</p>
+              )}
+            </div>
+          )}
+        </Card>
+        <Card className="p-4 space-y-3">
+          <h2 className="font-bold">Inventario, sitio y almacén</h2>
+          {inventory.isLoading && <LoadingState message="Consultando inventario..." />}
+          {inventory.isError && (
+            <ErrorState
+              message="No se pudo consultar inventario."
+              onRetry={() => inventory.refetch()}
+            />
+          )}
+          {inventory.data && !inventory.data.items.length && (
+            <p className="text-sm">Sin inventario para la selección.</p>
+          )}
+          <div className="space-y-2 max-h-96 overflow-auto">
+            {inventory.data?.items.map((item, i) => (
+              <button
+                key={`${item.siteId}-${item.warehouseId}-${i}`}
+                onClick={() => setStock(item)}
+                className={`w-full text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}
+              >
+                <strong>
+                  {item.siteId} · {item.warehouseId}
+                </strong>
+                <p className="text-xs">
+                  Físico: {item.physical} · Disponible físico: {item.availablePhysical} · Total:{' '}
+                  {item.totalAvailable}
+                </p>
+              </button>
+            ))}
+          </div>
+          {stock && (
+            <p className="text-xs text-amber-700">
+              Disponibilidad informativa; Dynamics es la fuente final.
+            </p>
+          )}
+          {errors.length > 0 && (
+            <ul role="alert" className="text-sm text-error list-disc pl-5">
+              {errors.map((e, i) => (
+                <li key={i}>{e.message}</li>
+              ))}
+            </ul>
+          )}
+          <Button
+            fullWidth
+            disabled={!selection || errors.length > 0 || price.isLoading}
+            onClick={submit}
+          >
+            Agregar línea
+          </Button>
+        </Card>
+      </div>
+      <Card className="overflow-hidden">
+        <div className="p-3 font-bold">Líneas agregadas</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-container">
+              <tr>
+                <th className="p-2 text-left">Producto</th>
+                <th>Cantidad</th>
+                <th>Precio</th>
+                <th>Subtotal</th>
+                <th>Origen</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {draft.lines.map((line) => (
+                <tr key={line.localId} className="border-t">
+                  <td className="p-2">
+                    {line.itemId} · {line.itemName}
+                    {line.isBonification && (
+                      <small className="block text-primary">Bonificación</small>
+                    )}
+                  </td>
+                  <td className="text-center">{line.quantity}</td>
+                  <td className="text-center">{line.price.toFixed(2)}</td>
+                  <td className="text-center">{(line.quantity * line.price).toFixed(2)}</td>
+                  <td className="text-center">{line.source}</td>
+                  <td className="p-2">
+                    <Button size="sm" variant="danger" onClick={() => removeLine(line.localId)}>
+                      Eliminar
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
 };
 export default AddOrderLinePage;

@@ -8,7 +8,11 @@ class FailedBoundary extends GlobalErrorBoundary {
 
 describe('GlobalErrorBoundary', () => {
   it('replaces an unhandled render failure with a safe recovery screen', () => {
-    render(<FailedBoundary><p>sensitive detail</p></FailedBoundary>);
+    render(
+      <FailedBoundary>
+        <p>sensitive detail</p>
+      </FailedBoundary>,
+    );
     expect(screen.getByRole('alert')).toHaveTextContent('Sales4App no pudo continuar');
     expect(screen.queryByText('sensitive detail')).not.toBeInTheDocument();
   });

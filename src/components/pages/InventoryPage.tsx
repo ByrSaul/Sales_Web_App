@@ -2,6 +2,132 @@ import React, { useState } from 'react';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useInventory, useProducts, useVariants } from '../../features/catalogs/hooks';
 import type { Product } from '../../features/catalogs/types';
-import { Badge, Button, Card, EmptyState, Input, Select } from '../ui'; import { ErrorState, LoadingState } from '../ui/PageState';
-const InventoryPage: React.FC = () => { const [search, setSearch] = useState(''); const debounced = useDebouncedValue(search); const [product, setProduct] = useState<Product | null>(null); const [variant, setVariant] = useState(''); const [page, setPage] = useState(1); const products = useProducts(debounced, 1); const variants = useVariants(product); const stock = useInventory(product, variant, page); const selectProduct = (id: string) => { setProduct(products.data?.items.find(x => x.itemId === id) ?? null); setVariant(''); setPage(1); }; return <div className="space-y-4"><div><h1 className="text-xl font-bold">Consulta de inventario</h1><p className="text-xs text-on-surface-variant">Disponibilidad por sitio y almacén</p></div><Card className="p-4 grid md:grid-cols-2 gap-3"><Input label="Buscar producto" value={search} onChange={e => setSearch(e.target.value)} icon="search" placeholder="Código o nombre..." /><Select label="Producto" value={product?.itemId ?? ''} onChange={e => selectProduct(e.target.value)} options={[{ value: '', label: products.isFetching ? 'Buscando...' : 'Seleccionar...' }, ...(products.data?.items ?? []).map(x => ({ value: x.itemId, label: `${x.itemId} - ${x.name}` }))]} />{product?.requiresVariant && <Select label="Variante obligatoria" value={variant} onChange={e => { setVariant(e.target.value); setPage(1); }} options={[{ value: '', label: variants.isFetching ? 'Cargando...' : 'Seleccionar variante...' }, ...(variants.data?.items ?? []).map(x => ({ value: x.displayProductNumber, label: `${x.displayProductNumber} - ${[x.configId, x.sizeId, x.colorId].filter(Boolean).join(' / ')}` }))]} />}</Card>{!product || (product.requiresVariant && !variant) ? <EmptyState icon="inventory_2" title={product?.requiresVariant ? 'Selecciona una variante' : 'Selecciona un producto'} subtitle="La disponibilidad se consultará en Dynamics." /> : stock.isPending ? <LoadingState message="Consultando inventario..." /> : stock.isError ? <ErrorState message="No fue posible consultar el inventario." onRetry={() => void stock.refetch()} /> : !stock.data.items.length ? <EmptyState title="Sin inventario disponible" /> : <><div className="overflow-x-auto bg-white rounded-xl border"><table className="w-full text-sm"><thead className="bg-surface-container text-left"><tr><th className="p-3">Producto</th><th className="p-3">Sitio</th><th className="p-3">Almacén</th><th className="p-3 text-right">Físico</th><th className="p-3 text-right">Disponible</th><th className="p-3">Estado</th></tr></thead><tbody>{stock.data.items.map((x, i) => <tr key={`${x.siteId}-${x.warehouseId}-${i}`} className="border-t"><td className="p-3"><strong>{x.displayProductNumber || x.itemId}</strong><span className="block text-xs text-on-surface-variant">{x.productName}</span></td><td className="p-3">{x.siteId || 'N/A'}</td><td className="p-3">{x.warehouseId || 'N/A'}</td><td className="p-3 text-right">{x.physical}</td><td className="p-3 text-right font-semibold">{x.totalAvailable}</td><td className="p-3"><Badge label={x.totalAvailable > 0 ? 'DISPONIBLE' : 'SIN EXISTENCIA'} variant={x.totalAvailable > 0 ? 'success' : 'blocked'} /></td></tr>)}</tbody></table></div><div className="flex justify-end gap-2"><Button variant="outline" disabled={page <= 1} onClick={() => setPage(x => x - 1)}>Anterior</Button><Button variant="outline" disabled={page >= stock.data.pagination.totalPages} onClick={() => setPage(x => x + 1)}>Siguiente</Button></div></>}</div>; };
+import { Badge, Button, Card, EmptyState, Input, Select } from '../ui';
+import { ErrorState, LoadingState } from '../ui/PageState';
+const InventoryPage: React.FC = () => {
+  const [search, setSearch] = useState('');
+  const debounced = useDebouncedValue(search);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [variant, setVariant] = useState('');
+  const [page, setPage] = useState(1);
+  const products = useProducts(debounced, 1);
+  const variants = useVariants(product);
+  const stock = useInventory(product, variant, page);
+  const selectProduct = (id: string) => {
+    setProduct(products.data?.items.find((x) => x.itemId === id) ?? null);
+    setVariant('');
+    setPage(1);
+  };
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold">Consulta de inventario</h1>
+        <p className="text-xs text-on-surface-variant">Disponibilidad por sitio y almacén</p>
+      </div>
+      <Card className="p-4 grid md:grid-cols-2 gap-3">
+        <Input
+          label="Buscar producto"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          icon="search"
+          placeholder="Código o nombre..."
+        />
+        <Select
+          label="Producto"
+          value={product?.itemId ?? ''}
+          onChange={(e) => selectProduct(e.target.value)}
+          options={[
+            { value: '', label: products.isFetching ? 'Buscando...' : 'Seleccionar...' },
+            ...(products.data?.items ?? []).map((x) => ({
+              value: x.itemId,
+              label: `${x.itemId} - ${x.name}`,
+            })),
+          ]}
+        />
+        {product?.requiresVariant && (
+          <Select
+            label="Variante obligatoria"
+            value={variant}
+            onChange={(e) => {
+              setVariant(e.target.value);
+              setPage(1);
+            }}
+            options={[
+              { value: '', label: variants.isFetching ? 'Cargando...' : 'Seleccionar variante...' },
+              ...(variants.data?.items ?? []).map((x) => ({
+                value: x.displayProductNumber,
+                label: `${x.displayProductNumber} - ${[x.configId, x.sizeId, x.colorId].filter(Boolean).join(' / ')}`,
+              })),
+            ]}
+          />
+        )}
+      </Card>
+      {!product || (product.requiresVariant && !variant) ? (
+        <EmptyState
+          icon="inventory_2"
+          title={product?.requiresVariant ? 'Selecciona una variante' : 'Selecciona un producto'}
+          subtitle="La disponibilidad se consultará en Dynamics."
+        />
+      ) : stock.isPending ? (
+        <LoadingState message="Consultando inventario..." />
+      ) : stock.isError ? (
+        <ErrorState
+          message="No fue posible consultar el inventario."
+          onRetry={() => void stock.refetch()}
+        />
+      ) : !stock.data.items.length ? (
+        <EmptyState title="Sin inventario disponible" />
+      ) : (
+        <>
+          <div className="overflow-x-auto bg-white rounded-xl border">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container text-left">
+                <tr>
+                  <th className="p-3">Producto</th>
+                  <th className="p-3">Sitio</th>
+                  <th className="p-3">Almacén</th>
+                  <th className="p-3 text-right">Físico</th>
+                  <th className="p-3 text-right">Disponible</th>
+                  <th className="p-3">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stock.data.items.map((x, i) => (
+                  <tr key={`${x.siteId}-${x.warehouseId}-${i}`} className="border-t">
+                    <td className="p-3">
+                      <strong>{x.displayProductNumber || x.itemId}</strong>
+                      <span className="block text-xs text-on-surface-variant">{x.productName}</span>
+                    </td>
+                    <td className="p-3">{x.siteId || 'N/A'}</td>
+                    <td className="p-3">{x.warehouseId || 'N/A'}</td>
+                    <td className="p-3 text-right">{x.physical}</td>
+                    <td className="p-3 text-right font-semibold">{x.totalAvailable}</td>
+                    <td className="p-3">
+                      <Badge
+                        label={x.totalAvailable > 0 ? 'DISPONIBLE' : 'SIN EXISTENCIA'}
+                        variant={x.totalAvailable > 0 ? 'success' : 'blocked'}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" disabled={page <= 1} onClick={() => setPage((x) => x - 1)}>
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              disabled={page >= stock.data.pagination.totalPages}
+              onClick={() => setPage((x) => x + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 export default InventoryPage;

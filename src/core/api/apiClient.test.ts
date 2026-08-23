@@ -2,14 +2,128 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiClient } from './apiClient';
 import { ApiError } from './errors';
 
-const jsonResponse = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+const jsonResponse = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 describe('ApiClient', () => {
-  it('adds the bearer token', async () => { const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ok: true })); const api = new ApiClient({ baseUrl: '/api', getToken: vi.fn().mockResolvedValue('token'), onUnauthorized: vi.fn(), fetchImpl }); await api.get('/test'); expect(fetchImpl).toHaveBeenCalledWith('/api/test', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) })); });
-  it('refreshes once and retries one time on 401', async () => { const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({}, 401)).mockResolvedValueOnce(jsonResponse({ ok: true })); const getToken = vi.fn().mockResolvedValueOnce('old').mockResolvedValueOnce('new').mockResolvedValueOnce('new'); const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl }); await expect(api.get('/test')).resolves.toEqual({ ok: true }); expect(fetchImpl).toHaveBeenCalledTimes(2); expect(getToken).toHaveBeenCalledWith(true); });
-  it('does not loop after a second 401', async () => { const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401)); const onUnauthorized = vi.fn(); const api = new ApiClient({ baseUrl: '/api', getToken: vi.fn().mockResolvedValue('token'), onUnauthorized, fetchImpl }); await expect(api.get('/test')).rejects.toBeInstanceOf(ApiError); expect(fetchImpl).toHaveBeenCalledTimes(2); expect(onUnauthorized).toHaveBeenCalledOnce(); });
-  it('does not refresh or retry a 401 in dev-token mode', async () => { const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401)); const getToken = vi.fn().mockResolvedValue('runtime-token'); const onUnauthorized = vi.fn(); const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized, refreshOnUnauthorized: false, fetchImpl }); let message = ''; try { await api.get('/test'); } catch (cause) { message = cause instanceof Error ? cause.message : String(cause); } expect(fetchImpl).toHaveBeenCalledOnce(); expect(getToken).toHaveBeenCalledOnce(); expect(getToken).toHaveBeenCalledWith(false); expect(onUnauthorized).toHaveBeenCalledOnce(); expect(message).not.toContain('runtime-token'); });
-  it('shares one refresh across concurrent 401 responses', async () => { const attempts = new Map<string, number>(); const fetchImpl = vi.fn<typeof fetch>(async input => { const url = input.toString(); const attempt = (attempts.get(url) ?? 0) + 1; attempts.set(url, attempt); return attempt === 1 ? jsonResponse({}, 401) : jsonResponse({ ok: true }); }); let resolveRefresh!: (token: string) => void; const refresh = new Promise<string>(resolve => { resolveRefresh = resolve; }); const getToken = vi.fn((force: boolean) => force ? refresh : Promise.resolve('token')); const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl }); const calls = [api.get('/one'), api.get('/two')]; await Promise.resolve(); resolveRefresh('new'); await Promise.all(calls); expect(getToken.mock.calls.filter(([force]) => force)).toHaveLength(1); });
-  it('does not crash with an unbound global fetch when no fetchImpl override is given', async () => { const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ ok: true })); try { const api = new ApiClient({ baseUrl: '/api', getToken: vi.fn().mockResolvedValue('token'), onUnauthorized: vi.fn() }); await expect(api.get('/test')).resolves.toEqual({ ok: true }); } finally { fetchSpy.mockRestore(); } });
-  it('classifies an already-typed token failure without touching fetch or turning it into a network error', async () => { const fetchImpl = vi.fn<typeof fetch>(); const getToken = vi.fn().mockRejectedValue(new ApiError('identity', 'El token de desarrollo no contiene un identificador oid/sub utilizable.')); const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl }); await expect(api.get('/test')).rejects.toMatchObject({ kind: 'identity' }); expect(fetchImpl).not.toHaveBeenCalled(); });
-  it('wraps an unexpected token failure as configuration rather than network', async () => { const fetchImpl = vi.fn<typeof fetch>(); const getToken = vi.fn().mockRejectedValue(new Error('boom')); const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl }); await expect(api.get('/test')).rejects.toMatchObject({ kind: 'configuration' }); expect(fetchImpl).not.toHaveBeenCalled(); });
+  it('adds the bearer token', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ok: true }));
+    const api = new ApiClient({
+      baseUrl: '/api',
+      getToken: vi.fn().mockResolvedValue('token'),
+      onUnauthorized: vi.fn(),
+      fetchImpl,
+    });
+    await api.get('/test');
+    expect(fetchImpl).toHaveBeenCalledWith(
+      '/api/test',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+      }),
+    );
+  });
+  it('refreshes once and retries one time on 401', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({}, 401))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+    const getToken = vi
+      .fn()
+      .mockResolvedValueOnce('old')
+      .mockResolvedValueOnce('new')
+      .mockResolvedValueOnce('new');
+    const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.get('/test')).resolves.toEqual({ ok: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(getToken).toHaveBeenCalledWith(true);
+  });
+  it('does not loop after a second 401', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401));
+    const onUnauthorized = vi.fn();
+    const api = new ApiClient({
+      baseUrl: '/api',
+      getToken: vi.fn().mockResolvedValue('token'),
+      onUnauthorized,
+      fetchImpl,
+    });
+    await expect(api.get('/test')).rejects.toBeInstanceOf(ApiError);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+  });
+  it('does not refresh or retry a 401 in dev-token mode', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401));
+    const getToken = vi.fn().mockResolvedValue('runtime-token');
+    const onUnauthorized = vi.fn();
+    const api = new ApiClient({
+      baseUrl: '/api',
+      getToken,
+      onUnauthorized,
+      refreshOnUnauthorized: false,
+      fetchImpl,
+    });
+    let message = '';
+    try {
+      await api.get('/test');
+    } catch (cause) {
+      message = cause instanceof Error ? cause.message : String(cause);
+    }
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(getToken).toHaveBeenCalledOnce();
+    expect(getToken).toHaveBeenCalledWith(false);
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+    expect(message).not.toContain('runtime-token');
+  });
+  it('shares one refresh across concurrent 401 responses', async () => {
+    const attempts = new Map<string, number>();
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      const url = input.toString();
+      const attempt = (attempts.get(url) ?? 0) + 1;
+      attempts.set(url, attempt);
+      return attempt === 1 ? jsonResponse({}, 401) : jsonResponse({ ok: true });
+    });
+    let resolveRefresh!: (token: string) => void;
+    const refresh = new Promise<string>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const getToken = vi.fn((force: boolean) => (force ? refresh : Promise.resolve('token')));
+    const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl });
+    const calls = [api.get('/one'), api.get('/two')];
+    await Promise.resolve();
+    resolveRefresh('new');
+    await Promise.all(calls);
+    expect(getToken.mock.calls.filter(([force]) => force)).toHaveLength(1);
+  });
+  it('does not crash with an unbound global fetch when no fetchImpl override is given', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ ok: true }));
+    try {
+      const api = new ApiClient({
+        baseUrl: '/api',
+        getToken: vi.fn().mockResolvedValue('token'),
+        onUnauthorized: vi.fn(),
+      });
+      await expect(api.get('/test')).resolves.toEqual({ ok: true });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+  it('classifies an already-typed token failure without touching fetch or turning it into a network error', async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const getToken = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError(
+          'identity',
+          'El token de desarrollo no contiene un identificador oid/sub utilizable.',
+        ),
+      );
+    const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.get('/test')).rejects.toMatchObject({ kind: 'identity' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+  it('wraps an unexpected token failure as configuration rather than network', async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const getToken = vi.fn().mockRejectedValue(new Error('boom'));
+    const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.get('/test')).rejects.toMatchObject({ kind: 'configuration' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });

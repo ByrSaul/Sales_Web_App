@@ -1,1 +1,17 @@
-import{useQuery}from'@tanstack/react-query';import{useSession}from'../../app/providers/SessionProvider';import{forecastService}from'./forecastService';import type{ForecastFilters}from'./forecastTypes';export const forecastKey=(c:string,v:string,f:ForecastFilters)=>['forecast',c,v,f.from,f.to,f.item,f.variant,f.customer,f.view,f.page]as const;export const useForecast=(f:ForecastFilters)=>{const{api,context}=useSession();const c=context.company?.id??'',v=context.vendor?.id??'';return useQuery({queryKey:forecastKey(c,v,f),queryFn:({signal})=>forecastService(api).list(c,v,f,signal),enabled:Boolean(c&&v),staleTime:30_000})};
+import { useQuery } from '@tanstack/react-query';
+import { useSession } from '../../app/providers/SessionProvider';
+import { forecastService } from './forecastService';
+import type { ForecastFilters } from './forecastTypes';
+export const forecastKey = (c: string, v: string, f: ForecastFilters) =>
+  ['forecast', c, v, f.from, f.to, f.item, f.variant, f.customer, f.view, f.page] as const;
+export const useForecast = (f: ForecastFilters) => {
+  const { api, context } = useSession();
+  const c = context.company?.id ?? '',
+    v = context.vendor?.id ?? '';
+  return useQuery({
+    queryKey: forecastKey(c, v, f),
+    queryFn: ({ signal }) => forecastService(api).list(c, v, f, signal),
+    enabled: Boolean(c && v),
+    staleTime: 30_000,
+  });
+};

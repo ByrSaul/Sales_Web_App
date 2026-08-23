@@ -1,2 +1,117 @@
-import { useRef,useState } from 'react';import { useNavigate,useParams,useSearchParams } from 'react-router-dom';import { useReportService,useStatement } from '../../features/billing/billingQueries';import { openPdfReport } from '../../features/billing/billingService';import { userErrorMessage } from '../../core/api/errors';import { Button,Card,EmptyState } from '../ui';import { ErrorState,LoadingState } from '../ui/PageState';
-const FinancialDocumentPage=()=>{const{id=''}=useParams();const[p]=useSearchParams();const nav=useNavigate();const account=p.get('customer')??'',multi=p.get('multiCompany')==='true',bucket=p.get('bucket');const q=useStatement(account,multi);const service=useReportService();const lock=useRef(false);const[loading,setLoading]=useState(false);const[error,setError]=useState('');if(q.isLoading)return <LoadingState/>;if(q.isError)return <ErrorState message="No se pudo recuperar el documento."/>;const doc=q.data?.documents.find(x=>x.voucher===id||x.internalInvoice===id);if(!doc)return <EmptyState title="Documento no encontrado"/>;const pdf=async(mode:'open'|'download')=>{if(lock.current||!doc.internalInvoice)return;lock.current=true;setLoading(true);setError('');try{const r=await service.pdf(doc.companyId,doc.internalInvoice);openPdfReport(r.fileName||`Factura_${doc.internalInvoice}.pdf`,r.base64,mode)}catch(e){setError(userErrorMessage(e))}finally{lock.current=false;setLoading(false)}};const back=bucket?`/estado-cuenta/aging?customer=${encodeURIComponent(account)}&bucket=${encodeURIComponent(bucket)}`:`/estado-cuenta?customer=${encodeURIComponent(account)}`;return <div className="space-y-4"><Button variant="outline" onClick={()=>nav(back)}>Volver</Button><h1 className="text-xl font-bold">Detalle de factura</h1><Card className="p-4 grid sm:grid-cols-2 gap-3 text-sm"><p>Comprobante<br/><strong>{doc.internalInvoice||doc.voucher}</strong></p><p>Factura externa<br/><strong>{doc.externalInvoice||'—'}</strong></p><p>Empresa<br/><strong>{doc.companyName} · {doc.companyId}</strong></p><p>Tipo<br/><strong>{doc.transactionType}</strong></p><p>Emisión<br/><strong>{doc.transactionDate}</strong></p><p>Vencimiento<br/><strong>{doc.dueDate}</strong></p><p>Estado<br/><strong>{doc.status} · {doc.timePeriod}</strong></p><p>Saldo oficial<br/><strong>{doc.currency} {doc.balance.toFixed(2)}</strong></p></Card>{doc.text&&<Card className="p-4">{doc.text}</Card>}{error&&<p role="alert" className="text-error">Error generando PDF: {error}</p>}<div className="flex gap-2"><Button loading={loading} disabled={!doc.internalInvoice} onClick={()=>pdf('open')}>Abrir PDF</Button><Button variant="outline" disabled={loading||!doc.internalInvoice} onClick={()=>pdf('download')}>Descargar PDF</Button></div></div>};export default FinancialDocumentPage;
+import { useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useReportService, useStatement } from '../../features/billing/billingQueries';
+import { openPdfReport } from '../../features/billing/billingService';
+import { userErrorMessage } from '../../core/api/errors';
+import { Button, Card, EmptyState } from '../ui';
+import { ErrorState, LoadingState } from '../ui/PageState';
+const FinancialDocumentPage = () => {
+  const { id = '' } = useParams();
+  const [p] = useSearchParams();
+  const nav = useNavigate();
+  const account = p.get('customer') ?? '',
+    multi = p.get('multiCompany') === 'true',
+    bucket = p.get('bucket');
+  const q = useStatement(account, multi);
+  const service = useReportService();
+  const lock = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  if (q.isLoading) return <LoadingState />;
+  if (q.isError) return <ErrorState message="No se pudo recuperar el documento." />;
+  const doc = q.data?.documents.find((x) => x.voucher === id || x.internalInvoice === id);
+  if (!doc) return <EmptyState title="Documento no encontrado" />;
+  const pdf = async (mode: 'open' | 'download') => {
+    if (lock.current || !doc.internalInvoice) return;
+    lock.current = true;
+    setLoading(true);
+    setError('');
+    try {
+      const r = await service.pdf(doc.companyId, doc.internalInvoice);
+      openPdfReport(r.fileName || `Factura_${doc.internalInvoice}.pdf`, r.base64, mode);
+    } catch (e) {
+      setError(userErrorMessage(e));
+    } finally {
+      lock.current = false;
+      setLoading(false);
+    }
+  };
+  const back = bucket
+    ? `/estado-cuenta/aging?customer=${encodeURIComponent(account)}&bucket=${encodeURIComponent(bucket)}`
+    : `/estado-cuenta?customer=${encodeURIComponent(account)}`;
+  return (
+    <div className="space-y-4">
+      <Button variant="outline" onClick={() => nav(back)}>
+        Volver
+      </Button>
+      <h1 className="text-xl font-bold">Detalle de factura</h1>
+      <Card className="p-4 grid sm:grid-cols-2 gap-3 text-sm">
+        <p>
+          Comprobante
+          <br />
+          <strong>{doc.internalInvoice || doc.voucher}</strong>
+        </p>
+        <p>
+          Factura externa
+          <br />
+          <strong>{doc.externalInvoice || '—'}</strong>
+        </p>
+        <p>
+          Empresa
+          <br />
+          <strong>
+            {doc.companyName} · {doc.companyId}
+          </strong>
+        </p>
+        <p>
+          Tipo
+          <br />
+          <strong>{doc.transactionType}</strong>
+        </p>
+        <p>
+          Emisión
+          <br />
+          <strong>{doc.transactionDate}</strong>
+        </p>
+        <p>
+          Vencimiento
+          <br />
+          <strong>{doc.dueDate}</strong>
+        </p>
+        <p>
+          Estado
+          <br />
+          <strong>
+            {doc.status} · {doc.timePeriod}
+          </strong>
+        </p>
+        <p>
+          Saldo oficial
+          <br />
+          <strong>
+            {doc.currency} {doc.balance.toFixed(2)}
+          </strong>
+        </p>
+      </Card>
+      {doc.text && <Card className="p-4">{doc.text}</Card>}
+      {error && (
+        <p role="alert" className="text-error">
+          Error generando PDF: {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button loading={loading} disabled={!doc.internalInvoice} onClick={() => pdf('open')}>
+          Abrir PDF
+        </Button>
+        <Button
+          variant="outline"
+          disabled={loading || !doc.internalInvoice}
+          onClick={() => pdf('download')}
+        >
+          Descargar PDF
+        </Button>
+      </div>
+    </div>
+  );
+};
+export default FinancialDocumentPage;

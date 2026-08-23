@@ -1,6 +1,22 @@
-import type { Agreement, Customer, CustomerAddress, DeliveryMode, Price, Product, ProductVariant, PromotionGroup, SalesOrigin } from '../catalogs/types';
+import type {
+  Agreement,
+  Customer,
+  CustomerAddress,
+  DeliveryMode,
+  Price,
+  Product,
+  ProductVariant,
+  PromotionGroup,
+  SalesOrigin,
+} from '../catalogs/types';
 
-export type DraftDimensions = { configId: string; colorId: string; sizeId: string; styleId: string; versionId: string };
+export type DraftDimensions = {
+  configId: string;
+  colorId: string;
+  sizeId: string;
+  styleId: string;
+  versionId: string;
+};
 export type DraftAgreement = Pick<Agreement, 'recId' | 'number' | 'title' | 'currency'>;
 
 export type OrderDraftLine = {
