@@ -1,125 +1,26 @@
-import React, { useState } from 'react';
-import AppLayout from './components/layout/AppLayout';
-import DashboardPage       from './components/pages/DashboardPage';
-import OrdersPage          from './components/pages/OrdersPage';
-import OrderDetailPage     from './components/pages/OrderDetailPage';
-import ClientsPage         from './components/pages/ClientsPage';
-import InventoryPage       from './components/pages/InventoryPage';
-import InvoicesPage        from './components/pages/InvoicesPage';
-import CreateOrderPage     from './components/pages/CreateOrderPage';
-import AddOrderLinePage    from './components/pages/AddOrderLinePage';
-import AccountStatementPage from './components/pages/AccountStatementPage';
-import CompanySelectPage   from './components/pages/CompanySelectPage';
-import VendorSelectPage    from './components/pages/VendorSelectPage';
-import { User } from './types';
+import React, { Suspense, lazy } from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { appConfig } from './app/config/env';
+import { RequireAuthentication, RequireCompany, RequireCompleteContext } from './app/router/guards';
+import ProtectedLayout from './app/router/ProtectedLayout';
+import LoginPage from './features/auth/LoginPage';
+import CompanySelectPage from './components/pages/CompanySelectPage';
+import VendorSelectPage from './components/pages/VendorSelectPage';
+import { LoadingState } from './components/ui/PageState';
+import { OrderDraftProvider } from './features/orderDraft/OrderDraftProvider';
+import { OrderSubmissionProvider, useOrderSubmission } from './features/orders/OrderSubmissionProvider';
+const DashboardPage = lazy(() => import('./components/pages/DashboardPage')); const OrdersPage = lazy(() => import('./components/pages/OrdersPage')); const OrderDetailPage = lazy(() => import('./components/pages/OrderDetailPage')); const AddExistingOrderLinePage = lazy(() => import('./components/pages/AddExistingOrderLinePage')); const ClientsPage = lazy(() => import('./components/pages/ClientsPage')); const InventoryPage = lazy(() => import('./components/pages/InventoryPage')); const InvoicesPage = lazy(() => import('./components/pages/InvoicesPage')); const CreateOrderPage = lazy(() => import('./components/pages/CreateOrderPage')); const AddOrderLinePage = lazy(() => import('./components/pages/AddOrderLinePage')); const AccountStatementPage = lazy(() => import('./components/pages/AccountStatementPage')); const ProductsPage = lazy(() => import('./components/pages/ProductsPage')); const CatalogsPage = lazy(() => import('./components/pages/CatalogsPage'));
+const OrderDraftReviewPage = lazy(() => import('./components/pages/OrderDraftReviewPage'));
+const OrderAttachmentsPage = lazy(() => import('./components/pages/OrderAttachmentsPage'));
+const AgingPage = lazy(() => import('./components/pages/AgingPage'));
+const FinancialDocumentPage = lazy(() => import('./components/pages/FinancialDocumentPage'));
+const SupportPage = lazy(() => import('./components/pages/SupportPage'));
+const CustomerAddressesPage = lazy(() => import('./components/pages/CustomerAddressesPage'));
+const NewCustomerAddressPage = lazy(() => import('./components/pages/NewCustomerAddressPage'));
+const ProductionPage = lazy(() => import('./components/pages/ProductionPage'));
+const ForecastPage = lazy(() => import('./components/pages/ForecastPage'));
+const DraftEditableRoute = ({ children }: { children: React.ReactNode }) => { const { submission, active } = useOrderSubmission(); return active || submission?.salesOrderNumber || submission?.headerAmbiguous ? <Navigate to="/crear-pedido/revision" replace /> : children; };
 
-type Route =
-  | '/' | '/pedidos' | '/pedidos/detalle' | '/clientes' | '/inventario'
-  | '/facturas' | '/facturas/busqueda' | '/crear-pedido' | '/crear-pedido/linea'
-  | '/estado-cuenta' | '/empresas' | '/vendedores' | '/soporte';
-
-const PAGE_TITLES: Partial<Record<Route, string>> = {
-  '/pedidos':           'Mis Pedidos',
-  '/pedidos/detalle':   'Detalle de Pedido',
-  '/clientes':          'Mis Clientes',
-  '/inventario':        'Consulta de Inventario',
-  '/facturas':          'Mis facturas de venta',
-  '/facturas/busqueda': 'Consultar facturas de ...',
-  '/crear-pedido':      'Crear pedido',
-  '/crear-pedido/linea':'Agregar Líneas',
-  '/estado-cuenta':     'Estado de Cuenta',
-  '/empresas':          'Cambiar Empresa',
-  '/vendedores':        'Seleccionar Vendedor',
-};
-
-const SEARCH_PH: Partial<Record<Route, string>> = {
-  '/':               'Buscar pedidos o clientes...',
-  '/pedidos':        'Buscar pedido por número o cliente...',
-  '/clientes':       'Buscar por cuenta o nombre...',
-  '/inventario':     'Buscar global...',
-  '/facturas':       'Buscar facturas...',
-};
-
-const USER: User = { name: 'Byron Chacón', role: 'bmarroquin@foragro.com' };
-
-// Routes that don't use the main sidebar layout
-const STANDALONE_ROUTES: Route[] = ['/empresas', '/vendedores'];
-
-const App: React.FC = () => {
-  const [route, setRoute] = useState<Route>('/');
-  const [history, setHistory] = useState<Route[]>([]);
-
-  const navigate = (to: Route) => {
-    setHistory(h => [...h, route]);
-    setRoute(to);
-  };
-
-  const goBack = () => {
-    const prev = history[history.length - 1];
-    if (prev) { setRoute(prev); setHistory(h => h.slice(0, -1)); }
-    else setRoute('/');
-  };
-
-  const handleNav = (href: string) => navigate(href as Route);
-
-  // Determine sidebar active (detail pages highlight parent)
-  const sidebarRoute = route === '/pedidos/detalle' ? '/pedidos'
-    : route === '/estado-cuenta' ? '/clientes'
-    : route === '/crear-pedido/linea' ? '/crear-pedido'
-    : route === '/facturas/busqueda' ? '/facturas'
-    : route;
-
-  const hasBack = history.length > 0 && route !== '/';
-  const isStandalone = STANDALONE_ROUTES.includes(route);
-
-  const renderPage = () => {
-    switch (route) {
-      case '/':                  return <DashboardPage />;
-      case '/pedidos':           return <OrdersPage onViewOrder={() => navigate('/pedidos/detalle')} />;
-      case '/pedidos/detalle':   return <OrderDetailPage onBack={goBack} />;
-      case '/clientes':          return <ClientsPage onEstadoCuenta={() => navigate('/estado-cuenta')} />;
-      case '/inventario':        return <InventoryPage />;
-      case '/facturas':          return <InvoicesPage />;
-      case '/facturas/busqueda': return <InvoicesPage showSearch />;
-      case '/crear-pedido':      return <CreateOrderPage onNext={() => navigate('/crear-pedido/linea')} />;
-      case '/crear-pedido/linea':return <AddOrderLinePage onAdd={goBack} onBack={goBack} />;
-      case '/estado-cuenta':     return <AccountStatementPage />;
-      case '/empresas':          return <CompanySelectPage onSelect={() => navigate('/vendedores')} />;
-      case '/vendedores':        return <VendorSelectPage onSelect={() => navigate('/')} />;
-      default:                   return <DashboardPage />;
-    }
-  };
-
-  // Standalone pages (no sidebar)
-  if (isStandalone) {
-    return (
-      <div className="min-h-screen bg-background font-sans">
-        <div className="bg-primary text-white flex items-center gap-3 px-4 py-3">
-          {hasBack && (
-            <button onClick={goBack} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20">
-              <span className="material-symbols-outlined text-white" style={{ fontSize: 18 }}>arrow_back</span>
-            </button>
-          )}
-          <h1 className="text-sm font-semibold">{PAGE_TITLES[route] ?? ''}</h1>
-        </div>
-        {renderPage()}
-      </div>
-    );
-  }
-
-  return (
-    <AppLayout
-      activeRoute={sidebarRoute}
-      user={USER}
-      searchPlaceholder={SEARCH_PH[route]}
-      onNavigate={handleNav}
-      onBack={hasBack ? goBack : undefined}
-      showFab={route === '/pedidos' || route === '/'}
-      onFab={() => navigate('/crear-pedido')}
-    >
-      {renderPage()}
-    </AppLayout>
-  );
-};
-
+const ExistingPrototypeRoutes: React.FC = () => { const navigate = useNavigate(); return <Routes><Route path="/home" element={<DashboardPage />} /><Route path="/pedidos" element={<OrdersPage />} /><Route path="/pedidos/:salesOrderNumber" element={<OrderDetailPage />} /><Route path="/pedidos/:salesOrderNumber/lineas/nueva" element={<AddExistingOrderLinePage />} /><Route path="/pedidos/:salesOrderNumber/adjuntos" element={<OrderAttachmentsPage />} /><Route path="/clientes" element={<ClientsPage onEstadoCuenta={() => navigate('/estado-cuenta')} />} /><Route path="/clientes/:customerAccount/direcciones" element={<CustomerAddressesPage />} /><Route path="/clientes/:customerAccount/direcciones/nueva" element={<NewCustomerAddressPage />} /><Route path="/inventario" element={<InventoryPage />} /><Route path="/productos" element={<ProductsPage />} /><Route path="/catalogos" element={<CatalogsPage />} /><Route path="/facturas" element={<InvoicesPage />} />{/* Producción/Forecast: implementados, ocultos temporalmente. Deep link bloqueado (fail closed) sin borrar el módulo. */}<Route path="/produccion" element={appConfig.featureProduction ? <ProductionPage /> : <Navigate to="/home" replace />} /><Route path="/forecast" element={appConfig.featureForecast ? <ForecastPage /> : <Navigate to="/home" replace />} /><Route path="/crear-pedido/*" element={<OrderDraftProvider><OrderSubmissionProvider><Routes><Route index element={<DraftEditableRoute><CreateOrderPage /></DraftEditableRoute>} /><Route path="linea" element={<DraftEditableRoute><AddOrderLinePage /></DraftEditableRoute>} /><Route path="revision" element={<OrderDraftReviewPage />} /></Routes></OrderSubmissionProvider></OrderDraftProvider>} /><Route path="/estado-cuenta" element={<AccountStatementPage />} /><Route path="/estado-cuenta/aging" element={<AgingPage />} /><Route path="/estado-cuenta/documento/:id" element={<FinancialDocumentPage />} /><Route path="/soporte" element={<SupportPage />} /></Routes>; };
+const App: React.FC = () => <Suspense fallback={<LoadingState message="Cargando módulo..." />}><Routes><Route path="/login" element={<LoginPage />} /><Route element={<RequireAuthentication />}><Route path="/company" element={<CompanySelectPage />} /><Route element={<RequireCompany />}><Route path="/vendor" element={<VendorSelectPage />} /></Route><Route element={<RequireCompleteContext />}><Route element={<ProtectedLayout />}><Route path="*" element={<ExistingPrototypeRoutes />} /></Route></Route></Route><Route path="/" element={<Navigate to="/home" replace />} /><Route path="*" element={<Navigate to="/home" replace />} /></Routes></Suspense>;
 export default App;

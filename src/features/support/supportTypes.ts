@@ -1,0 +1,1 @@
+export type SupportAttachment={file_name:string;file_content:string};export type SupportRequest={to:'soporte@foragro.com';cc:string;from_email:'dynamics@foragro.com';subject:'Sales4App';body:string;attachments?:SupportAttachment[]};export type SupportResponse={success:boolean;message:string;errorMessage:string};

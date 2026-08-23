@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env
 .env.local
+.env.*.local
 .vscode/
 .idea/
 coverage/
+playwright-report/
+test-results/
