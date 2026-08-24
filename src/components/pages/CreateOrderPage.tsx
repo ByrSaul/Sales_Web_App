@@ -1,26 +1,45 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useSession } from '../../app/providers/SessionProvider';
 import {
   useCustomerAddresses,
-  useCustomers,
+  useInfiniteCustomers,
   useReferenceCatalogs,
 } from '../../features/catalogs/hooks';
 import type { Customer } from '../../features/catalogs/types';
+import { isFullyBlockedCustomer } from '../../features/catalogs/customerRules';
 import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
 import { Button, Card, Input, Select } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { ErrorState } from '../ui/PageState';
+
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
   const { context } = useSession();
   const { draft, update } = useOrderDraft();
   const [search, setSearch] = useState('');
-  const customers = useCustomers(search, 1);
+  const debouncedSearch = useDebouncedValue(search, 1000);
+  const customers = useInfiniteCustomers(debouncedSearch);
+  const isCustomerSearchApplied =
+    debouncedSearch.trim().length >= 1 && debouncedSearch.trim() === search.trim();
   const addresses = useCustomerAddresses(draft.customer?.account ?? '');
-  const refs = useReferenceCatalogs(draft.customer?.account ?? '', '');
+  const refs = useReferenceCatalogs(draft.customer?.account ?? '', '', {
+    promotions: false,
+    documents: false,
+  });
   const currencies = context.company?.availableCurrencies ?? [];
+  useEffect(() => {
+    if (!draft.customer) return;
+    const languageId =
+      context.user?.language && context.user.language.length > 0
+        ? context.user.language
+        : draft.customer.languageId;
+    if (draft.languageId !== languageId) update({ languageId });
+  }, [context.user?.language, draft.customer, draft.languageId, update]);
   const chooseCustomer = (customer: Customer) => {
+    if (isFullyBlockedCustomer(customer)) return;
     if (draft.customer?.account === customer.account) return;
     if (
       draft.lines.length &&
@@ -31,6 +50,10 @@ const CreateOrderPage = () => {
       return;
     update({
       customer,
+      languageId:
+        context.user?.language && context.user.language.length > 0
+          ? context.user.language
+          : customer.languageId,
       currencyCode: currencies.includes(customer.currency) ? customer.currency : draft.currencyCode,
       deliveryAddress: null,
       agreement: null,
@@ -54,8 +77,8 @@ const CreateOrderPage = () => {
     draft.customer &&
     draft.deliveryMode &&
     draft.deliveryAddress &&
-    draft.salesOrigin &&
     draft.requestedShippingDate &&
+    draft.languageId.length > 0 &&
     currencies.includes(draft.currencyCode),
   );
   return (
@@ -72,30 +95,63 @@ const CreateOrderPage = () => {
           onChange={(e) => setSearch(e.target.value)}
           icon="search"
         />
-        {customers.isLoading && <LoadingState message="Cargando clientes..." />}
-        {customers.isError && (
-          <ErrorState
-            message="No se pudieron cargar los clientes."
-            onRetry={() => customers.refetch()}
-          />
+        {!draft.customer && isCustomerSearchApplied && customers.isFetching && !customers.isFetchingNextPage && customers.items.length === 0 && (
+          <p className="text-xs text-on-surface-variant">Buscando clientes...</p>
         )}
-        {search && customers.data && !draft.customer && (
-          <div className="max-h-52 overflow-auto border rounded-lg">
-            {customers.data.items.map((customer) => (
+        {!draft.customer && isCustomerSearchApplied && customers.isError && (
+          <p className="text-xs text-error">
+            No fue posible consultar clientes.{' '}
+            <button className="underline" onClick={() => void customers.refetch()}>Reintentar</button>
+          </p>
+        )}
+        {isCustomerSearchApplied && !customers.isError && !draft.customer && customers.items.length > 0 && (
+          <div className="max-h-80 w-full max-w-full space-y-2 overflow-x-hidden overflow-y-auto rounded-lg border p-2">
+            {customers.items.map((customer) => {
+              const fullyBlocked = isFullyBlockedCustomer(customer);
+              return (
               <button
                 type="button"
-                key={customer.account}
+                key={`${customer.companyId}-${customer.account}`}
+                disabled={fullyBlocked}
+                aria-label={`${customer.name}, cuenta ${customer.account}${fullyBlocked ? ', bloqueado para todas las transacciones' : ''}`}
                 onClick={() => chooseCustomer(customer)}
-                className="block w-full text-left p-3 border-b hover:bg-surface-container"
+                className={`block w-full rounded-lg border p-3 text-left ${fullyBlocked ? 'cursor-not-allowed border-error/40 bg-error/5 opacity-70' : 'border-outline-variant hover:bg-surface-container'}`}
               >
-                <strong className="text-sm">{customer.account}</strong>
-                <span className="text-sm"> · {customer.name}</span>
-                <p className="text-xs text-on-surface-variant">
-                  {customer.currency} · {customer.paymentTerms}
-                </p>
+                <span className="flex items-start justify-between gap-3">
+                  <span>
+                    <strong className="block text-sm">{customer.name}</strong>
+                    <span className="text-xs text-on-surface-variant">{customer.account}</span>
+                  </span>
+                  {fullyBlocked && (
+                    <span className="text-right">
+                      <span className="rounded-full border border-error/30 bg-error/10 px-2 py-0.5 text-xs font-semibold text-error">Bloqueado</span>
+                      <span className="mt-1 block text-xs text-error">Tipo de bloqueo: {customer.blockedDescription}</span>
+                    </span>
+                  )}
+                </span>
+                <span className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                  <span><span className="block text-on-surface-variant">Crédito disponible</span><strong>{usd.format(customer.creditAvailableUsd)}</strong></span>
+                  <span><span className="block text-on-surface-variant">Términos</span><strong>{customer.paymentTerms || '—'}</strong></span>
+                  <span><span className="block text-on-surface-variant">Moneda</span><strong>{customer.currency || '—'}</strong></span>
+                </span>
               </button>
-            ))}
+              );
+            })}
+            {customers.hasNextPage && (
+              <Button
+                fullWidth
+                size="sm"
+                variant="outline"
+                loading={customers.isFetchingNextPage}
+                onClick={() => void customers.fetchNextPage()}
+              >
+                Cargar más clientes
+              </Button>
+            )}
           </div>
+        )}
+        {isCustomerSearchApplied && !customers.isFetching && !customers.isError && !draft.customer && customers.items.length === 0 && (
+          <p className="text-xs text-on-surface-variant">No se encontraron clientes.</p>
         )}
         {draft.customer && (
           <div className="p-3 bg-primary/5 rounded-lg flex justify-between gap-3">
@@ -180,8 +236,8 @@ const CreateOrderPage = () => {
             />
           )}
           <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-            Nueva dirección no disponible: BLOQUEANTE BACKEND — GET con JSON body incompatible con
-            navegador.
+            No es posible crear una nueva dirección: países, estados, municipios, ciudades y ZIP
+            todavía requieren GET con JSON body, sin alternativa Web compatible.
           </p>
           <Input
             label="Fecha solicitada de envío"
@@ -201,7 +257,7 @@ const CreateOrderPage = () => {
               })
             }
             options={[
-              { value: '', label: refs.origins.isLoading ? 'Cargando...' : 'Seleccione...' },
+              { value: '', label: refs.origins.isLoading ? 'Cargando...' : 'Sin origen' },
               ...(refs.origins.data ?? []).map((x) => ({
                 value: x.id,
                 label: `${x.id} · ${x.description}`,
@@ -244,14 +300,17 @@ const CreateOrderPage = () => {
             />
           </label>
           <div className="text-xs bg-surface-container p-2 rounded">
-            NIT/documento: no disponible por el contrato GET con body. No se generarán valores
-            ficticios.
+            NIT/documento no disponible: la búsqueda en /d365/vat_num y los tipos de
+            /d365/vat_num/document_type todavía requieren GET con JSON body. La creación POST no
+            se habilita sin esos datos y no se generarán valores ficticios.
           </div>
         </Card>
       </div>
       {!ready && (
         <p role="alert" className="text-sm text-error">
-          Complete cliente, moneda, entrega, dirección, fecha y origen para continuar.
+          {draft.customer && !draft.languageId
+            ? 'No se pudo determinar LanguageId del usuario ni del cliente seleccionado.'
+            : 'Complete cliente, moneda, entrega, dirección y fecha para continuar.'}
         </p>
       )}
       <Button size="lg" fullWidth disabled={!ready} onClick={() => navigate('/crear-pedido/linea')}>

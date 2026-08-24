@@ -119,9 +119,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       try {
         user = await service.getUser();
       } catch {
-        user = { id: '', name: '', language: 'SIN DATO', personnelNumber: 'SIN DATO' };
+        user = { id: '', name: '', language: 'SIN DATO', personnelnumber: '' };
         warning =
-          'No se pudieron obtener idioma y número de personal. Se conservaron los valores de compatibilidad de Mobile.';
+          'No se pudieron obtener idioma y número de personal. La creación de pedidos permanecerá bloqueada sin un número de personal real.';
       }
       try {
         const permissions = await service.getPermissions(context.company.id);

@@ -29,7 +29,7 @@ export const mapUser = (dto: UserDataDto): OperationalUser => ({
   id: dto.id ?? '',
   name: dto.name ?? '',
   language: dto.language ?? '',
-  personnelNumber: dto.personnelnumber ?? '',
+  personnelnumber: dto.personnelnumber ?? '',
 });
 export const mapPermission = (dto: MenuPermissionDto): MenuPermission => ({
   menu: dto.menu ?? '',

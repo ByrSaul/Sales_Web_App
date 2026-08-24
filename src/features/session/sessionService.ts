@@ -19,7 +19,10 @@ export const sessionService = (api: ApiClient) => ({
     return (await api.post<VendorDto[]>('/company/salesGroupByUser', { company })).map(mapVendor);
   },
   async getUser(): Promise<OperationalUser> {
-    return mapUser(await api.post<UserDataDto>('/user/data'));
+    const users = await api.post<UserDataDto[]>('/user/data');
+    const user = users[0];
+    if (!user) throw new Error('No se encontró información del usuario operativo.');
+    return mapUser(user);
   },
   async getPermissions(company: string): Promise<MenuPermission[]> {
     return (

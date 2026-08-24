@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useSession } from '../../app/providers/SessionProvider';
 import { catalogService } from '../../features/catalogs/catalogService';
 import {
   useInventory,
-  useProducts,
+  useInfiniteProducts,
   useReferenceCatalogs,
   useVariants,
 } from '../../features/catalogs/hooks';
@@ -21,7 +22,7 @@ import { ErrorState, LoadingState } from '../ui/PageState';
 const AddOrderLinePage = () => {
   const navigate = useNavigate();
   const { api, context } = useSession();
-  const { draft, addLines, removeLine } = useOrderDraft();
+  const { draft, update, addLines, removeLine } = useOrderDraft();
   const [search, setSearch] = useState('');
   const [product, setProduct] = useState<Product | null>(null);
   const [variant, setVariant] = useState<ProductVariant | null>(null);
@@ -31,10 +32,23 @@ const AddOrderLinePage = () => {
   const [independent, setIndependent] = useState(false);
   const [agreementLine, setAgreementLine] = useState('');
   const [priceOverride, setPriceOverride] = useState('');
-  const products = useProducts(search, 1);
-  const variants = useVariants(product);
+  const forceRegisterVariant = draft.forceRegisterVariant ?? false;
+  const deliveryCountryRegionId = draft.deliveryAddress?.countryId ?? '';
+  const debouncedSearch = useDebouncedValue(search, 1000);
+  const products = useInfiniteProducts(debouncedSearch);
+  const isProductSearchApplied =
+    debouncedSearch.trim().length >= 1 && debouncedSearch.trim() === search.trim();
+  const variants = useVariants(product, {
+    forceRegistry: forceRegisterVariant,
+    regionId: forceRegisterVariant ? deliveryCountryRegionId : undefined,
+  });
   const inventory = useInventory(product, variant?.displayProductNumber ?? '', 1);
-  const refs = useReferenceCatalogs(draft.customer?.account ?? '', '');
+  const refs = useReferenceCatalogs('', '', {
+    delivery: false,
+    origins: false,
+    agreements: false,
+    documents: false,
+  });
   const agreementLines = useQuery({
     queryKey: catalogKeys.catalog(
       'agreement-lines',
@@ -78,6 +92,12 @@ const AddOrderLinePage = () => {
   useEffect(() => {
     setPriceOverride('');
   }, [product?.itemId, variant?.displayProductNumber, draft.customer?.account, draft.currencyCode]);
+  useEffect(() => {
+    if (!forceRegisterVariant) return;
+    setVariant(null);
+    setStock(null);
+    setPriceOverride('');
+  }, [deliveryCountryRegionId, forceRegisterVariant]);
   const pricePermission = canEditPrice(context.permissions);
   const effectivePrice = price.data
     ? { ...price.data, price: priceOverride !== '' ? Number(priceOverride) || 0 : price.data.price }
@@ -151,52 +171,92 @@ const AddOrderLinePage = () => {
             onChange={(e) => {
               setSearch(e.target.value);
               setProduct(null);
+              setVariant(null);
               setStock(null);
+              setPriceOverride('');
             }}
             icon="search"
           />
-          {products.isLoading && <LoadingState message="Cargando productos..." />}
-          {products.isError && (
-            <ErrorState
-              message="No se pudieron cargar los productos."
-              onRetry={() => products.refetch()}
-            />
+          {!product && isProductSearchApplied && products.isFetching && !products.isFetchingNextPage && (
+            <p className="text-xs text-on-surface-variant">Buscando productos...</p>
           )}
-          {!product && search && (
-            <div className="max-h-40 overflow-auto border rounded">
-              {products.data?.items.map((p) => (
+          {!product && isProductSearchApplied && products.isError && (
+            <p className="text-xs text-error">
+              No fue posible consultar productos.{' '}
+              <button className="underline" onClick={() => void products.refetch()}>Reintentar</button>
+            </p>
+          )}
+          {!product && isProductSearchApplied && !products.isError && products.items.length > 0 && (
+            <div className="max-h-40 w-full max-w-full overflow-x-hidden overflow-y-auto rounded border">
+              {products.items.map((p) => (
                 <button
                   key={p.itemId}
-                  className="block w-full text-left p-2 border-b text-sm hover:bg-surface-container"
+                  className="block w-full min-w-0 max-w-full break-words border-b p-2 text-left text-sm hover:bg-surface-container"
                   onClick={() => {
                     setProduct(p);
+                    setVariant(null);
+                    setStock(null);
+                    setPriceOverride('');
                     setSearch(`${p.itemId} · ${p.name}`);
                   }}
                 >
                   {p.itemId} · {p.name} <small>{p.productType}</small>
                 </button>
               ))}
+              {products.hasNextPage && (
+                <Button
+                  fullWidth
+                  variant="outline"
+                  loading={products.isFetchingNextPage}
+                  onClick={() => void products.fetchNextPage()}
+                >
+                  Cargar más productos
+                </Button>
+              )}
             </div>
           )}
           {product?.requiresVariant && (
-            <Select
-              label="Variante obligatoria"
-              value={variant?.displayProductNumber ?? ''}
-              onChange={(e) => {
-                setVariant(
-                  variants.data?.items.find((v) => v.displayProductNumber === e.target.value) ??
-                    null,
-                );
-                setStock(null);
-              }}
-              options={[
-                { value: '', label: variants.isLoading ? 'Cargando...' : 'Seleccione...' },
-                ...(variants.data?.items ?? []).map((v) => ({
-                  value: v.displayProductNumber,
-                  label: `${v.displayProductNumber} · ${v.name}`,
-                })),
-              ]}
-            />
+            <div className="space-y-3">
+              <Toggle
+                  label="Forzar registro"
+                  checked={forceRegisterVariant}
+                  disabled={!deliveryCountryRegionId}
+                  onChange={(value) => {
+                    update({ forceRegisterVariant: value });
+                    setVariant(null);
+                    setStock(null);
+                    setPriceOverride('');
+                  }}
+              />
+              {!deliveryCountryRegionId && (
+                <p className="text-xs text-amber-700">
+                  La dirección de entrega seleccionada no contiene CountryRegionId.
+                </p>
+              )}
+              <Select
+                label="Variante obligatoria"
+                value={variant?.displayProductNumber ?? ''}
+                disabled={forceRegisterVariant && !deliveryCountryRegionId}
+                onChange={(e) => {
+                  setVariant(
+                    variants.data?.items.find((v) => v.displayProductNumber === e.target.value) ??
+                      null,
+                  );
+                  setStock(null);
+                  setPriceOverride('');
+                }}
+                options={[
+                  { value: '', label: variants.isLoading ? 'Cargando...' : 'Seleccione...' },
+                  ...(variants.data?.items ?? []).map((v) => ({
+                    value: v.displayProductNumber,
+                    label: `${v.displayProductNumber} · ${v.name}`,
+                  })),
+                ]}
+              />
+            </div>
+          )}
+          {!product && isProductSearchApplied && !products.isFetching && !products.isError && products.items.length === 0 && (
+            <p className="text-xs text-on-surface-variant">No se encontraron productos.</p>
           )}
           <Input
             label="Cantidad"
@@ -206,18 +266,16 @@ const AddOrderLinePage = () => {
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
-          <div className="flex justify-between border p-3 rounded">
-            <span className="text-sm">Bonificación independiente</span>
-            <Toggle
+          <Toggle
+              label="Bonificación independiente"
               checked={independent}
               onChange={(v) => {
                 setIndependent(v);
                 if (v) setPromotionId('');
               }}
-            />
-          </div>
+          />
           {!independent && (
-            <Select
+              <Select
               label="Promoción vinculada (opcional)"
               value={promotionId}
               onChange={(e) => setPromotionId(e.target.value)}
@@ -274,6 +332,9 @@ const AddOrderLinePage = () => {
                 disabled={!pricePermission || !price.data}
                 onChange={(e) => setPriceOverride(e.target.value)}
               />
+              {variants.isFetching && (
+                <p className="text-xs text-on-surface-variant">Buscando variantes...</p>
+              )}
               {!pricePermission && (
                 <p className="text-xs text-on-surface-variant">
                   Sin permiso Create Sales Orders → Price Sales Line → Editar.
@@ -297,12 +358,12 @@ const AddOrderLinePage = () => {
           {inventory.data && !inventory.data.items.length && (
             <p className="text-sm">Sin inventario para la selección.</p>
           )}
-          <div className="space-y-2 max-h-96 overflow-auto">
+          <div className="max-h-96 w-full max-w-full space-y-2 overflow-x-hidden overflow-y-auto">
             {inventory.data?.items.map((item, i) => (
               <button
                 key={`${item.siteId}-${item.warehouseId}-${i}`}
                 onClick={() => setStock(item)}
-                className={`w-full text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}
+                className={`w-full min-w-0 max-w-full break-words text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}
               >
                 <strong>
                   {item.siteId} · {item.warehouseId}

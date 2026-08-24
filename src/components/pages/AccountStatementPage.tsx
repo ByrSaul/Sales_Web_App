@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStatement } from '../../features/billing/billingQueries';
 import { Button, Card, EmptyState, Input } from '../ui';
@@ -11,6 +11,7 @@ const AccountStatementPage = () => {
   const account = p.get('customer') ?? '';
   const multi = p.get('multiCompany') === 'true';
   const [input, setInput] = useState(account);
+  useEffect(() => setInput(account), [account]);
   const q = useStatement(account, multi);
   return (
     <div className="space-y-4">

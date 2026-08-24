@@ -53,7 +53,7 @@ export type OrderDraft = {
   dataAreaId: string;
   vendorId: string;
   languageId: string;
-  orderResponsiblePersonnelNumber: string;
+  personnelnumber: string;
   customer: Customer | null;
   currencyCode: string;
   deliveryMode: DeliveryMode | null;
@@ -64,6 +64,7 @@ export type OrderDraft = {
   salesOrigin: SalesOrigin | null;
   agreement: DraftAgreement | null;
   taxExemptNumber: string | null;
+  forceRegisterVariant?: boolean;
   lines: OrderDraftLine[];
   updatedAt: string;
 };

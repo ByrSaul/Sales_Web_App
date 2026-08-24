@@ -9,7 +9,7 @@ const company = {
   availableCurrencies: ['GTQ'],
 };
 const vendor = { companyId: 'cmp', id: 'sales', name: 'Vendor' };
-const user = { id: 'user', name: 'User', language: 'es', personnelNumber: '1' };
+const user = { id: 'user', name: 'User', language: 'es', personnelnumber: '1' };
 describe('route policy', () => {
   it('sends unauthenticated users to login', () =>
     expect(destinationFor({ authenticated: false, context: emptyOperationalContext() })).toBe(

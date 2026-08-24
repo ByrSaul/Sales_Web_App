@@ -8,9 +8,11 @@ import type {
   County,
   Customer,
   CustomerAddress,
+  CustomerSearchResponseDto,
   DeliveryMode,
   DocumentTypes,
   InventoryItem,
+  InventoryLocation,
   PageResult,
   Price,
   Product,
@@ -41,7 +43,7 @@ export const catalogService = (api: ApiClient) => ({
       perPage: number;
     } & Signal,
   ): Promise<PageResult<Customer>> {
-    const r = await api.post<Json>(
+    const r = await api.post<CustomerSearchResponseDto>(
       '/customer/data',
       {
         company: input.company,
@@ -51,8 +53,7 @@ export const catalogService = (api: ApiClient) => ({
       },
       input,
     );
-    if (Array.isArray(r)) return map.pageResult([], {}, input.perPage);
-    return map.pageResult(map.list(r.customers).map(map.customer), r.pagination, input.perPage);
+    return map.pageResult(r.customers.map(map.customer), r.pagination, input.perPage);
   },
   async customerAddresses(
     company: string,
@@ -160,6 +161,24 @@ export const catalogService = (api: ApiClient) => ({
       input,
     );
     return map.pageResult(inventoryList(r.inventory).map(map.inventory), r.pagination, perPage);
+  },
+  async inventoryLocations(
+    input: { company: string; salesGroup: string; page: number; perPage: number } & Signal,
+  ): Promise<PageResult<InventoryLocation>> {
+    const r = await api.post<Json>(
+      '/inventory/locations_by_sales_group_and_company',
+      {
+        company: input.company,
+        sales_group: input.salesGroup,
+        pagination: paging(input.page, input.perPage),
+      },
+      input,
+    );
+    return map.pageResult(
+      map.list(r.locations).map(map.inventoryLocation),
+      r.pagination,
+      input.perPage,
+    );
   },
   async getPrice(
     input: {

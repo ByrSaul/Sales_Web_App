@@ -9,30 +9,44 @@ import type {
 type Json = Record<string, unknown>;
 const s = (v: unknown) => (typeof v === 'string' ? v : '');
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
-export const mapHeaderRequest = (d: OrderDraft): SalesHeaderRequest => ({
-  dataAreaId: d.dataAreaId,
-  CurrencyCode: d.currencyCode,
-  LanguageId: d.languageId,
-  InvoiceCustomerAccountNumber: d.customer?.account ?? '',
-  OrderingCustomerAccountNumber: d.customer?.account ?? '',
-  OrderResponsiblePersonnelNumber: d.orderResponsiblePersonnelNumber,
-  DeliveryAddressLocationId: d.deliveryAddress?.locationId ?? '',
-  ...(d.deliveryMode ? { FADlvMode: d.deliveryMode.code } : {}),
-  ...(d.requestedShippingDate
-    ? {
-        RequestedShippingDate: d.requestedShippingDate,
-        ConfirmedShippingDate: d.requestedShippingDate,
-      }
-    : {}),
-  ...(d.agreement
-    ? { MatchingAgreement: d.agreement.recId, CSFASalesAgreementId: d.agreement.number }
-    : {}),
-  CommissionSalesRepresentativeGroupId: d.vendorId,
-  ...(d.taxExemptNumber ? { TaxExemptNumber: d.taxExemptNumber } : {}),
-  ...(d.salesOrigin ? { SalesOrderOriginCode: d.salesOrigin.id } : {}),
-  ...(d.observations ? { Observations: d.observations } : {}),
-  ...(d.customerReference ? { CustomersOrderReference: d.customerReference } : {}),
-});
+const optionalText = (value: string | null | undefined) => value?.trim() || undefined;
+export const mapHeaderRequest = (d: OrderDraft): SalesHeaderRequest => {
+  if (!d.languageId) {
+    throw new Error('No se pudo determinar LanguageId del usuario ni del cliente seleccionado.');
+  }
+  const personnelnumber = d.personnelnumber?.trim();
+  if (!personnelnumber) {
+    throw new Error('No se pudo determinar el número de personal del usuario actual.');
+  }
+  const observations = optionalText(d.observations);
+  const customerReference = optionalText(d.customerReference);
+  const taxExemptNumber = optionalText(d.taxExemptNumber);
+  const vendorId = optionalText(d.vendorId);
+  return {
+    dataAreaId: d.dataAreaId,
+    CurrencyCode: d.currencyCode,
+    LanguageId: d.languageId,
+    InvoiceCustomerAccountNumber: d.customer?.account ?? '',
+    OrderingCustomerAccountNumber: d.customer?.account ?? '',
+    OrderResponsiblePersonnelNumber: personnelnumber,
+    DeliveryAddressLocationId: d.deliveryAddress?.locationId ?? '',
+    ...(d.deliveryMode ? { FADlvMode: d.deliveryMode.code } : {}),
+    ...(d.requestedShippingDate
+      ? {
+          RequestedShippingDate: d.requestedShippingDate,
+          ConfirmedShippingDate: d.requestedShippingDate,
+        }
+      : {}),
+    ...(d.agreement
+      ? { MatchingAgreement: d.agreement.recId, CSFASalesAgreementId: d.agreement.number }
+      : {}),
+    ...(vendorId ? { CommissionSalesRepresentativeGroupId: vendorId } : {}),
+    ...(taxExemptNumber ? { TaxExemptNumber: taxExemptNumber } : {}),
+    ...(d.salesOrigin ? { SalesOrderOriginCode: d.salesOrigin.id } : {}),
+    ...(observations ? { Observations: observations } : {}),
+    ...(customerReference ? { CustomersOrderReference: customerReference } : {}),
+  };
+};
 const lineBase = (line: OrderDraftLine, order: string): Omit<SalesLineRequest, 'dataAreaId'> => ({
   SalesOrderNumber: order,
   ItemNumber: line.itemId,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
-import { useInventory, useProducts, useVariants } from '../../features/catalogs/hooks';
+import { useInfiniteProducts, useInventory, useVariants } from '../../features/catalogs/hooks';
 import type { Product } from '../../features/catalogs/types';
 import { Badge, Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
@@ -10,11 +10,11 @@ const InventoryPage: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [variant, setVariant] = useState('');
   const [page, setPage] = useState(1);
-  const products = useProducts(debounced, 1);
+  const products = useInfiniteProducts(debounced, true);
   const variants = useVariants(product);
   const stock = useInventory(product, variant, page);
   const selectProduct = (id: string) => {
-    setProduct(products.data?.items.find((x) => x.itemId === id) ?? null);
+    setProduct(products.items.find((x) => x.itemId === id) ?? null);
     setVariant('');
     setPage(1);
   };
@@ -38,12 +38,21 @@ const InventoryPage: React.FC = () => {
           onChange={(e) => selectProduct(e.target.value)}
           options={[
             { value: '', label: products.isFetching ? 'Buscando...' : 'Seleccionar...' },
-            ...(products.data?.items ?? []).map((x) => ({
+            ...products.items.map((x) => ({
               value: x.itemId,
               label: `${x.itemId} - ${x.name}`,
             })),
           ]}
         />
+        {products.hasNextPage && (
+          <Button
+            variant="outline"
+            loading={products.isFetchingNextPage}
+            onClick={() => void products.fetchNextPage()}
+          >
+            Cargar más productos
+          </Button>
+        )}
         {product?.requiresVariant && (
           <Select
             label="Variante obligatoria"

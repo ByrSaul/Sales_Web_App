@@ -11,9 +11,10 @@ export type Customer = {
   account: string;
   companyId: string;
   name: string;
+  warehouseId: string;
   currency: string;
   paymentTerms: string;
-  blocked: boolean;
+  blocked: number;
   blockedDescription: string;
   partyNumber: string;
   languageId: string;
@@ -21,6 +22,34 @@ export type Customer = {
   creditLimitUsd: number;
   creditAvailableUsd: number;
   isCashAccount: boolean;
+};
+export type CustomerDto = {
+  commissionsalesgroupid: string;
+  customeraccount: string;
+  dataareaid: string;
+  name: string;
+  inventlocation: string;
+  salescurrencycode: string;
+  paymentterms: string;
+  blocked: number;
+  blocked_description: string;
+  partynumber: string;
+  languageid: string;
+  countryregionid: string;
+  usd_creditlimit: number;
+  usd_creditavailable: number;
+  csfaiscashaccount: number;
+};
+export type CustomerSearchResponseDto = {
+  customers: CustomerDto[];
+  pagination: {
+    CurrentPage: number;
+    PerPage: number;
+    FromRecord: number;
+    ToRecord: number;
+    TotalRecords: number;
+    TotalPages: number;
+  };
 };
 export type CustomerAddress = {
   locationId: string;
@@ -70,6 +99,7 @@ export type InventoryItem = {
   styleId: string;
   versionId: string;
 };
+export type InventoryLocation = { id: string; name: string };
 export type Price = {
   success: boolean;
   errorMessage: string;

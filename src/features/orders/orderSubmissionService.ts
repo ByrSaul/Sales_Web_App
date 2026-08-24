@@ -30,8 +30,11 @@ export const orderSubmissionService = (api: ApiClient): OrderSubmissionGateway =
     salesOrderNumber: string,
   ): Promise<ExistingSalesLine[]> {
     return mapExistingLines(
-      await api.get<unknown>('/d365/sales/line', {
-        body: { filters: { dataAreaId: [companyId], SalesOrderNumber: [salesOrderNumber] } },
+      await api.post<unknown>('/d365/sales/line/query', {
+        filters: { dataAreaId: [companyId], SalesOrderNumber: [salesOrderNumber] },
+        cross_company: true,
+        page: 1,
+        perpage: 25,
       }),
     );
   },

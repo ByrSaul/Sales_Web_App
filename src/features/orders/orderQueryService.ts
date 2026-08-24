@@ -1,5 +1,10 @@
 import type { ApiClient } from '../../core/api/apiClient';
-import { mapCancel, mapConfirmation, mapOrderLines, mapOrders } from './orderMappers';
+import {
+  mapCancel,
+  mapConfirmation,
+  mapOfficialOrderLines,
+  mapOrders,
+} from './orderMappers';
 import type { OrderFilters, UpdateLineInput } from './orderTypes';
 export const orderQueryService = (api: ApiClient) => ({
   async list(company: string, salesGroup: string, filters: OrderFilters, signal?: AbortSignal) {
@@ -33,20 +38,65 @@ export const orderQueryService = (api: ApiClient) => ({
     return result.items[0] ?? null;
   },
   async lines(company: string, salesOrderNumber: string, signal?: AbortSignal) {
-    return mapOrderLines(
+    return mapOfficialOrderLines(
       await api.post<unknown>(
-        '/sales/details',
-        { company, sales_id: salesOrderNumber },
+        '/d365/sales/line/query',
+        {
+          filters: {
+            dataAreaId: [company],
+            SalesOrderNumber: [salesOrderNumber],
+          },
+          cross_company: true,
+          page: 1,
+          perpage: 1000,
+        },
         { signal },
       ),
     );
+  },
+  async officialLine(
+    company: string,
+    salesOrderNumber: string,
+    lineNumber: number,
+    signal?: AbortSignal,
+  ) {
+    const result = mapOfficialOrderLines(
+      await api.post<unknown>(
+        '/d365/sales/line/query',
+        {
+          filters: {
+            dataAreaId: [company],
+            SalesOrderNumber: [salesOrderNumber],
+            LineNumber: lineNumber,
+          },
+          cross_company: true,
+          page: 1,
+          perpage: 25,
+        },
+        { signal },
+      ),
+    );
+    const matches = result.filter(
+      (line) =>
+        line.dataAreaId.trim().toLowerCase() === company.trim().toLowerCase() &&
+        line.salesOrderNumber.trim().toLowerCase() === salesOrderNumber.trim().toLowerCase() &&
+        line.lineNumber === lineNumber,
+    );
+    if (!matches.length) throw new Error('No se encontrÃ³ la lÃ­nea seleccionada en Dynamics.');
+    if (matches.length !== 1)
+      throw new Error('Dynamics devolviÃ³ mÃ¡s de una coincidencia para la lÃ­nea seleccionada.');
+    return matches[0];
   },
   async updateLine(input: UpdateLineInput) {
     return api.patch<unknown>(
       '/d365/sales/line',
       {
         key: { dataAreaId: input.companyId, InventoryLotId: input.inventoryLotId },
-        payload: { OrderedSalesQuantity: input.quantity, SalesPrice: input.price },
+        payload:
+          input.payload ?? {
+            ...(input.quantity !== undefined ? { OrderedSalesQuantity: input.quantity } : {}),
+            ...(input.price !== undefined ? { SalesPrice: input.price } : {}),
+          },
       },
       { timeoutMs: 60_000 },
     );
@@ -56,8 +106,15 @@ export const orderQueryService = (api: ApiClient) => ({
       await api.post<unknown>(
         '/d365_services/post_cancle_sales_line',
         { dataAreaId: companyId, InventoryLotId: inventoryLotId },
-        { timeoutMs: 60_000 },
+        { timeoutMs: 60_000, retryOnUnauthorized: false },
       ),
+    );
+  },
+  async deleteLine(companyId: string, inventoryLotId: string) {
+    return api.delete<unknown>(
+      '/d365/sales/line',
+      { key: { dataAreaId: companyId, InventoryLotId: inventoryLotId } },
+      { timeoutMs: 60_000, retryOnUnauthorized: false },
     );
   },
   async confirm(companyId: string, salesOrderNumber: string) {

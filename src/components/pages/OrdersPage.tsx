@@ -7,12 +7,17 @@ import type { OrderFilters } from '../../features/orders/orderTypes';
 import { peekSubmission } from '../../features/orders/submissionStorage';
 import { Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+const localToday = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+};
 const fromParams = (p: URLSearchParams): OrderFilters => ({
   customer: p.get('customer') ?? '',
   status: p.get('status') ?? '',
   creditControl: p.get('credit') ?? '',
-  from: p.get('from') ?? '',
-  to: p.get('to') ?? '',
+  from: p.get('from') ?? localToday(),
+  to: p.get('to') ?? localToday(),
   page: Math.max(1, Number(p.get('page')) || 1),
   perPage: 10,
 });
@@ -22,7 +27,8 @@ const OrdersPage = () => {
   const [params, setParams] = useSearchParams();
   const filters = fromParams(params);
   const [form, setForm] = useState(filters);
-  const query = useOrders(filters);
+  const hasAppliedFilters = params.get('searched') === '1';
+  const query = useOrders(filters, hasAppliedFilters);
   const recovery = peekSubmission(context.accountId);
   const apply = () => {
     const next: Record<string, string> = {};
@@ -36,6 +42,7 @@ const OrdersPage = () => {
       if (v) next[k] = String(v);
     });
     next.page = '1';
+    next.searched = '1';
     setParams(next);
   };
   const page = (value: number) => {
@@ -119,8 +126,23 @@ const OrdersPage = () => {
             ]}
           />
         </div>
-        <Button onClick={apply}>Buscar</Button>
+        <div className="flex gap-2">
+          <Button onClick={apply}>Buscar</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const today = localToday();
+              setForm({ customer: '', status: '', creditControl: '', from: today, to: today, page: 1, perPage: 10 });
+              setParams({});
+            }}
+          >
+            Limpiar
+          </Button>
+        </div>
       </Card>
+      {!hasAppliedFilters && (
+        <EmptyState title="Define los filtros y pulsa Buscar" subtitle="No se consultarán pedidos hasta iniciar la búsqueda." />
+      )}
       {query.isLoading && <LoadingState message="Cargando pedidos..." />}
       {query.isError && (
         <ErrorState message="No se pudo consultar el historial." onRetry={() => query.refetch()} />

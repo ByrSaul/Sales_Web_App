@@ -6,9 +6,11 @@ import type {
   County,
   Customer,
   CustomerAddress,
+  CustomerDto,
   DeliveryMode,
   DocumentTypes,
   InventoryItem,
+  InventoryLocation,
   PageResult,
   Pagination,
   Price,
@@ -35,14 +37,15 @@ export const pagination = (v: unknown, perPage = 10): Pagination => {
     totalPages: n(j.TotalPages),
   };
 };
-export const customer = (j: Json): Customer => ({
+export const customer = (j: Json | CustomerDto): Customer => ({
   salesGroupId: s(j.commissionsalesgroupid),
   account: s(j.customeraccount),
   companyId: s(j.dataareaid),
   name: s(j.name),
+  warehouseId: s(j.inventlocation),
   currency: s(j.salescurrencycode),
   paymentTerms: s(j.paymentterms),
-  blocked: n(j.blocked) !== 0,
+  blocked: n(j.blocked),
   blockedDescription: s(j.blocked_description),
   partyNumber: s(j.partynumber),
   languageId: s(j.languageid),
@@ -98,6 +101,10 @@ export const inventory = (j: Json): InventoryItem => ({
   sizeId: s(j.inventsizeid),
   styleId: s(j.inventstyleid),
   versionId: s(j.inventversionid),
+});
+export const inventoryLocation = (j: Json): InventoryLocation => ({
+  id: s(j.inventlocationid),
+  name: s(j.name),
 });
 export const price = (j: Json): Price => ({
   success: Boolean(j.Success),

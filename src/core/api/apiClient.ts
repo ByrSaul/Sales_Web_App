@@ -39,13 +39,14 @@ export class ApiClient {
   post<T>(
     path: string,
     body?: unknown,
-    options?: { signal?: AbortSignal; timeoutMs?: number },
+    options?: { signal?: AbortSignal; timeoutMs?: number; retryOnUnauthorized?: boolean },
   ): Promise<T> {
     return this.request<T>(path, {
       method: 'POST',
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: options?.signal,
       timeoutMs: options?.timeoutMs,
+      retryOnUnauthorized: options?.retryOnUnauthorized,
     });
   }
   patch<T>(path: string, body?: unknown, options?: { timeoutMs?: number }): Promise<T> {
@@ -55,10 +56,22 @@ export class ApiClient {
       timeoutMs: options?.timeoutMs,
     });
   }
+  delete<T>(
+    path: string,
+    body?: unknown,
+    options?: { timeoutMs?: number; retryOnUnauthorized?: boolean },
+  ): Promise<T> {
+    return this.request<T>(path, {
+      method: 'DELETE',
+      body: body === undefined ? undefined : JSON.stringify(body),
+      timeoutMs: options?.timeoutMs,
+      retryOnUnauthorized: options?.retryOnUnauthorized,
+    });
+  }
 
   private async request<T>(
     path: string,
-    init: RequestInit & { timeoutMs?: number } = {},
+    init: RequestInit & { timeoutMs?: number; retryOnUnauthorized?: boolean } = {},
     retried = false,
   ): Promise<T> {
     // Token acquisition is classified on its own: a failure here means fetch() never runs,
@@ -79,7 +92,7 @@ export class ApiClient {
     }
     const controller = new AbortController();
     const externalSignal = init.signal;
-    const { timeoutMs, ...fetchInit } = init;
+    const { timeoutMs, retryOnUnauthorized, ...fetchInit } = init;
     const abortFromExternal = () => controller.abort();
     externalSignal?.addEventListener('abort', abortFromExternal, { once: true });
     const timeout = window.setTimeout(() => controller.abort(), timeoutMs ?? this.timeoutMs);
@@ -95,6 +108,12 @@ export class ApiClient {
         },
       });
       if (response.status === 401) {
+        if (retryOnUnauthorized === false)
+          throw new ApiError(
+            'authentication',
+            'La sesi\u00f3n fue rechazada; la operaci\u00f3n no se repiti\u00f3 autom\u00e1ticamente.',
+            401,
+          );
         if (this.options.refreshOnUnauthorized === false) {
           await this.options.onUnauthorized();
           throw new ApiError(

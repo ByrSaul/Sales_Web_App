@@ -4,6 +4,7 @@ import type {
   ConfirmationResult,
   ExistingOrder,
   ExistingOrderLine,
+  OfficialSalesOrderLine,
   OrdersResult,
   SalesOrderStatus,
 } from './orderTypes';
@@ -26,6 +27,7 @@ export const mapOrder = (j: Json): ExistingOrder => ({
   creditStatus: s(j.credit_status),
   salesAmount: n(j.salesamount),
   address: s(j.address ?? j.FormattedDelveryAddress),
+  deliveryCountryRegionId: s(j.countryregionid ?? j.CountryRegionId),
   confirmDocumentNumber: s(j.confirmdocnum),
   observations: s(j.observations ?? j.Observations),
   customerReference: s(j.customersorderreference ?? j.CustomersOrderReference),
@@ -53,7 +55,13 @@ export const mapOrders = (raw: unknown, perPage = 10): OrdersResult => {
 export const mapOrderLines = (raw: unknown): ExistingOrderLine[] =>
   (Array.isArray(raw) ? raw : []).map((x) => {
     const j = x as Json;
+    const optionalString = (...keys: string[]) => {
+      const key = keys.find((candidate) => candidate in j);
+      return key === undefined ? undefined : s(j[key]) || undefined;
+    };
     const agreement = n(j.MatchingAgreementLine ?? j.matchingagreementline);
+    const hasAgreement = 'MatchingAgreementLine' in j || 'matchingagreementline' in j;
+    const rawBonus = optionalString('FABonification', 'fabonification');
     return {
       lineNumber: n(j.LineNumber ?? j.linenum),
       itemId: s(j.ItemNumber ?? j.itemid),
@@ -62,10 +70,50 @@ export const mapOrderLines = (raw: unknown): ExistingOrderLine[] =>
       lineAmount: n(j.LineAmount ?? j.lineamount),
       price: n(j.SalesPrice ?? j.salesprice),
       itemName: s(j.LineDescription ?? j.item_name),
-      inventoryLotId: s(j.InventoryLotId ?? j.inventorylotid),
-      status: s(j.SalesOrderLineStatus ?? j.salesorderlinestatus),
-      isBonification: !['', 'no', '0'].includes(s(j.FABonification).toLowerCase()),
-      matchingAgreementLine: agreement || null,
+      inventoryLotId: optionalString('InventoryLotId', 'inventorylotid'),
+      status: optionalString('SalesOrderLineStatus', 'salesorderlinestatus'),
+      isBonification:
+        rawBonus === undefined ? undefined : !['no', '0', 'false'].includes(rawBonus.toLowerCase()),
+      matchingAgreementLine: hasAgreement ? agreement || null : undefined,
+      shippingSiteId: optionalString('ShippingSiteId', 'shippingsiteid'),
+      shippingWarehouseId: optionalString('ShippingWarehouseId', 'shippingwarehouseid'),
+      configurationId: optionalString('ProductConfigurationId', 'productconfigurationid'),
+      colorId: optionalString('ProductColorId', 'productcolorid'),
+      sizeId: optionalString('ProductSizeId', 'productsizeid'),
+      styleId: optionalString('ProductStyleId', 'productstyleid'),
+      versionId: optionalString('ProductVersionId', 'productversionid'),
+    };
+  });
+export const mapOfficialOrderLines = (raw: unknown): OfficialSalesOrderLine[] =>
+  (Array.isArray(raw) ? raw : []).map((x) => {
+    const j = x as Json;
+    const bonus = j.FABonification;
+    const bonusText = String(bonus ?? '').trim().toLowerCase();
+    return {
+      dataAreaId: s(j.dataAreaId),
+      salesOrderNumber: s(j.SalesOrderNumber),
+      lineNumber: n(j.LineNumber),
+      inventoryLotId: s(j.InventoryLotId),
+      itemId: s(j.ItemNumber),
+      itemName: s(j.LineDescription),
+      quantity: n(j.OrderedSalesQuantity),
+      price: n(j.SalesPrice),
+      lineAmount: n(j.LineAmount),
+      currencyCode: s(j.CurrencyCode),
+      salesUnitSymbol: s(j.SalesUnitSymbol),
+      status: s(j.SalesOrderLineStatus),
+      isBonification:
+        bonus === true || (!['', 'no', '0', 'false'].includes(bonusText) && Boolean(bonusText)),
+      suppItemGroupId: s(j.CSFASuppItemGroupId),
+      matchingAgreementLine: n(j.MatchingAgreementLine) || null,
+      shippingSiteId: s(j.ShippingSiteId),
+      shippingWarehouseId: s(j.ShippingWarehouseId),
+      configurationId: s(j.ProductConfigurationId),
+      colorId: s(j.ProductColorId),
+      sizeId: s(j.ProductSizeId),
+      styleId: s(j.ProductStyleId),
+      versionId: s(j.ProductVersionId),
+      lineDiscountPercentage: n(j.LineDiscountPercentage),
     };
   });
 export const mapConfirmation = (raw: unknown): ConfirmationResult => {

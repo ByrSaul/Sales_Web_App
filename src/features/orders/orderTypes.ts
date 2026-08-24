@@ -25,6 +25,7 @@ export type ExistingOrder = {
   creditStatus: string;
   salesAmount: number;
   address: string;
+  deliveryCountryRegionId?: string;
   confirmDocumentNumber: string;
   observations: string;
   customerReference: string;
@@ -39,10 +40,42 @@ export type ExistingOrderLine = {
   lineAmount: number;
   price: number;
   itemName: string;
+  inventoryLotId?: string;
+  status?: string;
+  isBonification?: boolean;
+  matchingAgreementLine?: number | null;
+  shippingSiteId?: string;
+  shippingWarehouseId?: string;
+  configurationId?: string;
+  colorId?: string;
+  sizeId?: string;
+  styleId?: string;
+  versionId?: string;
+};
+export type OfficialSalesOrderLine = {
+  dataAreaId: string;
+  salesOrderNumber: string;
+  lineNumber: number;
   inventoryLotId: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  price: number;
+  lineAmount: number;
+  currencyCode: string;
+  salesUnitSymbol: string;
   status: string;
   isBonification: boolean;
+  suppItemGroupId: string;
   matchingAgreementLine: number | null;
+  shippingSiteId: string;
+  shippingWarehouseId: string;
+  configurationId: string;
+  colorId: string;
+  sizeId: string;
+  styleId: string;
+  versionId: string;
+  lineDiscountPercentage: number;
 };
 export type OrdersResult = { items: ExistingOrder[]; pagination: Pagination };
 export type ConfirmationResult = {
@@ -63,6 +96,12 @@ export type UpdateLineInput = {
   companyId: string;
   salesOrderNumber: string;
   inventoryLotId: string;
-  quantity: number;
-  price: number;
+  payload?: {
+    OrderedSalesQuantity?: number;
+    SalesPrice?: number;
+    ShippingWarehouseId?: string;
+  };
+  /** Legacy caller compatibility; the persisted-line editor uses payload. */
+  quantity?: number;
+  price?: number;
 };

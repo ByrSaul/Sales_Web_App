@@ -28,7 +28,7 @@ export type OperationalUser = {
   id: string;
   name: string;
   language: string;
-  personnelNumber: string;
+  personnelnumber: string;
 };
 export type MenuPermissionDto = {
   menu?: string;

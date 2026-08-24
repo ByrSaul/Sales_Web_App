@@ -28,6 +28,26 @@ describe('catalogService', () => {
     );
     expect(result.pagination).toMatchObject({ currentPage: 2, totalPages: 3 });
   });
+  it('preserves the complete customer search contract', async () => {
+    const client = api({
+      customers: [{
+        commissionsalesgroupid: 'BC', customeraccount: 'C1', dataareaid: 'agf3',
+        name: 'Cliente', inventlocation: '115', salescurrencycode: 'GTQ', paymentterms: '30D',
+        blocked: 2, blocked_description: 'Todo', partynumber: 'P1', languageid: 'es-MX',
+        countryregionid: 'GTM', usd_creditlimit: 5000, usd_creditavailable: 3000,
+        csfaiscashaccount: 1,
+      }],
+      pagination: { CurrentPage: 1, PerPage: 25, TotalPages: 1 },
+    });
+    const result = await catalogService(client).customers({
+      company: 'agf3', salesGroup: 'BC', search: 'Cliente', page: 1, perPage: 25,
+    });
+    expect(result.items[0]).toMatchObject({
+      salesGroupId: 'BC', account: 'C1', companyId: 'agf3', warehouseId: '115',
+      blocked: 2, blockedDescription: 'Todo', languageId: 'es-MX', countryId: 'GTM',
+      creditLimitUsd: 5000, creditAvailableUsd: 3000, isCashAccount: true,
+    });
+  });
   it('identifies MasterProduct and maps normal products', async () => {
     const client = api({
       products: [

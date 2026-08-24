@@ -29,7 +29,6 @@ export const validateOrderDraft = (d: OrderDraft): DraftError[] => {
     add('delivery_required', 'deliveryMode', 'El modo de entrega es obligatorio.');
   if (!d.deliveryAddress)
     add('address_required', 'deliveryAddress', 'La dirección de entrega es obligatoria.');
-  if (!d.salesOrigin) add('origin_required', 'salesOrigin', 'El origen de venta es obligatorio.');
   if (!d.requestedShippingDate)
     add('date_required', 'requestedShippingDate', 'La fecha solicitada es obligatoria.');
   if (!d.lines.length) add('lines_required', 'lines', 'Agregue al menos una línea.');

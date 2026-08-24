@@ -20,7 +20,11 @@ const CustomerDetail = ({
   onStatement: () => void;
 }) => {
   const addresses = useCustomerAddresses(customer.account);
-  const catalogs = useReferenceCatalogs(customer.account, customer.countryId);
+  const catalogs = useReferenceCatalogs(customer.account, customer.countryId, {
+    delivery: false,
+    origins: false,
+    promotions: false,
+  });
   return (
     <aside className="fixed inset-y-0 right-0 w-full md:w-[32rem] bg-white shadow-2xl z-50 overflow-y-auto p-5">
       <div className="flex justify-between items-start">
@@ -76,7 +80,7 @@ const CustomerDetail = ({
   );
 };
 
-const ClientsPage: React.FC<{ onEstadoCuenta?: () => void }> = ({
+const ClientsPage: React.FC<{ onEstadoCuenta?: (customerAccount: string) => void }> = ({
   onEstadoCuenta = () => undefined,
 }) => {
   const [params, setParams] = useSearchParams();
@@ -91,7 +95,6 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: () => void }> = ({
   React.useEffect(() => {
     update(debounced, 1);
   }, [debounced]);
-  if (query.isPending) return <LoadingState message="Cargando clientes..." />;
   return (
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row justify-between gap-3">
@@ -107,12 +110,16 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: () => void }> = ({
           className="md:w-80"
         />
       </div>
-      {query.isError ? (
+      {!debounced.trim() ? (
+        <EmptyState icon="search" title="Escriba una cuenta o nombre para buscar clientes" />
+      ) : query.isPending ? (
+        <p className="text-xs text-on-surface-variant">Buscando clientes...</p>
+      ) : query.isError ? (
         <ErrorState
           message="No fue posible cargar los clientes."
           onRetry={() => void query.refetch()}
         />
-      ) : query.data.items.length === 0 ? (
+      ) : !query.data || query.data.items.length === 0 ? (
         <EmptyState icon="group" title="No se encontraron clientes" />
       ) : (
         <>
@@ -132,8 +139,8 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: () => void }> = ({
                     </p>
                   </div>
                   <Badge
-                    label={customer.blocked ? 'BLOQUEADO' : 'ACTIVO'}
-                    variant={customer.blocked ? 'blocked' : 'success'}
+                    label={customer.blocked !== 0 ? 'BLOQUEADO' : 'ACTIVO'}
+                    variant={customer.blocked !== 0 ? 'blocked' : 'success'}
                   />
                 </div>
                 <div className="flex justify-between mt-3 text-xs">
@@ -171,7 +178,7 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: () => void }> = ({
         <CustomerDetail
           customer={selected}
           close={() => setSelected(null)}
-          onStatement={onEstadoCuenta}
+          onStatement={() => onEstadoCuenta(selected.account)}
         />
       )}
     </div>

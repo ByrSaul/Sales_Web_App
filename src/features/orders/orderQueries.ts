@@ -18,16 +18,20 @@ export const orderKeys = {
   list: (company: string, vendor: string, filters: OrderFilters) =>
     ['orders', company, 'list', vendor, filters] as const,
   detail: (company: string, order: string) => ['orders', company, 'detail', order] as const,
-  lines: (company: string, order: string) => ['orders', company, 'lines', order] as const,
+  lines: (company: string, order: string) => ['order-lines', company, order] as const,
+  officialLines: (company: string, order: string) =>
+    ['orders', company, 'official-line', order] as const,
+  officialLine: (company: string, order: string, lineNumber: number) =>
+    [...orderKeys.officialLines(company, order), lineNumber] as const,
 };
-export const useOrders = (filters: OrderFilters) => {
+export const useOrders = (filters: OrderFilters, enabled = true) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '',
     vendor = context.vendor?.id ?? '';
   return useQuery({
     queryKey: orderKeys.list(company, vendor, filters),
     queryFn: ({ signal }) => orderQueryService(api).list(company, vendor, filters, signal),
-    enabled: Boolean(company && vendor),
+    enabled: Boolean(enabled && company && vendor),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
@@ -49,6 +53,21 @@ export const useOrderDetail = (salesOrderNumber: string) => {
   });
   return { header, lines };
 };
+export const useOfficialOrderLine = (salesOrderNumber: string) => {
+  const { api, context } = useSession();
+  const qc = useQueryClient();
+  const company = context.company?.id ?? '';
+  return useMutation({
+    mutationFn: (lineNumber: number) =>
+      qc.fetchQuery({
+        queryKey: orderKeys.officialLine(company, salesOrderNumber, lineNumber),
+        queryFn: ({ signal }) =>
+          orderQueryService(api).officialLine(company, salesOrderNumber, lineNumber, signal),
+        staleTime: 0,
+      }),
+    retry: false,
+  });
+};
 export const useOrderMutations = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const qc = useQueryClient();
@@ -57,6 +76,7 @@ export const useOrderMutations = (salesOrderNumber: string) => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: orderKeys.detail(company, salesOrderNumber) }),
       qc.invalidateQueries({ queryKey: orderKeys.lines(company, salesOrderNumber) }),
+      qc.invalidateQueries({ queryKey: orderKeys.officialLines(company, salesOrderNumber) }),
       qc.invalidateQueries({ queryKey: orderKeys.all(company) }),
     ]);
   };
@@ -67,10 +87,16 @@ export const useOrderMutations = (salesOrderNumber: string) => {
       onSettled: invalidate,
     }),
     cancel: useMutation({
-      mutationFn: (inventoryLotId: string) =>
-        orderQueryService(api).cancelLine(company, inventoryLotId),
+      mutationFn: (input: { companyId: string; inventoryLotId: string }) =>
+        orderQueryService(api).cancelLine(input.companyId, input.inventoryLotId),
       retry: false,
-      onSettled: invalidate,
+      onSuccess: (result) => (result.success ? invalidate() : undefined),
+    }),
+    delete: useMutation({
+      mutationFn: (input: { companyId: string; inventoryLotId: string }) =>
+        orderQueryService(api).deleteLine(input.companyId, input.inventoryLotId),
+      retry: false,
+      onSuccess: invalidate,
     }),
     confirm: useMutation({
       mutationFn: () => orderQueryService(api).confirm(company, salesOrderNumber),

@@ -11,7 +11,11 @@ const CatalogsPage: React.FC = () => {
   const { api, context } = useSession();
   const [geo, setGeo] = useState<GeographySelection>(emptyGeography);
   const [vatSearch, setVatSearch] = useState('');
-  const refs = useReferenceCatalogs('', geo.countryId);
+  const refs = useReferenceCatalogs('', geo.countryId, {
+    delivery: false,
+    origins: false,
+    agreements: false,
+  });
   const vats = useQuery({
     queryKey: catalogKeys.catalog('vat', context.company?.id ?? '', geo.countryId, vatSearch),
     queryFn: ({ signal }) =>
@@ -23,30 +27,14 @@ const CatalogsPage: React.FC = () => {
       <div>
         <h1 className="text-xl font-bold">Catálogos operativos</h1>
         <p className="text-xs text-on-surface-variant">
-          Entrega, origen, promociones, geografía y documentos
+          Promociones, geografía y documentos
         </p>
       </div>
       <Card className="p-4">
         <h2 className="font-semibold mb-3">Ubicación geográfica</h2>
         <GeographySelector value={geo} onChange={setGeo} />
       </Card>
-      <div className="grid md:grid-cols-3 gap-3">
-        <Card className="p-4">
-          <h2 className="font-semibold mb-2">Modos de entrega</h2>
-          {refs.delivery.data?.map((x) => (
-            <p className="text-xs py-1" key={x.code}>
-              <strong>{x.code}</strong> — {x.description}
-            </p>
-          ))}
-        </Card>
-        <Card className="p-4">
-          <h2 className="font-semibold mb-2">Orígenes de venta</h2>
-          {refs.origins.data?.map((x) => (
-            <p className="text-xs py-1" key={x.id}>
-              <strong>{x.id}</strong> — {x.description}
-            </p>
-          ))}
-        </Card>
+      <div>
         <Card className="p-4">
           <h2 className="font-semibold mb-2">Grupos de bonificación</h2>
           {refs.promotions.data?.map((x) => (

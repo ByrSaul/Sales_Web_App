@@ -69,8 +69,19 @@ export class SubmissionRunner {
       if (!state.salesOrderNumber) {
         state.status = 'creating-header';
         this.publish(state, false);
+        let request: ReturnType<typeof mapHeaderRequest>;
         try {
-          const header = await this.gateway.createHeader(mapHeaderRequest(state.snapshot));
+          request = mapHeaderRequest(state.snapshot);
+        } catch (error) {
+          // El request todavía no existe: Dynamics no recibió ningún POST y el resultado es seguro.
+          state.status = 'failed';
+          state.headerAmbiguous = false;
+          state.error = friendly(error);
+          this.publish(state, false);
+          return { submission: state, completed: false };
+        }
+        try {
+          const header = await this.gateway.createHeader(request);
           state.salesOrderNumber = header.salesOrderNumber;
           state.status = 'header-created';
           this.publish(state, true);

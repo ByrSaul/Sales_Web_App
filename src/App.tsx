@@ -56,7 +56,13 @@ const ExistingPrototypeRoutes: React.FC = () => {
       <Route path="/pedidos/:salesOrderNumber/adjuntos" element={<OrderAttachmentsPage />} />
       <Route
         path="/clientes"
-        element={<ClientsPage onEstadoCuenta={() => navigate('/estado-cuenta')} />}
+        element={
+          <ClientsPage
+            onEstadoCuenta={(customerAccount) =>
+              navigate(`/estado-cuenta?customer=${encodeURIComponent(customerAccount)}`)
+            }
+          />
+        }
       />
       <Route path="/clientes/:customerAccount/direcciones" element={<CustomerAddressesPage />} />
       <Route

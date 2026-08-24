@@ -148,9 +148,9 @@ export const Input: React.FC<InputProps> = ({
   className = '',
   ...props
 }) => (
-  <div className="flex flex-col gap-1">
+  <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
     {label && <label className="text-xs text-on-surface-variant font-medium">{label}</label>}
-    <div className="relative flex items-center">
+    <div className="relative flex min-w-0 max-w-full items-center">
       {icon && (
         <span
           className="absolute left-2.5 material-symbols-outlined text-on-surface-variant"
@@ -160,7 +160,7 @@ export const Input: React.FC<InputProps> = ({
         </span>
       )}
       <input
-        className={`w-full py-2 px-3 ${icon ? 'pl-8' : ''} ${rightIcon ? 'pr-8' : ''} rounded-lg border border-outline-variant bg-white text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all ${className}`}
+        className={`box-border min-w-0 max-w-full w-full py-2 px-3 ${icon ? 'pl-8' : ''} ${rightIcon ? 'pr-8' : ''} rounded-lg border border-outline-variant bg-white text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all ${className}`}
         {...props}
       />
       {rightIcon && (
@@ -180,10 +180,10 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   options: { value: string; label: string }[];
 }
 export const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => (
-  <div className="flex flex-col gap-1">
+  <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
     {label && <label className="text-xs text-on-surface-variant font-medium">{label}</label>}
     <select
-      className={`w-full py-2 px-3 rounded-lg border border-outline-variant bg-white text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all appearance-none ${className}`}
+      className={`box-border min-w-0 max-w-full w-full py-2 px-3 rounded-lg border border-outline-variant bg-white text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all appearance-none ${className}`}
       {...props}
     >
       {options.map((opt) => (
@@ -200,16 +200,23 @@ interface ToggleProps {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: string;
+  disabled?: boolean;
 }
-export const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label }) => (
-  <div className="flex items-center gap-2">
-    {label && <span className="text-xs text-on-surface-variant">{label}</span>}
+export const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, disabled = false }) => (
+  <div className="box-border flex w-full min-w-0 max-w-full items-center justify-between gap-3 rounded border border-outline-variant px-3 py-2">
+    {label && <span className="min-w-0 break-words text-sm text-on-surface">{label}</span>}
     <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label ?? 'Alternar'}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${checked ? 'bg-primary' : 'bg-outline-variant'}`}
+      className={`relative box-border h-5 w-10 shrink-0 overflow-hidden rounded-full border-0 p-0 transition-colors disabled:opacity-50 ${checked ? 'bg-primary' : 'bg-outline-variant'}`}
     >
       <span
-        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
+        className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+        style={{ transform: `translateX(${checked ? 20 : 0}px)` }}
       />
     </button>
   </div>

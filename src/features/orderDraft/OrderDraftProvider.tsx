@@ -29,12 +29,18 @@ export const OrderDraftProvider = ({ children }: { children: ReactNode }) => {
     () => createOrderDraft(context.accountId, context.company!, context.vendor!, context.user!),
     [context.accountId, context.company, context.vendor, context.user],
   );
+  const current = useCallback(() => {
+    const restored = loadDraft(context.accountId, context.company!.id);
+    return restored
+      ? { ...restored, personnelnumber: context.user!.personnelnumber }
+      : fresh();
+  }, [context.accountId, context.company, context.user, fresh]);
   const [draft, setDraft] = useState<OrderDraft>(
-    () => loadDraft(context.accountId, context.company!.id) ?? fresh(),
+    current,
   );
   useEffect(() => {
-    setDraft(loadDraft(context.accountId, context.company!.id) ?? fresh());
-  }, [context.accountId, context.company.id, fresh]);
+    setDraft(current());
+  }, [current]);
   useEffect(() => {
     saveDraft(draft);
   }, [draft]);

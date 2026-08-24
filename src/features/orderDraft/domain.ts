@@ -14,7 +14,7 @@ export const createOrderDraft = (
   dataAreaId: company.id,
   vendorId: vendor.id,
   languageId: user.language,
-  orderResponsiblePersonnelNumber: user.personnelNumber,
+  personnelnumber: user.personnelnumber,
   customer: null,
   currencyCode: company.defaultCurrency,
   deliveryMode: null,
@@ -25,6 +25,7 @@ export const createOrderDraft = (
   salesOrigin: null,
   agreement: null,
   taxExemptNumber: null,
+  forceRegisterVariant: false,
   lines: [],
   updatedAt: now(),
 });
