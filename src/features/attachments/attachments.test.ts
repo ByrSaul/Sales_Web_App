@@ -16,8 +16,8 @@ import {
 describe('attachment contracts', () => {
   it('segregates query keys by company and order', () =>
     expect(attachmentKeys.order('CO', 'OV-1')).toEqual(['order-attachments', 'CO', 'OV-1']));
-  it('maps the exact GET-body contract used by Mobile', async () => {
-    const get = vi
+  it('maps the Web-compatible POST query contract', async () => {
+    const post = vi
       .fn()
       .mockResolvedValue([
         {
@@ -29,16 +29,18 @@ describe('attachment contracts', () => {
           Attachment: 'AA==',
         },
       ]);
-    const service = attachmentService({ get } as unknown as ApiClient);
+    const service = attachmentService({ post } as unknown as ApiClient);
     const result = await service.list('CO', 'OV-1');
-    expect(get).toHaveBeenCalledWith('/d365/sales_header_documents_atachments', {
-      body: {
+    expect(post).toHaveBeenCalledWith(
+      '/d365/sales_header_documents_atachments/query',
+      {
         filters: { dataAreaId: 'CO', SalesOrderNumber: 'OV-1' },
         cross_company: true,
         page: 1,
         perpage: 20,
       },
-    });
+      { signal: undefined },
+    );
     expect(result[0].description).toBe('pago');
   });
   it('encodes pure base64 without the Data URL prefix', async () => {

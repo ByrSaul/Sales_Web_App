@@ -11,4 +11,9 @@ export const mapAttachment = (dto: AttachmentDto): OrderAttachment => ({
   contentBase64: text(dto.Attachment),
 });
 export const mapAttachmentList = (value: unknown): OrderAttachment[] =>
-  Array.isArray(value) ? value.map((item) => mapAttachment(item as AttachmentDto)) : [];
+  (Array.isArray(value)
+    ? value
+    : Array.isArray((value as Record<string, unknown> | null)?.['@odata'])
+      ? ((value as Record<string, unknown>)['@odata'] as unknown[])
+      : []
+  ).map((item) => mapAttachment(item as AttachmentDto));

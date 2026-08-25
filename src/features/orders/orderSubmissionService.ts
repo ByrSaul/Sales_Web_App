@@ -7,6 +7,7 @@ import type {
   SalesHeaderRequest,
   SalesLineRequest,
 } from './types';
+import { attachmentService } from '../attachments/attachmentService';
 export const orderSubmissionService = (api: ApiClient): OrderSubmissionGateway => ({
   async createHeader(request: SalesHeaderRequest) {
     const result = mapHeaderResponse(
@@ -37,5 +38,11 @@ export const orderSubmissionService = (api: ApiClient): OrderSubmissionGateway =
         perpage: 25,
       }),
     );
+  },
+  async uploadAttachment(companyId, salesOrderNumber, file, description) {
+    await attachmentService(api).upload(companyId, salesOrderNumber, file, description);
+  },
+  async listAttachments(companyId, salesOrderNumber) {
+    return attachmentService(api).list(companyId, salesOrderNumber);
   },
 });

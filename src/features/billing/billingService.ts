@@ -38,6 +38,14 @@ export const billingService = (api: ApiClient) => ({
         { timeoutMs: 120000 },
       ),
     ),
+  agingPdf: async (company: string, customerAccount: string) =>
+    mapPdf(
+      await api.post(
+        '/d365_services/get_cust_aging_ssrs_report_pdf',
+        { Company: company, CustomerAccount: customerAccount },
+        { timeoutMs: 120000 },
+      ),
+    ),
 });
 const validBase64 = (value: string) => {
   try {

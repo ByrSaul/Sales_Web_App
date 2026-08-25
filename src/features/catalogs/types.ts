@@ -170,6 +170,10 @@ export type VatNumber = {
   countryId: string;
   name: string;
   documentType: string;
+  taxVatAddress?: string;
+  taxpayerTypePanama?: string;
+  rucCheckerPanama?: string;
+  personTypeElSalvador?: string;
 };
 export type DocumentTypes = {
   documentTypes: string[];

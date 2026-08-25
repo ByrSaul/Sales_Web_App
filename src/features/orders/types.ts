@@ -68,6 +68,7 @@ export type SubmissionStatus =
   | 'validating'
   | 'creating-header'
   | 'header-created'
+  | 'uploading-attachments'
   | 'creating-lines'
   | 'recovering'
   | 'partial-failure'
@@ -94,7 +95,16 @@ export type OrderSubmission = {
   updatedAt: string;
   snapshot: OrderDraft;
   lines: SubmissionLine[];
+  attachmentNames?: string[];
+  createdAttachmentIds?: string[];
+  attachmentError?: string | null;
+  attachmentRetryAllowed?: boolean;
   error: string | null;
+};
+export type SubmissionAttachmentInput = {
+  localId: string;
+  file: File;
+  description: string;
 };
 export type SubmissionResult = { submission: OrderSubmission; completed: boolean };
 export interface OrderSubmissionGateway {
@@ -102,4 +112,6 @@ export interface OrderSubmissionGateway {
   createNormalLine(request: SalesLineRequest): Promise<ExistingSalesLine[]>;
   createAgreementLine(request: AgreementLineRequest): Promise<ExistingSalesLine[]>;
   getExistingLines(companyId: string, salesOrderNumber: string): Promise<ExistingSalesLine[]>;
+  uploadAttachment?(companyId: string, salesOrderNumber: string, file: File, description: string): Promise<void>;
+  listAttachments?(companyId: string, salesOrderNumber: string): Promise<import('../attachments/attachmentTypes').OrderAttachment[]>;
 }

@@ -30,6 +30,8 @@ import {
 import { orderSubmissionService } from '../../features/orders/orderSubmissionService';
 import { Button, Card, Input, Select, Toggle } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+import { useOrderAttachments } from '../../features/attachments/attachmentQueries';
+import { hasValidPaymentAttachment, requiresPaymentAttachment } from '../../features/attachments/attachmentValidation';
 
 // This does NOT create another OrderDraft/order header — the order already exists.
 // Each POST /d365/sales/line request carries the existing SalesOrderNumber directly.
@@ -45,6 +47,9 @@ const AddExistingOrderLinePage = () => {
   const data = useOrderDetail(salesOrderNumber);
   const queryClient = useQueryClient();
   const order = data.header.data;
+  const paymentRequired = requiresPaymentAttachment(order?.customerAccount);
+  const attachments = useOrderAttachments(salesOrderNumber, paymentRequired);
+  const hasPayment = hasValidPaymentAttachment(attachments.data ?? []);
 
   const [search, setSearch] = useState('');
   const [product, setProduct] = useState<Product | null>(null);
@@ -227,6 +232,13 @@ const AddExistingOrderLinePage = () => {
 
   const submitPending = async () => {
     if (!shellDraft || !order || !pendingLines.length || submitting) return;
+    if (paymentRequired) {
+      const refreshed = await attachments.refetch();
+      if (!hasValidPaymentAttachment(refreshed.data ?? [])) {
+        setMessage('Debe adjuntar un comprobante de pago en formato imagen antes de enviar líneas. No se realizó ningún POST de línea.');
+        return;
+      }
+    }
     setSubmitting(true);
     setMessage(null);
     const gateway = orderSubmissionService(api);
@@ -381,6 +393,17 @@ const AddExistingOrderLinePage = () => {
             El pedido {salesOrderNumber} está en estado "{statusLabel(order.status)}" y no admite
             nuevas líneas.
           </p>
+        </Card>
+      </div>
+    );
+  if (paymentRequired && !hasPayment)
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`)}>Volver al pedido</Button>
+        <Card className="border-amber-300 bg-amber-50 p-4">
+          <strong>Comprobante de pago requerido</strong>
+          <p className="mt-1 text-sm">Para agregar líneas debe cargar primero una imagen JPG, JPEG o PNG con descripción “pago”.</p>
+          <Button className="mt-3" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/adjuntos`)}>Agregar comprobante</Button>
         </Card>
       </div>
     );

@@ -5,13 +5,14 @@ export const attachmentKeys = {
   order: (companyId: string, salesOrderNumber: string) =>
     ['order-attachments', companyId, salesOrderNumber] as const,
 };
-export const useOrderAttachments = (salesOrderNumber: string) => {
+export const useOrderAttachments = (salesOrderNumber: string, enabled = true) => {
   const { api, context } = useSession();
   const companyId = context.company?.id ?? '';
   return useQuery({
     queryKey: attachmentKeys.order(companyId, salesOrderNumber),
-    queryFn: () => attachmentService(api).list(companyId, salesOrderNumber),
-    enabled: Boolean(companyId && salesOrderNumber),
+    queryFn: ({ signal }) =>
+      attachmentService(api).list(companyId, salesOrderNumber, signal),
+    enabled: Boolean(enabled && companyId && salesOrderNumber),
     retry: false,
   });
 };

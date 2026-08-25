@@ -1,4 +1,5 @@
 import { validateOrderDraft } from '../orderDraft/validation';
+import { hasValidLocalPaymentAttachment, hasValidPaymentAttachment, requiresPaymentAttachment, validateAttachment } from '../attachments/attachmentValidation';
 import type { OrderDraft, OrderDraftLine } from '../orderDraft/types';
 import { isAmbiguousError, mutationErrorMessage } from './mutationOutcome';
 import {
@@ -9,7 +10,7 @@ import {
   sameLine,
 } from './orderSubmissionMapper';
 import { saveSubmission } from './submissionStorage';
-import type { OrderSubmission, OrderSubmissionGateway, SubmissionResult } from './types';
+import type { OrderSubmission, OrderSubmissionGateway, SubmissionAttachmentInput, SubmissionResult } from './types';
 
 type Listener = (state: OrderSubmission) => void;
 const clone = <T>(value: T): T => structuredClone(value);
@@ -52,7 +53,11 @@ export class SubmissionRunner {
     if (persist) saveSubmission(state);
     this.listener(clone(state));
   }
-  async submit(draft: OrderDraft, recovery?: OrderSubmission | null): Promise<SubmissionResult> {
+  async submit(
+    draft: OrderDraft,
+    recovery?: OrderSubmission | null,
+    attachments: SubmissionAttachmentInput[] = [],
+  ): Promise<SubmissionResult> {
     if (this.running) throw new Error('Ya existe un envío activo.');
     this.running = true;
     const state = recovery ? clone(recovery) : initial(draft);
@@ -60,6 +65,28 @@ export class SubmissionRunner {
       state.status = 'validating';
       this.publish(state, false);
       const validation = validateOrderDraft(state.snapshot);
+      const attachmentValidation = attachments
+        .map((item) => validateAttachment(item.file, item.description))
+        .filter((message): message is string => Boolean(message));
+      if (
+        requiresPaymentAttachment(state.snapshot.customer?.account) &&
+        !hasValidLocalPaymentAttachment(
+          attachments.map((item) => ({
+            description: item.description,
+            extension: item.file.name.split('.').pop() ?? '',
+          })),
+        )
+      )
+        attachmentValidation.push(
+          'Debe agregar un comprobante de pago en formato JPG, JPEG o PNG con descripción “pago”.',
+        );
+      if (attachmentValidation.length) {
+        validation.push({
+          code: 'attachments_invalid',
+          field: 'attachments',
+          message: attachmentValidation.join(' '),
+        });
+      }
       if (validation.length) {
         state.status = 'failed';
         state.error = validation.map((e) => e.message).join(' ');
@@ -90,6 +117,79 @@ export class SubmissionRunner {
           state.headerAmbiguous = ambiguousHeader(error);
           state.error = friendly(error);
           this.publish(state, state.headerAmbiguous);
+          return { submission: state, completed: false };
+        }
+      }
+      state.attachmentNames = attachments.map((item) => item.file.name);
+      state.createdAttachmentIds ??= [];
+      for (const attachment of attachments) {
+        if (state.createdAttachmentIds.includes(attachment.localId)) continue;
+        state.status = 'uploading-attachments';
+        state.attachmentError = null;
+        state.attachmentRetryAllowed = false;
+        this.publish(state, true);
+        try {
+          if (!this.gateway.uploadAttachment)
+            throw new Error('El gateway no permite subir adjuntos.');
+          await this.gateway.uploadAttachment(
+            state.companyId,
+            state.salesOrderNumber!,
+            attachment.file,
+            attachment.description,
+          );
+          state.createdAttachmentIds.push(attachment.localId);
+          this.publish(state, true);
+        } catch (error) {
+          const extension = attachment.file.name.split('.').pop()?.toLowerCase() ?? '';
+          const baseName = attachment.file.name.slice(0, -(extension.length + 1));
+          let confirmed = false;
+          try {
+            if (!this.gateway.listAttachments)
+              throw new Error('El gateway no permite verificar adjuntos.');
+            const existing = await this.gateway.listAttachments(
+              state.companyId,
+              state.salesOrderNumber!,
+            );
+            confirmed = existing.some(
+              (item) =>
+                [item.fileName, `${item.fileName}.${item.fileType}`].some(
+                  (name) =>
+                    name.toLowerCase() === attachment.file.name.toLowerCase() ||
+                    name.toLowerCase() === baseName.toLowerCase(),
+                ) && item.description.trim() === attachment.description.trim(),
+            );
+          } catch {
+            // La verificación fallida conserva el resultado ambiguo y evita crear líneas.
+          }
+          if (confirmed) {
+            state.createdAttachmentIds.push(attachment.localId);
+            this.publish(state, true);
+            continue;
+          }
+          state.status = 'partial-failure';
+          state.attachmentRetryAllowed = !isAmbiguousError(error);
+          state.attachmentError = `${friendly(error)} No fue posible confirmar el adjunto; no se crearon líneas ni se reenvió el archivo.`;
+          state.error = state.attachmentError;
+          this.publish(state, true);
+          return { submission: state, completed: false };
+        }
+      }
+      if (requiresPaymentAttachment(state.snapshot.customer?.account)) {
+        try {
+          if (!this.gateway.listAttachments)
+            throw new Error('El gateway no permite verificar adjuntos.');
+          const persisted = await this.gateway.listAttachments(
+            state.companyId,
+            state.salesOrderNumber!,
+          );
+          if (!hasValidPaymentAttachment(persisted))
+            throw new Error('Dynamics todavía no devuelve un comprobante de pago válido.');
+        } catch (error) {
+          state.status = 'partial-failure';
+          state.attachmentRetryAllowed = false;
+          state.attachmentError = `${friendly(error)} El pedido fue creado, pero las líneas no serán enviadas hasta confirmar el comprobante de pago.`;
+          state.error = state.attachmentError;
+          this.publish(state, true);
           return { submission: state, completed: false };
         }
       }

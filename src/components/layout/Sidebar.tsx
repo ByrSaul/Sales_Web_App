@@ -16,8 +16,6 @@ const NAV_ITEMS = [
   { label: 'Mis pedidos de venta', icon: 'receipt_long', href: '/pedidos' },
   { label: 'Mis clientes', icon: 'group', href: '/clientes' },
   { label: 'Consulta de Inventario', icon: 'inventory_2', href: '/inventario' },
-  { label: 'Catálogo de productos', icon: 'category', href: '/productos' },
-  { label: 'Catálogos operativos', icon: 'list_alt', href: '/catalogos' },
   { label: 'Crear pedidos de venta', icon: 'add_shopping_cart', href: '/crear-pedido' },
   { label: 'Facturas de venta', icon: 'description', href: '/facturas' },
   // Producción/Forecast ya están implementados; solo ocultos temporalmente vía feature flag (fail closed).

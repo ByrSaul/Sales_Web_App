@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
+import { useSession } from '../../app/providers/SessionProvider';
 import { userErrorMessage } from '../../core/api/errors';
 import { useSendSupport } from '../../features/support/supportMutation';
 import { validateSupport } from '../../features/support/supportService';
 import { Button, Card } from '../ui';
 const SupportPage = () => {
   const auth = useAuth(),
+    { context } = useSession(),
     nav = useNavigate(),
     mutation = useSendSupport();
+  const supportUserEmail =
+    auth.account?.username?.trim() || context.user?.networkAlias.trim() || '';
   const [body, setBody] = useState(''),
     [files, setFiles] = useState<File[]>([]),
     [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle'),
@@ -38,7 +42,7 @@ const SupportPage = () => {
     setStatus('sending');
     setMessage('');
     try {
-      const r = await mutation.mutateAsync({ email: auth.account?.username ?? '', body, files });
+      const r = await mutation.mutateAsync({ email: supportUserEmail, body, files });
       if (!r.success) throw new Error(r.errorMessage || 'Dynamics no confirmó el envío.');
       setBody('');
       setFiles([]);
@@ -64,7 +68,7 @@ const SupportPage = () => {
           Asunto: <strong>Sales4App</strong>
         </p>
         <p>
-          Usuario: <strong>{auth.account?.username || 'No disponible'}</strong>
+          Usuario: <strong>{supportUserEmail || 'No disponible'}</strong>
         </p>
       </Card>
       <Card className="p-4 space-y-4">

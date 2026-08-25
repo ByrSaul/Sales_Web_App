@@ -4,6 +4,8 @@ import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
 import { validateOrderDraft } from '../../features/orderDraft/validation';
 import { useOrderSubmission } from '../../features/orders/OrderSubmissionProvider';
 import { Button, Card } from '../ui';
+import { DraftAttachments } from '../orders/DraftAttachments';
+import { validateAttachment } from '../../features/attachments/attachmentValidation';
 
 const labels = {
   pending: 'Pendiente',
@@ -13,11 +15,14 @@ const labels = {
 } as const;
 const OrderDraftReviewPage = () => {
   const navigate = useNavigate();
-  const { draft: editableDraft, updateLine, removeLine, reset } = useOrderDraft();
+  const { draft: editableDraft, attachments, updateLine, removeLine, reset } = useOrderDraft();
   const flow = useOrderSubmission();
   const submission = flow.submission;
   const draft = submission?.salesOrderNumber ? submission.snapshot : editableDraft;
   const errors = validateOrderDraft(draft);
+  const attachmentErrors = attachments
+    .map((item) => validateAttachment(item.file, item.description))
+    .filter(Boolean);
   const locked =
     flow.active || Boolean(submission?.salesOrderNumber) || Boolean(submission?.headerAmbiguous);
   const create = async () => {
@@ -71,7 +76,7 @@ const OrderDraftReviewPage = () => {
       <div>
         <h1 className="text-xl font-bold">Revisión y creación</h1>
         <p className="text-xs text-on-surface-variant">
-          El envío crea primero el encabezado y luego cada línea secuencialmente.
+          El envío crea el encabezado, sube los adjuntos y después crea cada línea secuencialmente.
         </p>
       </div>
       {submission && (
@@ -84,6 +89,12 @@ const OrderDraftReviewPage = () => {
                   : 'Creación del encabezado'}
               </h2>
               <p className="text-xs">Estado: {submission.status}</p>
+              {submission.status === 'uploading-attachments' && (
+                <p className="text-xs font-semibold text-primary">Subiendo adjuntos...</p>
+              )}
+              {submission.attachmentError && (
+                <p className="text-xs text-error">{submission.attachmentError}</p>
+              )}
             </div>
             <strong>
               {submission.lines.filter((x) => x.status === 'created').length} /{' '}
@@ -119,10 +130,17 @@ const OrderDraftReviewPage = () => {
             <div className="bg-amber-50 p-3 rounded">
               <strong>Pedido creado parcialmente</strong>
               <p className="text-xs">
-                Se verificará Dynamics antes de volver a intentar cada línea pendiente.
+                {submission.attachmentError
+                  ? 'El encabezado existe, pero un adjunto quedó ambiguo. No se crearán líneas ni se reenviará el archivo automáticamente.'
+                  : 'Se verificará Dynamics antes de volver a intentar cada línea pendiente.'}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
-                <Button onClick={() => flow.retryPending()}>Reintentar líneas pendientes</Button>
+                {!submission.attachmentError && (
+                  <Button onClick={() => flow.retryPending()}>Reintentar líneas pendientes</Button>
+                )}
+                {submission.attachmentError && submission.attachmentRetryAllowed && (
+                  <Button onClick={() => flow.retryPending()}>Reintentar carga del comprobante</Button>
+                )}
                 <Button
                   variant="danger"
                   onClick={() => {
@@ -231,6 +249,7 @@ const OrderDraftReviewPage = () => {
           <strong>{draft.agreement?.number ?? 'Sin acuerdo'}</strong>
         </p>
       </Card>
+      <DraftAttachments readOnly />
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -340,7 +359,7 @@ const OrderDraftReviewPage = () => {
             >
               Descartar
             </Button>
-            <Button disabled={Boolean(errors.length)} onClick={create}>
+            <Button disabled={Boolean(errors.length || attachmentErrors.length)} onClick={create}>
               Crear pedido real
             </Button>
           </>

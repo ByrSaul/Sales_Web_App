@@ -1,93 +1,29 @@
-import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  emptyGeography,
-  selectCity,
-  selectCountry,
-  selectCounty,
-  selectState,
-} from '../../features/catalogs/geography';
-import { geographyBrowserCompatible } from '../../features/addresses/addressService';
-import { Button, Card, Input } from '../ui';
+import { NewAddressForm } from '../orders/NewAddressForm';
+import { Button, Card } from '../ui';
+
 const NewCustomerAddressPage = () => {
   const { customerAccount = '' } = useParams();
-  const [p] = useSearchParams();
-  const nav = useNavigate();
-  const [geo, setGeo] = useState(emptyGeography);
-  const [description, setDescription] = useState(''),
-    [street, setStreet] = useState('');
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const returnToAddresses = () =>
+    navigate(
+      `/clientes/${encodeURIComponent(customerAccount)}/direcciones${params.toString() ? `?${params}` : ''}`,
+    );
+
   return (
     <div className="space-y-4">
-      <Button
-        variant="outline"
-        onClick={() =>
-          nav(
-            `/clientes/${encodeURIComponent(customerAccount)}/direcciones${p.toString() ? `?${p}` : ''}`,
-          )
-        }
-      >
-        Volver
-      </Button>
+      <Button variant="outline" onClick={returnToAddresses}>Volver</Button>
       <h1 className="text-xl font-bold">Nueva dirección · {customerAccount}</h1>
-      <Card className="p-4 bg-amber-50">
-        <strong>BLOQUEANTE BACKEND</strong>
-        <p className="text-sm">
-          La creación de nuevas direcciones no está disponible temporalmente debido a una
-          incompatibilidad del contrato API para catálogos geográficos. Los endpoints requieren JSON
-          body en GET, que Fetch no permite.
-        </p>
+      <Card className="p-4">
+        <NewAddressForm
+          customerAccount={customerAccount}
+          onCancel={returnToAddresses}
+          onCreated={returnToAddresses}
+        />
       </Card>
-      <Card className="p-4 grid gap-3 md:grid-cols-2">
-        <Input
-          label="Descripción"
-          value={description}
-          disabled={!geographyBrowserCompatible}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <Input
-          label="Calle"
-          value={street}
-          disabled={!geographyBrowserCompatible}
-          onChange={(e) => setStreet(e.target.value)}
-        />
-        <Input
-          label="País"
-          value={geo.countryId}
-          disabled
-          onChange={(e) => setGeo(selectCountry(geo, e.target.value))}
-        />
-        <Input
-          label="Estado"
-          value={geo.stateId}
-          disabled
-          onChange={(e) => setGeo(selectState(geo, e.target.value))}
-        />
-        <Input
-          label="Municipio"
-          value={geo.countyId}
-          disabled
-          onChange={(e) => setGeo(selectCounty(geo, e.target.value))}
-        />
-        <Input
-          label="Ciudad"
-          value={geo.cityId}
-          disabled
-          onChange={(e) => setGeo(selectCity(geo, e.target.value))}
-        />
-        <Input label="ZIP" value={geo.zipCode} disabled />
-        <Button
-          disabled={
-            !geographyBrowserCompatible || !description.trim() || !street.trim() || !geo.countryId
-          }
-        >
-          Crear dirección
-        </Button>
-      </Card>
-      <p className="text-xs">
-        No se permiten IDs escritos manualmente y no se ejecutará POST /d365/address mientras los
-        catálogos no puedan validarse.
-      </p>
     </div>
   );
 };
+
 export default NewCustomerAddressPage;

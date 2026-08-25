@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useSession } from '../../app/providers/SessionProvider';
 import {
-  useCustomerAddresses,
   useInfiniteCustomers,
   useReferenceCatalogs,
 } from '../../features/catalogs/hooks';
@@ -11,20 +10,24 @@ import type { Customer } from '../../features/catalogs/types';
 import { isFullyBlockedCustomer } from '../../features/catalogs/customerRules';
 import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
 import { Button, Card, Input, Select } from '../ui';
-import { ErrorState } from '../ui/PageState';
+import { NewAddressForm } from '../orders/NewAddressForm';
+import { VatSelector } from '../orders/VatSelector';
+import { DraftAttachments } from '../orders/DraftAttachments';
+import { CustomerAddressSelector } from '../orders/CustomerAddressSelector';
+import { hasValidLocalPaymentAttachment, requiresPaymentAttachment } from '../../features/attachments/attachmentValidation';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
   const { context } = useSession();
-  const { draft, update } = useOrderDraft();
+  const { draft, attachments, update } = useOrderDraft();
   const [search, setSearch] = useState('');
+  const [showNewAddress, setShowNewAddress] = useState(false);
   const debouncedSearch = useDebouncedValue(search, 1000);
   const customers = useInfiniteCustomers(debouncedSearch);
   const isCustomerSearchApplied =
     debouncedSearch.trim().length >= 1 && debouncedSearch.trim() === search.trim();
-  const addresses = useCustomerAddresses(draft.customer?.account ?? '');
   const refs = useReferenceCatalogs(draft.customer?.account ?? '', '', {
     promotions: false,
     documents: false,
@@ -73,14 +76,28 @@ const CreateOrderPage = () => {
       return;
     update({ currencyCode, lines: [] });
   };
-  const ready = Boolean(
-    draft.customer &&
-    draft.deliveryMode &&
-    draft.deliveryAddress &&
-    draft.requestedShippingDate &&
-    draft.languageId.length > 0 &&
-    currencies.includes(draft.currencyCode),
-  );
+  const showNif = draft.customer?.account.trim().toUpperCase() === 'MOST-000001';
+  const paymentRequired = requiresPaymentAttachment(draft.customer?.account);
+  const hasLocalPayment = hasValidLocalPaymentAttachment(attachments);
+  const hasCustomer = Boolean(draft.customer);
+  const hasCurrency = currencies.includes(draft.currencyCode);
+  const hasDeliveryMode = Boolean(draft.deliveryMode?.code.trim());
+  const hasDeliveryAddress = Boolean(draft.deliveryAddress?.locationId.trim());
+  const hasRequestedDate = Boolean(draft.requestedShippingDate.trim());
+  const hasLanguage = Boolean(draft.languageId.trim());
+  const hasRequiredFiscalData = !showNif || Boolean(draft.taxExemptNumber?.trim());
+  const hasRequiredPaymentAttachment = !paymentRequired || hasLocalPayment;
+  const ready = hasCustomer && hasCurrency && hasDeliveryMode && hasDeliveryAddress && hasRequestedDate && hasLanguage && hasRequiredFiscalData && hasRequiredPaymentAttachment;
+  const hasPreparedImage = attachments.some((item) => ['jpg', 'jpeg', 'png'].includes(item.extension));
+  const missingMessages = [
+    !hasCustomer && 'Seleccione un cliente.',
+    !hasCurrency && 'Seleccione una moneda válida.',
+    !hasDeliveryMode && 'Seleccione un modo de entrega.',
+    !hasDeliveryAddress && 'Seleccione una dirección.',
+    !hasRequestedDate && 'Seleccione una fecha solicitada de envío.',
+    !hasLanguage && 'No se pudo determinar LanguageId del usuario ni del cliente.',
+    !hasRequiredFiscalData && 'Seleccione un NIF.',
+  ].filter((message): message is string => Boolean(message));
   return (
     <div className="space-y-4 pb-12">
       <div>
@@ -183,7 +200,7 @@ const CreateOrderPage = () => {
           </div>
         )}
       </Card>
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid items-start gap-4 md:grid-cols-2">
         <Card className="p-4 space-y-3">
           <h2 className="font-bold text-sm">Entrega y condiciones</h2>
           <Select
@@ -211,34 +228,26 @@ const CreateOrderPage = () => {
               })),
             ]}
           />
-          <Select
-            label="Dirección existente"
-            disabled={!draft.customer || addresses.isLoading}
-            value={draft.deliveryAddress?.locationId ?? ''}
-            onChange={(e) =>
-              update({
-                deliveryAddress:
-                  addresses.data?.find((x) => x.locationId === e.target.value) ?? null,
-              })
-            }
-            options={[
-              { value: '', label: addresses.isLoading ? 'Cargando...' : 'Seleccione...' },
-              ...(addresses.data ?? []).map((x) => ({
-                value: x.locationId,
-                label: `${x.description} · ${x.formattedAddress}`,
-              })),
-            ]}
+          <CustomerAddressSelector
+            customerAccount={draft.customer?.account ?? ''}
+            selected={draft.deliveryAddress}
+            onSelect={(deliveryAddress) => update({ deliveryAddress, taxExemptNumber: null })}
           />
-          {addresses.isError && (
-            <ErrorState
-              message="No se pudieron cargar las direcciones."
-              onRetry={() => addresses.refetch()}
+          {draft.customer && !showNewAddress && (
+            <Button size="sm" variant="outline" onClick={() => setShowNewAddress(true)}>
+              Nueva dirección
+            </Button>
+          )}
+          {draft.customer && showNewAddress && (
+            <NewAddressForm
+              customerAccount={draft.customer.account}
+              onCancel={() => setShowNewAddress(false)}
+              onCreated={(address) => {
+                update({ deliveryAddress: address, taxExemptNumber: null });
+                setShowNewAddress(false);
+              }}
             />
           )}
-          <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-            No es posible crear una nueva dirección: países, estados, municipios, ciudades y ZIP
-            todavía requieren GET con JSON body, sin alternativa Web compatible.
-          </p>
           <Input
             label="Fecha solicitada de envío"
             type="date"
@@ -299,19 +308,31 @@ const CreateOrderPage = () => {
               className="p-3 rounded-lg border border-outline-variant text-sm text-on-surface"
             />
           </label>
-          <div className="text-xs bg-surface-container p-2 rounded">
-            NIT/documento no disponible: la búsqueda en /d365/vat_num y los tipos de
-            /d365/vat_num/document_type todavía requieren GET con JSON body. La creación POST no
-            se habilita sin esos datos y no se generarán valores ficticios.
-          </div>
+          {showNif && !draft.deliveryAddress?.countryId && (
+            <p className="text-xs text-on-surface-variant">
+              NIF: seleccione una dirección para consultar documentos del país correspondiente.
+            </p>
+          )}
+          {showNif && draft.deliveryAddress?.countryId && (
+            <VatSelector
+              countryId={draft.deliveryAddress.countryId}
+              value={draft.taxExemptNumber}
+              onChange={(taxExemptNumber) => update({ taxExemptNumber })}
+            />
+          )}
         </Card>
       </div>
-      {!ready && (
-        <p role="alert" className="text-sm text-error">
-          {draft.customer && !draft.languageId
-            ? 'No se pudo determinar LanguageId del usuario ni del cliente seleccionado.'
-            : 'Complete cliente, moneda, entrega, dirección y fecha para continuar.'}
-        </p>
+      <DraftAttachments />
+      {paymentRequired && !hasLocalPayment && (
+        <Card className="border-amber-300 bg-amber-50 p-3">
+          <strong>Comprobante de pago requerido</strong>
+          <p className="text-xs">{hasPreparedImage ? "El comprobante debe tener la descripción 'pago'." : 'El comprobante debe ser JPG, JPEG o PNG.'}</p>
+        </Card>
+      )}
+      {missingMessages.length > 0 && (
+        <ul role="alert" className="list-disc space-y-1 pl-5 text-sm text-error">
+          {missingMessages.map((message) => <li key={message}>{message}</li>)}
+        </ul>
       )}
       <Button size="lg" fullWidth disabled={!ready} onClick={() => navigate('/crear-pedido/linea')}>
         Continuar a líneas

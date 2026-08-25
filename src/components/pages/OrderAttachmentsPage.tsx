@@ -9,7 +9,6 @@ import {
 import type { PendingAttachment } from '../../features/attachments/attachmentTypes';
 import { extensionOf, validateAttachment } from '../../features/attachments/attachmentValidation';
 import { Button, Card, EmptyState, Input } from '../ui';
-import { LoadingState } from '../ui/PageState';
 
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 const OrderAttachmentsPage = () => {
@@ -21,7 +20,10 @@ const OrderAttachmentsPage = () => {
   const [pending, setPending] = useState<PendingAttachment[]>([]);
   const locks = useRef(new Set<string>());
   const uploading = pending.some(
-    (item) => item.status === 'encoding' || item.status === 'uploading',
+    (item) =>
+      item.status === 'encoding' ||
+      item.status === 'uploading' ||
+      item.status === 'verifying',
   );
   useEffect(() => {
     if (!uploading) return;
@@ -61,20 +63,48 @@ const OrderAttachmentsPage = () => {
     try {
       patchItem(id, { status: 'uploading' });
       await uploader.upload(item.file, item.description);
-      patchItem(id, { status: 'success', error: '' });
       await uploader.refresh();
+      const confirmation = await existing.refetch();
+      const baseName = item.fileName.slice(0, -(item.extension.length + 1));
+      const persisted = confirmation.data?.some(
+        (attachment) =>
+          [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
+            (name) =>
+              name.toLowerCase() === item.fileName.toLowerCase() ||
+              name.toLowerCase() === baseName.toLowerCase(),
+          ) && attachment.description.trim() === item.description.trim(),
+      );
+      if (persisted) setPending((current) => current.filter((value) => value.localId !== id));
+      else
+        patchItem(id, {
+          status: 'ambiguous',
+          error: 'El upload respondió correctamente, pero el documento todavía no aparece en la consulta. No se reenviará automáticamente.',
+        });
     } catch (error) {
-      patchItem(id, {
-        status: 'failed',
-        error: `${userErrorMessage(error)} El resultado podría ser ambiguo; verifique la lista antes de reintentar.`,
-      });
+      patchItem(id, { status: 'verifying', error: userErrorMessage(error) });
+      const verification = await existing.refetch();
+      const expectedBaseName = item.fileName.slice(0, -(item.extension.length + 1));
+      const persisted = verification.data?.some(
+        (attachment) =>
+          [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
+            (name) =>
+              name.toLowerCase() === item.fileName.toLowerCase() ||
+              name.toLowerCase() === expectedBaseName.toLowerCase(),
+          ) && attachment.description.trim() === item.description.trim(),
+      );
+      if (persisted) setPending((current) => current.filter((value) => value.localId !== id));
+      else
+        patchItem(id, {
+              status: 'ambiguous',
+              error: `${userErrorMessage(error)} Se consultó nuevamente Dynamics, pero todavía no puede confirmarse el resultado. No se reenviará automáticamente.`,
+            });
     } finally {
       locks.current.delete(id);
     }
   };
   const sendPending = async () => {
     for (const item of pending)
-      if (item.status === 'pending' || item.status === 'failed') await send(item.localId);
+      if (item.status === 'pending') await send(item.localId);
   };
   const back = `/pedidos/${encodeURIComponent(salesOrderNumber)}${search.toString() ? `?${search}` : ''}`;
   return (
@@ -127,6 +157,8 @@ const OrderAttachmentsPage = () => {
               disabled={
                 item.status === 'encoding' ||
                 item.status === 'uploading' ||
+                item.status === 'verifying' ||
+                item.status === 'ambiguous' ||
                 item.status === 'success'
               }
               onChange={(event) =>
@@ -145,7 +177,9 @@ const OrderAttachmentsPage = () => {
                     pending: 'Pendiente',
                     encoding: 'Preparando archivo',
                     uploading: 'Enviando',
-                    success: 'Procesado',
+                    verifying: 'Verificando resultado',
+                    ambiguous: 'Resultado ambiguo',
+                    success: 'Confirmado',
                     failed: 'Falló',
                   }[item.status]
                 }
@@ -153,6 +187,36 @@ const OrderAttachmentsPage = () => {
               {item.status === 'failed' && (
                 <Button size="sm" onClick={() => send(item.localId)}>
                   Reintentar
+                </Button>
+              )}
+              {item.status === 'ambiguous' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    patchItem(item.localId, { status: 'verifying' });
+                    const verification = await existing.refetch();
+                    const baseName = item.fileName.slice(0, -(item.extension.length + 1));
+                    const persisted = verification.data?.some(
+                      (attachment) =>
+                        [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
+                          (name) =>
+                            name.toLowerCase() === item.fileName.toLowerCase() ||
+                            name.toLowerCase() === baseName.toLowerCase(),
+                        ) && attachment.description.trim() === item.description.trim(),
+                    );
+                    if (persisted)
+                      setPending((current) =>
+                        current.filter((value) => value.localId !== item.localId),
+                      );
+                    else
+                      patchItem(item.localId, {
+                            status: 'ambiguous',
+                            error: 'Dynamics todavía no permite confirmar si el archivo fue persistido. No se reenviará automáticamente.',
+                          });
+                  }}
+                >
+                  Verificar nuevamente
                 </Button>
               )}
               {item.status === 'pending' && (
@@ -174,7 +238,7 @@ const OrderAttachmentsPage = () => {
         ))}
         {!!pending.length && (
           <Button
-            disabled={uploading || pending.every((item) => item.status === 'success')}
+            disabled={uploading || !pending.some((item) => item.status === 'pending')}
             onClick={sendPending}
           >
             Subir pendientes
@@ -183,39 +247,41 @@ const OrderAttachmentsPage = () => {
       </Card>
       <Card className="p-4 space-y-3">
         <h2 className="font-bold">Adjuntos existentes</h2>
-        {existing.isLoading && <LoadingState message="Consultando adjuntos..." />}
+        {existing.isLoading && (
+          <p className="text-xs text-on-surface-variant">Consultando adjuntos...</p>
+        )}
         {existing.isError && (
-          <div className="rounded border bg-amber-50 p-3 text-sm">
-            <strong>BLOQUEANTE BACKEND</strong>
-            <p>
-              La consulta exige un body en GET. Los navegadores no permiten ese contrato, por lo que
-              no es posible listar ni descargar documentos existentes con seguridad hasta disponer
-              de un POST o parámetros de consulta equivalentes.
-            </p>
-          </div>
+          <p className="text-sm text-error">
+            No fue posible consultar los adjuntos.{' '}
+            <button className="underline" onClick={() => void existing.refetch()}>
+              Reintentar consulta
+            </button>
+          </p>
         )}
         {existing.data?.length === 0 && <EmptyState title="Este pedido no tiene adjuntos" />}
-        {existing.data?.map((item) => (
-          <div
-            key={item.documentId || `${item.fileName}-${item.description}`}
-            className="flex justify-between border-t pt-3"
-          >
-            <div>
-              <strong>
-                {item.fileName}.{item.fileType}
-              </strong>
-              <small className="block">{item.description || 'Sin descripción'}</small>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!item.contentBase64}
-              onClick={() => openAttachment(item)}
+        <div className="max-h-80 space-y-2 overflow-y-auto">
+          {existing.data?.map((item) => (
+            <div
+              key={item.documentId || `${item.fileName}-${item.description}`}
+              className="flex justify-between border-t pt-3"
             >
-              Abrir o descargar
-            </Button>
-          </div>
-        ))}
+              <div>
+                <strong>
+                  {item.fileName}.{item.fileType}
+                </strong>
+                <small className="block">{item.description || 'Sin descripción'}</small>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!item.contentBase64}
+                onClick={() => openAttachment(item)}
+              >
+                Abrir o descargar
+              </Button>
+            </div>
+          ))}
+        </div>
       </Card>
       <Card className="p-3 bg-amber-50">
         <strong>RIESGO — upload sin idempotency key</strong>

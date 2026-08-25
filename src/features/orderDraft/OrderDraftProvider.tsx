@@ -6,11 +6,14 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
 } from 'react';
 import { useSession } from '../../app/providers/SessionProvider';
 import { buildDraftLines, createOrderDraft, removeDraftLine, touch } from './domain';
 import { clearDraftStorage, loadDraft, saveDraft } from './storage';
 import type { NewLineSelection, OrderDraft } from './types';
+import type { PendingAttachment } from '../attachments/attachmentTypes';
 
 type Value = {
   draft: OrderDraft;
@@ -18,6 +21,9 @@ type Value = {
   addLines: (selection: NewLineSelection) => void;
   updateLine: (localId: string, patch: Partial<OrderDraft['lines'][number]>) => void;
   removeLine: (localId: string) => void;
+  attachments: PendingAttachment[];
+  setAttachments: Dispatch<SetStateAction<PendingAttachment[]>>;
+  clearAttachments: (localIds?: string[]) => void;
   reset: () => void;
 };
 const Context = createContext<Value | null>(null);
@@ -38,6 +44,7 @@ export const OrderDraftProvider = ({ children }: { children: ReactNode }) => {
   const [draft, setDraft] = useState<OrderDraft>(
     current,
   );
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   useEffect(() => {
     setDraft(current());
   }, [current]);
@@ -74,11 +81,17 @@ export const OrderDraftProvider = ({ children }: { children: ReactNode }) => {
   );
   const reset = useCallback(() => {
     clearDraftStorage();
+    setAttachments([]);
     setDraft(fresh());
   }, [fresh]);
+  const clearAttachments = useCallback((localIds?: string[]) => {
+    setAttachments((current) =>
+      localIds ? current.filter((item) => !localIds.includes(item.localId)) : [],
+    );
+  }, []);
   const value = useMemo(
-    () => ({ draft, update, addLines, updateLine, removeLine, reset }),
-    [draft, update, addLines, updateLine, removeLine, reset],
+    () => ({ draft, update, addLines, updateLine, removeLine, attachments, setAttachments, clearAttachments, reset }),
+    [draft, update, addLines, updateLine, removeLine, attachments, clearAttachments, reset],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 };

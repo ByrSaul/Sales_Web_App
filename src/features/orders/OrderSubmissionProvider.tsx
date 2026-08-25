@@ -28,12 +28,13 @@ const activeStatus = new Set([
   'validating',
   'creating-header',
   'header-created',
+  'uploading-attachments',
   'creating-lines',
   'recovering',
 ]);
 export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) => {
   const { api, context } = useSession();
-  const { draft, reset } = useOrderDraft();
+  const { draft, attachments, clearAttachments, reset } = useOrderDraft();
   const [submission, setSubmission] = useState<OrderSubmission | null>(() =>
     loadSubmission(context.accountId, context.company?.id ?? ''),
   );
@@ -55,14 +56,23 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
       if (inFlight.current) return;
       inFlight.current = true;
       try {
-        const result = await runner.submit(draft, recovery);
+        const result = await runner.submit(
+          draft,
+          recovery,
+          attachments.map((item) => ({
+            localId: item.localId,
+            file: item.file,
+            description: item.description,
+          })),
+        );
         setSubmission(result.submission);
+        clearAttachments(result.submission.createdAttachmentIds ?? []);
         if (result.completed) clearDraftStorage();
       } finally {
         inFlight.current = false;
       }
     },
-    [draft, runner],
+    [attachments, clearAttachments, draft, runner],
   );
   const submit = useCallback(() => run(null), [run]);
   const retryPending = useCallback(async () => {

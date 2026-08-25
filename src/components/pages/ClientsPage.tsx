@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { useSession } from '../../app/providers/SessionProvider';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import type { Customer } from '../../features/catalogs/types';
 import {
   useCustomerAddresses,
   useCustomers,
-  useReferenceCatalogs,
 } from '../../features/catalogs/hooks';
-import { Badge, Button, Card, EmptyState, Icon, Input } from '../ui';
+import { catalogKeys } from '../../features/catalogs/queryKeys';
+import { NewAddressForm } from '../orders/NewAddressForm';
+import { VatSelector } from '../orders/VatSelector';
+import { Badge, Button, Card, EmptyState, Icon, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
 const CustomerDetail = ({
@@ -19,23 +23,37 @@ const CustomerDetail = ({
   close: () => void;
   onStatement: () => void;
 }) => {
+  const queryClient = useQueryClient();
+  const { context } = useSession();
+  const [showNewAddress, setShowNewAddress] = useState(false);
+  const [nifAddressLocationId, setNifAddressLocationId] = useState('');
+  const [selectedNif, setSelectedNif] = useState<string | null>(null);
   const addresses = useCustomerAddresses(customer.account);
-  const catalogs = useReferenceCatalogs(customer.account, customer.countryId, {
-    delivery: false,
-    origins: false,
-    promotions: false,
-  });
+  const showNif = customer.account.trim().toUpperCase() === 'MOST-000001';
+  const nifAddress = addresses.data?.find(
+    (address) => address.locationId === nifAddressLocationId,
+  );
+
+  useEffect(() => {
+    setShowNewAddress(false);
+    setNifAddressLocationId('');
+    setSelectedNif(null);
+  }, [customer.account]);
+
+  const addressQueryKey = catalogKeys.addresses(context.company?.id ?? '', customer.account);
+
   return (
-    <aside className="fixed inset-y-0 right-0 w-full md:w-[32rem] bg-white shadow-2xl z-50 overflow-y-auto p-5">
-      <div className="flex justify-between items-start">
+    <aside className="fixed inset-y-0 right-0 z-[60] flex h-screen h-dvh w-full flex-col overflow-hidden bg-white shadow-2xl md:w-[32rem]">
+      <div className="flex shrink-0 items-start justify-between border-b border-outline-variant bg-white p-5">
         <div>
           <h2 className="font-bold">{customer.name}</h2>
           <p className="text-xs text-on-surface-variant">{customer.account}</p>
         </div>
-        <button onClick={close}>
+        <button aria-label="Cerrar detalle del cliente" onClick={close}>
           <Icon name="close" />
         </button>
       </div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-5">
       <div className="grid grid-cols-2 gap-3 my-5 text-xs">
         <Card className="p-3">
           <span className="text-on-surface-variant">Crédito disponible</span>
@@ -46,7 +64,24 @@ const CustomerDetail = ({
           <strong className="block mt-1">{customer.paymentTerms || 'N/A'}</strong>
         </Card>
       </div>
-      <h3 className="font-semibold text-sm mb-2">Direcciones</h3>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Direcciones</h3>
+        <Button variant="outline" onClick={() => setShowNewAddress(true)}>
+          Nueva dirección
+        </Button>
+      </div>
+      {showNewAddress && (
+        <div className="mb-3 min-w-0">
+          <NewAddressForm
+            customerAccount={customer.account}
+            onCancel={() => setShowNewAddress(false)}
+            onCreated={() => {
+              setShowNewAddress(false);
+              void queryClient.invalidateQueries({ queryKey: addressQueryKey });
+            }}
+          />
+        </div>
+      )}
       {addresses.isPending ? (
         <LoadingState message="Cargando direcciones..." />
       ) : addresses.isError ? (
@@ -55,12 +90,12 @@ const CustomerDetail = ({
           onRetry={() => void addresses.refetch()}
         />
       ) : addresses.data?.length ? (
-        <div className="space-y-2">
+        <div className="max-h-64 space-y-2 overflow-x-hidden overflow-y-auto pr-1">
           {addresses.data.map((x) => (
-            <Card key={x.recId} className="p-3">
-              <strong className="text-sm">{x.description}</strong>
-              <p className="text-xs mt-1">{x.formattedAddress}</p>
-              <p className="text-[11px] text-on-surface-variant mt-1">
+            <Card key={x.recId} className="min-w-0 p-3">
+              <strong className="block break-words text-sm">{x.description}</strong>
+              <p className="mt-1 break-words text-xs">{x.formattedAddress}</p>
+              <p className="mt-1 break-words text-[11px] text-on-surface-variant">
                 {x.roles} · {x.countryId} · {x.locationId}
               </p>
             </Card>
@@ -69,13 +104,43 @@ const CustomerDetail = ({
       ) : (
         <EmptyState title="Sin direcciones" />
       )}
-      <div className="mt-5 text-xs text-on-surface-variant">
-        Acuerdos disponibles: {catalogs.agreements.data?.items.length ?? 0} · Tipos de documento:{' '}
-        {catalogs.documents.data?.documentTypes.length ?? 0}
-      </div>
+      {showNif && (
+        <section className="mt-5 min-w-0 space-y-3 border-t border-outline-variant pt-4">
+          <h3 className="text-sm font-semibold">NIF</h3>
+          <Select
+            label="Dirección para NIF"
+            value={nifAddressLocationId}
+            onChange={(event) => {
+              setNifAddressLocationId(event.target.value);
+              setSelectedNif(null);
+            }}
+            options={[
+              { value: '', label: 'Seleccione una dirección...' },
+              ...(addresses.data ?? [])
+                .filter((address) => Boolean(address.countryId && address.locationId))
+                .map((address) => ({
+                  value: address.locationId,
+                  label: `${address.description || address.formattedAddress} · ${address.countryId}`,
+                })),
+            ]}
+          />
+          {nifAddress ? (
+            <VatSelector
+              countryId={nifAddress.countryId}
+              value={selectedNif}
+              onChange={setSelectedNif}
+            />
+          ) : (
+            <p className="text-xs text-on-surface-variant">
+              Seleccione una dirección para consultar o crear NIF del país correspondiente.
+            </p>
+          )}
+        </section>
+      )}
       <Button className="mt-4" onClick={onStatement}>
         Estado de cuenta
       </Button>
+      </div>
     </aside>
   );
 };
@@ -92,11 +157,18 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: (customerAccount: string) => void
   const query = useCustomers(debounced, page);
   const update = (nextSearch: string, nextPage = 1) =>
     setParams({ ...(nextSearch ? { search: nextSearch } : {}), page: String(nextPage) });
+  const changePage = (nextPage: number) => {
+    if (!query.data) return;
+    const boundedPage = Math.min(Math.max(nextPage, 1), query.data.pagination.totalPages);
+    if (boundedPage === query.data.pagination.currentPage) return;
+    setSelected(null);
+    update(debounced, boundedPage);
+  };
   React.useEffect(() => {
     update(debounced, 1);
   }, [debounced]);
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
       <div className="flex flex-col md:flex-row justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Mis clientes</h1>
@@ -124,55 +196,76 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: (customerAccount: string) => void
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {query.data.items.map((customer) => (
-              <Card
-                key={`${customer.companyId}-${customer.account}`}
-                hover
-                onClick={() => setSelected(customer)}
-                className="p-4"
-              >
-                <div className="flex justify-between">
-                  <div>
-                    <strong className="text-sm">{customer.name}</strong>
-                    <p className="text-xs text-on-surface-variant">
-                      {customer.account} · {customer.currency}
-                    </p>
+            {query.data.items.map((customer) => {
+              const isSelected =
+                selected?.companyId === customer.companyId &&
+                selected.account === customer.account;
+
+              return (
+                <Card
+                  key={`${customer.companyId}-${customer.account}`}
+                  hover
+                  onClick={() => setSelected(customer)}
+                  className={`p-4 transition-[opacity,filter,box-shadow,border-color] duration-200 ${
+                    selected
+                      ? isSelected
+                        ? 'opacity-100 md:relative md:z-20 md:border-primary md:shadow-lg md:ring-1 md:ring-primary/20'
+                        : 'opacity-50 blur-[1px]'
+                      : ''
+                  }`}
+                >
+                  <div className="flex justify-between">
+                    <div>
+                      <strong className="text-sm">{customer.name}</strong>
+                      <p className="text-xs text-on-surface-variant">
+                        {customer.account} · {customer.currency}
+                      </p>
+                    </div>
+                    <Badge
+                      label={customer.blocked !== 0 ? 'BLOQUEADO' : 'ACTIVO'}
+                      variant={customer.blocked !== 0 ? 'blocked' : 'success'}
+                    />
                   </div>
-                  <Badge
-                    label={customer.blocked !== 0 ? 'BLOQUEADO' : 'ACTIVO'}
-                    variant={customer.blocked !== 0 ? 'blocked' : 'success'}
-                  />
-                </div>
-                <div className="flex justify-between mt-3 text-xs">
-                  <span>Crédito disponible</span>
-                  <strong>USD {customer.creditAvailableUsd.toFixed(2)}</strong>
-                </div>
-              </Card>
-            ))}
+                  <div className="flex justify-between mt-3 text-xs">
+                    <span>Crédito disponible</span>
+                    <strong>USD {customer.creditAvailableUsd.toFixed(2)}</strong>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span>{query.data.pagination.totalRecords} registros</span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                disabled={page <= 1}
-                onClick={() => update(debounced, page - 1)}
+                disabled={query.data.pagination.currentPage <= 1}
+                onClick={() => changePage(query.data.pagination.currentPage - 1)}
               >
                 Anterior
               </Button>
-              <span className="p-2">
-                {page} / {Math.max(1, query.data.pagination.totalPages)}
+              <span className="whitespace-nowrap p-2">
+                Página {query.data.pagination.currentPage} de{' '}
+                {query.data.pagination.totalPages}
               </span>
               <Button
                 variant="outline"
-                disabled={page >= query.data.pagination.totalPages}
-                onClick={() => update(debounced, page + 1)}
+                disabled={
+                  query.data.pagination.currentPage >= query.data.pagination.totalPages
+                }
+                onClick={() => changePage(query.data.pagination.currentPage + 1)}
               >
                 Siguiente
               </Button>
             </div>
           </div>
         </>
+      )}
+      {selected && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 bg-white/40 backdrop-blur-[1px] transition-opacity duration-200"
+        />
       )}
       {selected && (
         <CustomerDetail

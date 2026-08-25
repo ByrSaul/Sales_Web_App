@@ -119,7 +119,13 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       try {
         user = await service.getUser();
       } catch {
-        user = { id: '', name: '', language: 'SIN DATO', personnelnumber: '' };
+        user = {
+          id: '',
+          name: '',
+          networkAlias: '',
+          language: 'SIN DATO',
+          personnelnumber: '',
+        };
         warning =
           'No se pudieron obtener idioma y número de personal. La creación de pedidos permanecerá bloqueada sin un número de personal real.';
       }

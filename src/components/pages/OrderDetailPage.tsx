@@ -26,6 +26,8 @@ import {
 import type { OfficialSalesOrderLine } from '../../features/orders/orderTypes';
 import { Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+import { useOrderAttachments } from '../../features/attachments/attachmentQueries';
+import { hasValidPaymentAttachment, requiresPaymentAttachment } from '../../features/attachments/attachmentValidation';
 type PendingLineSummary = {
   localId: string;
   itemId: string;
@@ -54,6 +56,10 @@ const OrderDetailPage = () => {
   const [pendingActions, setPendingActions] = useState<Record<string, 'cancel' | 'delete'>>({});
   const [pendingLines, setPendingLines] = useState<PendingLineSummary[]>([]);
   const order = data.header.data;
+  const paymentRequired = requiresPaymentAttachment(order?.customerAccount);
+  const attachments = useOrderAttachments(salesOrderNumber, paymentRequired);
+  const hasPayment = hasValidPaymentAttachment(attachments.data ?? []);
+  const paymentBlocked = paymentRequired && !hasPayment;
   const lines = data.lines.data ?? [];
   useEffect(() => {
     if (!order) return;
@@ -353,7 +359,7 @@ const OrderDetailPage = () => {
         {canAddOrderLine(order) && (
           <Button
             variant="outline"
-            disabled={Boolean(editing)}
+            disabled={Boolean(editing) || paymentBlocked}
             onClick={() =>
               navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/lineas/nueva`)
             }
@@ -362,6 +368,14 @@ const OrderDetailPage = () => {
           </Button>
         )}
       </div>
+      {paymentBlocked && (
+        <Card className="border-amber-300 bg-amber-50 p-3">
+          <strong>Comprobante de pago requerido</strong>
+          <p className="text-xs">Debe adjuntar un comprobante de pago en formato imagen antes de agregar líneas al pedido.</p>
+          <Button size="sm" variant="outline" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/adjuntos${search.toString() ? `?${search}` : ''}`)}>Agregar comprobante</Button>
+        </Card>
+      )}
+      {paymentRequired && hasPayment && <p className="text-xs text-primary">✓ Comprobante de pago registrado</p>}
       {message && (
         <div role="status" className="p-3 bg-amber-50 border rounded text-sm">
           {message}
@@ -400,7 +414,7 @@ const OrderDetailPage = () => {
                 <th>Cantidad</th>
                 <th>Precio</th>
                 <th>Total</th>
-                <th>Acciones</th>
+                <th className="text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -444,8 +458,8 @@ const OrderDetailPage = () => {
                   <td className="text-center">
                     {line.currencyCode || order.currencyCode} {line.lineAmount.toFixed(2)}
                   </td>
-                  <td className="p-2">
-                    {!editing && <div className="flex items-center gap-0.5">
+                  <td className="p-2 text-center">
+                    {!editing && <div className="flex items-center justify-center gap-1">
                       <Tooltip title={editReason ?? 'Editar línea'}>
                         <span>
                           <IconButton

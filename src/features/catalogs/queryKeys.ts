@@ -1,6 +1,16 @@
 export const catalogKeys = {
-  customers: (company: string, vendor: string, search: string, page: number) =>
-    ['customers', company, vendor, search, page] as const,
+  customers: (
+    company: string,
+    vendor: string,
+    search: string,
+    page: number) =>
+      [
+        'customers',
+        company,
+        vendor,
+        search,
+        page
+      ] as const,
   infiniteCustomers: (company: string, vendor: string, search: string) =>
     ['customers', company, vendor, 'infinite', search] as const,
   customer: (company: string, vendor: string, account: string) =>

@@ -27,6 +27,7 @@ export type UserDataDto = {
 export type OperationalUser = {
   id: string;
   name: string;
+  networkAlias: string;
   language: string;
   personnelnumber: string;
 };

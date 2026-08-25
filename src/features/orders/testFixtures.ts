@@ -45,7 +45,7 @@ export const validDraft = (count = 1): OrderDraft => {
       'A1',
       { id: 'CO', name: 'Company', defaultCurrency: 'GTQ', availableCurrencies: ['GTQ'] },
       { id: 'V1', name: 'Vendor', companyId: 'CO' },
-      { id: 'U1', name: 'User', language: 'es', personnelnumber: 'P1' },
+      { id: 'U1', name: 'User', networkAlias: '', language: 'es', personnelnumber: 'P1' },
     ),
     customer,
     deliveryMode: { code: 'D', description: 'Delivery' },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useStatement } from '../../features/billing/billingQueries';
+import { useAgingReport, useStatement } from '../../features/billing/billingQueries';
+import { openPdfReport } from '../../features/billing/billingService';
 import { Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 const usd = (v: number) =>
@@ -13,6 +14,18 @@ const AccountStatementPage = () => {
   const [input, setInput] = useState(account);
   useEffect(() => setInput(account), [account]);
   const q = useStatement(account, multi);
+  const agingReport = useAgingReport();
+  const [agingReportError, setAgingReportError] = useState('');
+  const openAgingReport = async () => {
+    if (!account || agingReport.isPending) return;
+    setAgingReportError('');
+    try {
+      const report = await agingReport.mutateAsync(account);
+      openPdfReport(report.fileName || `Antiguedad-${account}.pdf`, report.base64);
+    } catch {
+      setAgingReportError('No fue posible generar el reporte de antigüedad.');
+    }
+  };
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Estado de cuenta</h1>
@@ -65,7 +78,23 @@ const AccountStatementPage = () => {
             </Card>
           </div>
           <Card className="p-4">
-            <h2 className="font-bold mb-2">Antigüedad</h2>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-bold">Antigüedad</h2>
+              <Button
+                size="sm"
+                variant="outline"
+                loading={agingReport.isPending}
+                disabled={agingReport.isPending}
+                onClick={() => void openAgingReport()}
+              >
+                {agingReport.isPending ? 'Generando...' : 'Ver reporte'}
+              </Button>
+            </div>
+            {agingReportError && (
+              <p role="alert" className="mb-2 text-xs text-error">
+                {agingReportError}
+              </p>
+            )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
               {[q.data.current, ...q.data.aging].map((b) => (
                 <button

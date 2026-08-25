@@ -13,3 +13,14 @@ export const validateAttachment = (file: File, description: string): string | nu
 };
 export const isPaymentDescription = (description: string) =>
   description.trim().toLowerCase() === 'pago';
+export const requiresPaymentAttachment = (customerAccount: string | null | undefined) =>
+  customerAccount?.trim().toUpperCase() === 'MOST-000001';
+const imageExtensions = new Set(['jpg', 'jpeg', 'png']);
+export const isPaymentImage = (description: string, fileType: string) =>
+  isPaymentDescription(description) && imageExtensions.has(fileType.trim().toLowerCase().replace(/^\./, ''));
+export const hasValidPaymentAttachment = (
+  attachments: readonly { description: string; fileType: string }[],
+) => attachments.some((item) => isPaymentImage(item.description, item.fileType));
+export const hasValidLocalPaymentAttachment = (
+  attachments: readonly { description: string; extension: string }[],
+) => attachments.some((item) => isPaymentImage(item.description, item.extension));

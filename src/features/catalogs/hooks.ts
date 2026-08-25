@@ -16,7 +16,7 @@ export const useCustomers = (search: string, page: number) => {
         salesGroup: vendor,
         search,
         page,
-        perPage: 25,
+        perPage: 12,
         signal,
       }),
     enabled: Boolean(company && vendor && search.trim().length >= 1),
@@ -30,6 +30,8 @@ export const useCustomerAddresses = (account: string) => {
     queryKey: catalogKeys.addresses(company, account),
     queryFn: ({ signal }) => catalogService(api).customerAddresses(company, account, { signal }),
     enabled: Boolean(company && account),
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
   });
 };
 export const useProducts = (search: string, page: number) => {

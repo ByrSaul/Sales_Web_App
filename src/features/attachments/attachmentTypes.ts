@@ -1,4 +1,11 @@
-export type AttachmentStatus = 'pending' | 'encoding' | 'uploading' | 'success' | 'failed';
+export type AttachmentStatus =
+  | 'pending'
+  | 'encoding'
+  | 'uploading'
+  | 'verifying'
+  | 'ambiguous'
+  | 'success'
+  | 'failed';
 
 export type OrderAttachment = {
   companyId: string;

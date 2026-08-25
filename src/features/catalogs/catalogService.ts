@@ -267,28 +267,19 @@ export const catalogService = (api: ApiClient) => ({
     return map.list(r.suppitemgroup).map(map.promotion);
   },
   async countries(search = '', options?: Signal): Promise<Country[]> {
-    const r = await api.get<Json>('/d365/address/country_regions', {
-      body: { filters: {}, ...(search ? { search_text: search } : {}), page: 1, perpage: 100 },
-      ...options,
-    });
+    const r = await api.post<Json>('/d365/address/country_regions', { filters: {}, ...(search ? { search_text: search } : {}), page: 1, perpage: 100 }, options);
     return map.list(r['@odata']).map(map.country);
   },
   async states(countryId: string, options?: Signal): Promise<State[]> {
-    const r = await api.get<Json>('/d365/address/states', {
-      body: { filters: { CountryRegionId: [countryId] }, page: 1, perpage: 100 },
-      ...options,
-    });
+    const r = await api.post<Json>('/d365/address/states', { filters: { CountryRegionId: [countryId] }, page: 1, perpage: 100 }, options);
     return map.list(r['@odata']).map(map.state);
   },
   async counties(countryId: string, stateId: string, options?: Signal): Promise<County[]> {
-    const r = await api.get<Json>('/d365/address/counties', {
-      body: {
+    const r = await api.post<Json>('/d365/address/counties', {
         filters: { CountryRegionId: [countryId], StateId: [stateId] },
         page: 1,
         perpage: 100,
-      },
-      ...options,
-    });
+      }, options);
     return map.list(r['@odata']).map(map.county);
   },
   async cities(
@@ -297,14 +288,11 @@ export const catalogService = (api: ApiClient) => ({
     countyId: string,
     options?: Signal,
   ): Promise<City[]> {
-    const r = await api.get<Json>('/d365/address/cities', {
-      body: {
+    const r = await api.post<Json>('/d365/address/cities', {
         filters: { CountryRegionId: [countryId], StateId: [stateId], CountyId: [countyId] },
         page: 1,
         perpage: 100,
-      },
-      ...options,
-    });
+      }, options);
     return map.list(r['@odata']).map(map.city);
   },
   async zipCodes(
@@ -314,17 +302,14 @@ export const catalogService = (api: ApiClient) => ({
     cityId: string,
     options?: Signal,
   ): Promise<ZipCode[]> {
-    const r = await api.get<Json>('/d365/address/zip_codes', {
-      body: {
+    const r = await api.post<Json>('/d365/address/zip_codes', {
         filters: {
           CountryRegionId: [countryId],
           State: [stateId],
           County: [countyId],
           City: [cityId],
         },
-      },
-      ...options,
-    });
+      }, options);
     return map.list(r['@odata']).map(map.zip);
   },
   async vatNumbers(
@@ -333,15 +318,12 @@ export const catalogService = (api: ApiClient) => ({
     name = '',
     options?: Signal,
   ): Promise<PageResult<VatNumber>> {
-    const r = await api.get<Json>('/d365/vat_num', {
-      body: {
+    const r = await api.post<Json>('/d365/vat_num/query', {
         filters: { Name: name, dataAreaId: company, CountryRegionId: countryId },
-        sort: { fields: [{ name: 'VATNum', order: 'asc' }] },
+        sort: { fields: [{ name: 'VATNum', order: 'desc' }] },
         page: 1,
         perpage: 25,
-      },
-      ...options,
-    });
+      }, options);
     return map.pageResult(map.list(r['@odata']).map(map.vat), r.pagination, 25);
   },
   async documentTypes(
@@ -350,10 +332,7 @@ export const catalogService = (api: ApiClient) => ({
     options?: Signal,
   ): Promise<DocumentTypes> {
     return map.documentTypes(
-      await api.get<Json>('/d365/vat_num/document_type', {
-        body: { filters: { dataAreaId: company, CountryRegionId: countryId } },
-        ...options,
-      }),
+      await api.post<Json>('/d365/vat_num/document_type/query', { filters: { dataAreaId: company, CountryRegionId: countryId } }, options),
     );
   },
 });

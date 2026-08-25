@@ -28,6 +28,7 @@ export const mapVendor = (dto: VendorDto): Vendor => {
 export const mapUser = (dto: UserDataDto): OperationalUser => ({
   id: dto.id ?? '',
   name: dto.name ?? '',
+  networkAlias: dto.networkalias?.trim() ?? '',
   language: dto.language ?? '',
   personnelnumber: dto.personnelnumber ?? '',
 });

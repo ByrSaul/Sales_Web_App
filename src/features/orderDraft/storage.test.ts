@@ -16,7 +16,7 @@ const draft = () =>
     'account',
     { id: 'company', name: 'C', defaultCurrency: 'GTQ', availableCurrencies: ['GTQ'] },
     { id: 'vendor', name: 'V', companyId: 'company' },
-    { id: 'user', name: 'U', language: 'es', personnelnumber: 'p' },
+    { id: 'user', name: 'U', networkAlias: '', language: 'es', personnelnumber: 'p' },
   );
 describe('order draft persistence', () => {
   it('persists version and restores after reconstruction', () => {

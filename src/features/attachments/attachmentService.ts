@@ -15,16 +15,22 @@ export const fileToBase64 = (file: File): Promise<string> =>
   });
 
 export const attachmentService = (api: ApiClient) => ({
-  list: async (companyId: string, salesOrderNumber: string): Promise<OrderAttachment[]> =>
+  list: async (
+    companyId: string,
+    salesOrderNumber: string,
+    signal?: AbortSignal,
+  ): Promise<OrderAttachment[]> =>
     mapAttachmentList(
-      await api.get<unknown>('/d365/sales_header_documents_atachments', {
-        body: {
+      await api.post<unknown>(
+        '/d365/sales_header_documents_atachments/query',
+        {
           filters: { dataAreaId: companyId, SalesOrderNumber: salesOrderNumber },
           cross_company: true,
           page: 1,
           perpage: 20,
         },
-      }),
+        { signal },
+      ),
     ),
   upload: async (
     companyId: string,

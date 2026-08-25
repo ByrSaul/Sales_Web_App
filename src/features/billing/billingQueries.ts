@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSession } from '../../app/providers/SessionProvider';
 import { billingService } from './billingService';
 import type { InvoiceFilters } from './billingTypes';
@@ -36,4 +36,12 @@ export const useReportService = () => {
     pdf: (_company: string, documentId: string) =>
       service.pdf(context.company?.id ?? '', documentId),
   };
+};
+export const useAgingReport = () => {
+  const { api, context } = useSession();
+  return useMutation({
+    mutationFn: (customerAccount: string) =>
+      billingService(api).agingPdf(context.company?.id ?? '', customerAccount),
+    retry: false,
+  });
 };
