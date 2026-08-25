@@ -18,6 +18,19 @@ import { hasValidLocalPaymentAttachment, requiresPaymentAttachment } from '../..
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
+/**
+ * Pantalla de captura del encabezado de un nuevo pedido.
+ *
+ * Flujo:
+ * - Selecciona cliente, dirección y condiciones comerciales.
+ * - Conserva los datos en `OrderDraftProvider`.
+ * - Valida requisitos antes de continuar a las líneas.
+ *
+ * Dependencias:
+ * - Contexto de sesión.
+ * - Borrador de pedido.
+ * - Catálogos comerciales y adjuntos.
+ */
 const CreateOrderPage = () => {
   const navigate = useNavigate();
   const { context } = useSession();

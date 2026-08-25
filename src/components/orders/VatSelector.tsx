@@ -6,6 +6,7 @@ import { Button, Input, Select } from '../ui';
 
 type Props = { countryId: string; value: string | null; onChange: (value: string | null) => void };
 
+/** Selector y formulario de creación de NIF/VAT para el país de la dirección. */
 export const VatSelector = ({ countryId, value, onChange }: Props) => {
   const { context } = useSession();
   const [search, setSearch] = useState('');

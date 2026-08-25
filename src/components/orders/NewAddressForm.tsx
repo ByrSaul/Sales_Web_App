@@ -9,6 +9,13 @@ type Props = {
   onCreated: (address: CustomerAddress) => void;
 };
 
+/**
+ * Formulario jerárquico para crear una dirección del cliente indicado.
+ *
+ * Dependencias:
+ * - Catálogos geográficos dependientes.
+ * - Mutación de creación de dirección.
+ */
 export const NewAddressForm = ({ customerAccount, onCancel, onCreated }: Props) => {
   const [countryId, setCountryId] = useState('');
   const [stateId, setStateId] = useState('');

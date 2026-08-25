@@ -26,6 +26,7 @@ type Json = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? '' : String(v));
 const n = (v: unknown) => Number(v ?? 0);
 const list = (v: unknown): Json[] => (Array.isArray(v) ? (v as Json[]) : []);
+/** Normaliza metadatos de paginación provenientes de contratos heterogéneos. */
 export const pagination = (v: unknown, perPage = 10): Pagination => {
   const j = (v ?? {}) as Json;
   return {
@@ -37,6 +38,7 @@ export const pagination = (v: unknown, perPage = 10): Pagination => {
     totalPages: n(j.TotalPages),
   };
 };
+/** Convierte el DTO resumido de cliente al modelo de dominio Web. */
 export const customer = (j: Json | CustomerDto): Customer => ({
   salesGroupId: s(j.commissionsalesgroupid),
   account: s(j.customeraccount),
@@ -54,6 +56,7 @@ export const customer = (j: Json | CustomerDto): Customer => ({
   creditAvailableUsd: n(j.usd_creditavailable),
   isCashAccount: n(j.csfaiscashaccount) === 1,
 });
+/** Convierte una dirección de cliente del API al modelo utilizado por la interfaz. */
 export const customerAddress = (j: Json): CustomerAddress => ({
   locationId: s(j.addresslocationid),
   description: s(j.addressdescription),
@@ -62,6 +65,7 @@ export const customerAddress = (j: Json): CustomerAddress => ({
   countryId: s(j.addresscountryregionid),
   recId: n(j.recid),
 });
+/** Convierte un registro de producto al modelo del catálogo Web. */
 export const product = (j: Json): Product => ({
   itemId: s(j.itemid),
   name: s(j.name),
@@ -69,6 +73,7 @@ export const product = (j: Json): Product => ({
   dimensionGroup: s(j.dimensiongroup),
   requiresVariant: s(j.producttype) === 'MasterProduct',
 });
+/** Convierte dimensiones de producto en una variante seleccionable. */
 export const variant = (j: Json): ProductVariant => ({
   itemId: s(j.itemid),
   displayProductNumber: s(j.displayproductnumber),
@@ -80,6 +85,7 @@ export const variant = (j: Json): ProductVariant => ({
   styleId: s(j.inventstyleid),
   versionId: s(j.inventversionid),
 });
+/** Convierte una existencia del API en el modelo de inventario Web. */
 export const inventory = (j: Json): InventoryItem => ({
   companyId: s(j.dataareaid),
   itemId: s(j.itemid),
@@ -106,6 +112,7 @@ export const inventoryLocation = (j: Json): InventoryLocation => ({
   id: s(j.inventlocationid),
   name: s(j.name),
 });
+/** Normaliza el resultado de precio y moneda para una selección comercial. */
 export const price = (j: Json): Price => ({
   success: Boolean(j.Success),
   errorMessage: s(j.ErrorMessage),
@@ -198,6 +205,7 @@ export const documentTypes = (j: Json): DocumentTypes => {
       .filter(Boolean),
   };
 };
+/** Combina elementos mapeados y metadatos en un resultado paginado tipado. */
 export const pageResult = <T>(items: T[], meta: unknown, perPage?: number): PageResult<T> => ({
   items,
   pagination: pagination(meta, perPage),

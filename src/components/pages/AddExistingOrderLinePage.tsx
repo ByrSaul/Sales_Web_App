@@ -40,6 +40,19 @@ type PendingLine = OrderDraftLine & {
   submissionError: string | null;
 };
 
+/**
+ * Pantalla para agregar o editar líneas de un pedido ya persistido.
+ *
+ * Flujo:
+ * - Consulta el pedido y sus líneas oficiales.
+ * - Resuelve producto, variante y ubicación seleccionados.
+ * - Aplica las reglas de actualización para líneas persistidas.
+ *
+ * Dependencias:
+ * - React Router.
+ * - Queries y mutaciones de pedidos.
+ * - Catálogos de inventario.
+ */
 const AddExistingOrderLinePage = () => {
   const { salesOrderNumber = '' } = useParams();
   const navigate = useNavigate();

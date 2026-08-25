@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   '/crear-pedido': 'Crear pedido',
   '/estado-cuenta': 'Estado de Cuenta',
 };
+/** Compone el layout autenticado y presenta advertencias del contexto operativo. */
 const ProtectedLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();

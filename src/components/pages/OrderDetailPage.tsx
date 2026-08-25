@@ -36,6 +36,19 @@ type PendingLineSummary = {
   price: number;
   currency: string;
 };
+/**
+ * Pantalla de detalle y mantenimiento de un pedido persistido.
+ *
+ * Flujo:
+ * - Consulta encabezado y líneas oficiales.
+ * - Evalúa permisos y reglas por estado.
+ * - Ejecuta acciones de confirmación, cancelación y edición.
+ *
+ * Dependencias:
+ * - TanStack Query.
+ * - React Router.
+ * - Reglas y mutaciones de pedidos.
+ */
 const OrderDetailPage = () => {
   const { salesOrderNumber = '' } = useParams();
   const [search] = useSearchParams();

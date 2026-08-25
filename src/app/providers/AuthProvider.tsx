@@ -37,6 +37,14 @@ type AuthContextValue = {
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Proveedor del estado de autenticación y del token consumido por el API.
+ *
+ * Flujo:
+ * - Inicializa la estrategia MSAL o de desarrollo.
+ * - Restaura la cuenta autenticada.
+ * - Expone login, logout y adquisición de tokens.
+ */
 export const AuthProvider = ({
   instance,
   children,
@@ -167,6 +175,7 @@ export const AuthProvider = ({
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+/** @returns Contexto de autenticación disponible dentro de `AuthProvider`. */
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used inside AuthProvider');

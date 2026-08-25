@@ -32,6 +32,14 @@ const activeStatus = new Set([
   'creating-lines',
   'recovering',
 ]);
+/**
+ * Proveedor que coordina y recupera el proceso persistente de envío de pedidos.
+ *
+ * Dependencias:
+ * - `SubmissionRunner`.
+ * - Gateway de envío de pedidos.
+ * - Almacenamiento de la ejecución.
+ */
 export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) => {
   const { api, context } = useSession();
   const { draft, attachments, clearAttachments, reset } = useOrderDraft();
@@ -99,6 +107,7 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 };
+/** @returns Estado y comandos del envío de pedido en curso. */
 export const useOrderSubmission = () => {
   const value = useContext(Context);
   if (!value) throw new Error('useOrderSubmission must be inside provider');

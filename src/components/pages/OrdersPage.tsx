@@ -21,6 +21,19 @@ const fromParams = (p: URLSearchParams): OrderFilters => ({
   page: Math.max(1, Number(p.get('page')) || 1),
   perPage: 10,
 });
+/**
+ * Pantalla de búsqueda y paginación de pedidos de venta.
+ *
+ * Responsabilidades:
+ * - Sincronizar filtros con la URL.
+ * - Consultar pedidos del contexto operativo.
+ * - Navegar al detalle del pedido seleccionado.
+ *
+ * Dependencias:
+ * - TanStack Query.
+ * - React Router.
+ * - `useOrders`.
+ */
 const OrdersPage = () => {
   const navigate = useNavigate();
   const { context } = useSession();

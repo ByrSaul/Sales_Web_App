@@ -1,4 +1,5 @@
 // ─── Navigation ───────────────────────────────────────────────────────────────
+/** Contrato visual de una opción de navegación de la aplicación. */
 export type NavItem = {
   label: string;
   icon: string;
@@ -7,6 +8,7 @@ export type NavItem = {
 };
 
 // ─── User ─────────────────────────────────────────────────────────────────────
+/** Identidad resumida utilizada por componentes heredados de layout. */
 export type User = {
   name: string;
   role: string;
@@ -39,6 +41,7 @@ export type QuickAction = {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 export type OrderStatus = 'FACTURADO' | 'PENDIENTE' | 'BORRADOR' | 'CANCELADO';
 
+/** Representación de pedido utilizada por vistas heredadas del prototipo. */
 export type Order = {
   id: string;
   status: OrderStatus;
@@ -94,6 +97,7 @@ export type OrderDetail = {
 // ─── Clients ──────────────────────────────────────────────────────────────────
 export type ClientStatus = 'ACTIVO' | 'BLOQUEADO';
 
+/** Representación resumida de cliente utilizada por vistas heredadas. */
 export type Client = {
   code: string;
   name: string;
@@ -178,6 +182,7 @@ export type InvoiceFilters = {
 };
 
 // ─── App types (already defined inline in pages, kept for reference) ───────────
+/** Unión de rutas conocidas por la navegación tipada del prototipo. */
 export type AppRoute =
   | '/'
   | '/pedidos'

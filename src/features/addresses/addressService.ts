@@ -1,5 +1,6 @@
 import type { ApiClient } from '../../core/api/apiClient';
 import type { City, Country, County, CustomerAddress, Pagination, State, ZipCode } from '../catalogs/types';
+/** Datos capturados para crear una dirección de cliente en D365. */
 export type AddressForm = {
   customerAccount: string;
   countryId: string;
@@ -10,6 +11,13 @@ export type AddressForm = {
   description: string;
   street: string;
 };
+/**
+ * Traduce el formulario Web al contrato requerido para crear una dirección.
+ *
+ * @param company Compañía operativa seleccionada.
+ * @param f Valores del formulario de dirección.
+ * @returns Payload compatible con el endpoint de direcciones.
+ */
 export const mapCreateAddress = (company: string, f: AddressForm) => ({
   CustomerLegalEntityId: company,
   CustomerAccountNumber: f.customerAccount,
@@ -21,6 +29,20 @@ export const mapCreateAddress = (company: string, f: AddressForm) => ({
   AddressDescription: f.description.trim(),
   AddressStreet: f.street.trim(),
 });
+/**
+ * Servicio de creación de direcciones y consulta de catálogos geográficos.
+ *
+ * Endpoints utilizados:
+ * - `POST /d365/address`
+ * - `POST /d365/address/country_regions`
+ * - `POST /d365/address/states`
+ * - `POST /d365/address/counties`
+ * - `POST /d365/address/cities`
+ * - `POST /d365/address/zip_codes`
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operaciones de direcciones y geografía.
+ */
 export const addressService = (api: ApiClient) => ({
   async create(company: string, form: AddressForm): Promise<CustomerAddress> {
     const response = await api.post<unknown>('/d365/address', mapCreateAddress(company, form));

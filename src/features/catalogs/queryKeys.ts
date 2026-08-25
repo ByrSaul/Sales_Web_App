@@ -1,3 +1,8 @@
+/**
+ * Fábrica centralizada de claves de caché para catálogos comerciales.
+ *
+ * Mantiene aislamiento por compañía, vendedor, filtros y paginación.
+ */
 export const catalogKeys = {
   customers: (
     company: string,

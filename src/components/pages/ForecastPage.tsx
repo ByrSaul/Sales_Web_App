@@ -4,6 +4,7 @@ import { useForecast } from '../../features/forecast/forecastQueries';
 import type { ForecastFilters } from '../../features/forecast/forecastTypes';
 import { Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/** Pantalla de consulta del pronóstico comercial del vendedor activo. */
 const ForecastPage = () => {
   const [p, setP] = useSearchParams();
   const f: ForecastFilters = {

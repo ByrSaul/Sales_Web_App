@@ -11,6 +11,7 @@ import { queryClient } from './app/providers/queryClient';
 import { GlobalErrorBoundary } from './app/errors/GlobalErrorBoundary';
 import { appConfig, getConfigurationErrors } from './app/config/env';
 
+/** Inicializa autenticación, renderiza la raíz React y registra el manejo global de errores. */
 const start = async () => {
   const fatal = getConfigurationErrors().find((error) =>
     error.includes('no está permitido en producción'),

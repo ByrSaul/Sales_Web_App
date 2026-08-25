@@ -16,6 +16,13 @@ const money = (value: number, currency: string) => {
     return `${currency} ${value.toFixed(2)}`;
   }
 };
+/**
+ * Pantalla de consulta paginada de facturas comerciales.
+ *
+ * Dependencias:
+ * - Contexto de sesión.
+ * - Queries de facturación.
+ */
 const InvoicesPage = () => {
   const [params, setParams] = useSearchParams();
   const filters: InvoiceFilters = {

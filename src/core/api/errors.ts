@@ -9,6 +9,7 @@ export type ApiErrorKind =
   | 'configuration'
   | 'identity';
 
+/** Error tipado que conserva categoría, estado HTTP y causa de infraestructura. */
 export class ApiError extends Error {
   constructor(
     public readonly kind: ApiErrorKind,
@@ -21,6 +22,7 @@ export class ApiError extends Error {
   }
 }
 
+/** Traduce un error desconocido a un mensaje seguro para presentar al usuario. */
 export const userErrorMessage = (error: unknown): string => {
   if (!(error instanceof ApiError)) return 'Ocurrió un error inesperado. Intenta nuevamente.';
   switch (error.kind) {

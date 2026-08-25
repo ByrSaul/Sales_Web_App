@@ -1,4 +1,5 @@
 export type ForecastView = 'all' | 'qty' | 'amount' | 'volume';
+/** Filtros, vista y paginación aplicados al pronóstico comercial. */
 export type ForecastFilters = {
   from: string;
   to: string;
@@ -8,6 +9,7 @@ export type ForecastFilters = {
   view: ForecastView;
   page: number;
 };
+/** Fila normalizada del pronóstico comercial. */
 export type ForecastRow = {
   salesGroup: string;
   salesGroupName: string;

@@ -16,6 +16,7 @@ const amount = (order: ExistingOrder) =>
     maximumFractionDigits: 2,
   }).format(order.salesAmount)}`;
 
+/** Presenta pedidos recientes con estados de carga, error y navegación. */
 export const RecentActivityCard = ({
   orders,
   loading,

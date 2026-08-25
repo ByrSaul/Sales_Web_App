@@ -6,6 +6,18 @@ import { Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 const usd = (v: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'USD' }).format(v);
+/**
+ * Pantalla de estado de cuenta del cliente seleccionado.
+ *
+ * Responsabilidades:
+ * - Consultar documentos y resumen financiero.
+ * - Mantener el contexto de cliente recibido por navegación.
+ * - Solicitar reportes PDF cuando corresponda.
+ *
+ * Dependencias:
+ * - React Router.
+ * - Queries de facturación.
+ */
 const AccountStatementPage = () => {
   const [p, setP] = useSearchParams();
   const navigate = useNavigate();

@@ -6,6 +6,13 @@ import { userErrorMessage } from '../../core/api/errors';
 import { useSendSupport } from '../../features/support/supportMutation';
 import { validateSupport } from '../../features/support/supportService';
 import { Button, Card } from '../ui';
+/**
+ * Formulario de contacto con soporte técnico usando la identidad autenticada.
+ *
+ * Dependencias:
+ * - Contextos de autenticación y sesión.
+ * - Mutación de envío de soporte.
+ */
 const SupportPage = () => {
   const auth = useAuth(),
     { context } = useSession(),

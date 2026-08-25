@@ -5,6 +5,13 @@ import { useAuth } from '../../app/providers/AuthProvider';
 import { Button, Card, Icon } from '../../components/ui';
 import { LoadingState } from '../../components/ui/PageState';
 
+/**
+ * Pantalla de inicio de sesión mediante la estrategia de autenticación configurada.
+ *
+ * Dependencias:
+ * - `AuthProvider`.
+ * - Configuración MSAL o token de desarrollo.
+ */
 const LoginPage: React.FC = () => {
   const { mode, status, error, login } = useAuth();
   const configErrors = getConfigurationErrors();

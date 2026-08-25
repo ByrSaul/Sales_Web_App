@@ -1,5 +1,7 @@
 import type { OrderDraft, OrderDraftLine } from './types';
+/** Error de validación asociado al encabezado o a una línea del borrador. */
 export type DraftError = { code: string; field: string; message: string; lineId?: string };
+/** Valida los campos y reglas mínimas de una línea antes de enviarla. */
 export const validateDraftLine = (line: OrderDraftLine): DraftError[] => {
   const e: DraftError[] = [],
     add = (code: string, field: string, message: string) =>
@@ -18,6 +20,7 @@ export const validateDraftLine = (line: OrderDraftLine): DraftError[] => {
     add('agreement_quantity', 'quantity', 'La cantidad excede el saldo restante del acuerdo.');
   return e;
 };
+/** Valida de forma integral el encabezado y todas las líneas de un borrador. */
 export const validateOrderDraft = (d: OrderDraft): DraftError[] => {
   const e: DraftError[] = [],
     add = (code: string, field: string, message: string) => e.push({ code, field, message });

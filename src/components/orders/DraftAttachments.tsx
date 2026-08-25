@@ -5,6 +5,7 @@ import { Button, Card, Input } from '../ui';
 
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
+/** Gestiona los adjuntos locales asociados al encabezado del borrador. */
 export const DraftAttachments = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { draft, attachments, setAttachments } = useOrderDraft();
   useEffect(() => {

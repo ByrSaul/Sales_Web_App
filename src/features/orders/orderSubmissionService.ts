@@ -8,6 +8,18 @@ import type {
   SalesLineRequest,
 } from './types';
 import { attachmentService } from '../attachments/attachmentService';
+/**
+ * Servicio de persistencia del encabezado, líneas y adjuntos de un pedido.
+ *
+ * Endpoints utilizados:
+ * - `POST /d365/sales`
+ * - `POST /d365/sales/line`
+ * - `POST /d365/sales/line/agreement`
+ * - `POST /d365/sales/line/query`
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Gateway utilizado por el ejecutor de envío de pedidos.
+ */
 export const orderSubmissionService = (api: ApiClient): OrderSubmissionGateway => ({
   async createHeader(request: SalesHeaderRequest) {
     const result = mapHeaderResponse(

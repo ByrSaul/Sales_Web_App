@@ -3,6 +3,7 @@ import type { ForecastFilters, ForecastRow } from './forecastTypes';
 type J = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? '' : String(v)),
   maybe = (v: unknown) => (v == null ? null : typeof v === 'number' ? v : Number(v) || 0);
+/** Convierte una fila sin tipar del API en una fila de pronóstico de dominio. */
 export const mapForecast = (j: J): ForecastRow => ({
   salesGroup: s(j.commisssalesgroup),
   salesGroupName: s(j.commissionsalesgroupname),
@@ -19,6 +20,15 @@ export const mapForecast = (j: J): ForecastRow => ({
   projectionAmount: maybe(j.proyeccionamount),
   projectionVolume: maybe(j.proyeccionvolume),
 });
+/**
+ * Servicio de consulta del pronóstico comercial.
+ *
+ * Endpoints utilizados:
+ * - `POST /forecast`
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operación paginada de consulta de pronóstico.
+ */
 export const forecastService = (api: ApiClient) => ({
   list: async (company: string, vendor: string, f: ForecastFilters, signal?: AbortSignal) => {
     const value = await api.post<J>(

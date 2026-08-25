@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { useSession } from '../providers/SessionProvider';
 import { LoadingState } from '../../components/ui/PageState';
+/** Redirige a login cuando no existe una sesión autenticada. */
 export const RequireAuthentication: React.FC = () => {
   const auth = useAuth();
   const location = useLocation();
@@ -11,10 +12,12 @@ export const RequireAuthentication: React.FC = () => {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
 };
+/** Exige una compañía seleccionada antes de renderizar la ruta hija. */
 export const RequireCompany: React.FC = () => {
   const { context } = useSession();
   return context.company ? <Outlet /> : <Navigate to="/company" replace />;
 };
+/** Exige compañía y vendedor para acceder a funcionalidades operativas. */
 export const RequireCompleteContext: React.FC = () => {
   const { context } = useSession();
   if (!context.company) return <Navigate to="/company" replace />;

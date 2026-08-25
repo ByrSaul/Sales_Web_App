@@ -8,6 +8,7 @@ import type {
 } from '../../features/production/productionTypes';
 import { Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/** Pantalla de consulta de producción por pedido o consolidado diario. */
 const ProductionPage = () => {
   const [p, setP] = useSearchParams();
   const f: ProductionFilters = {

@@ -1,3 +1,4 @@
+/** Selección jerárquica utilizada por los formularios de dirección. */
 export type GeographySelection = {
   countryId: string;
   stateId: string;
@@ -12,10 +13,12 @@ export const emptyGeography: GeographySelection = {
   cityId: '',
   zipCode: '',
 };
+/** Actualiza el país y limpia todos los niveles geográficos dependientes. */
 export const selectCountry = (
   value: GeographySelection,
   countryId: string,
 ): GeographySelection => ({ ...emptyGeography, countryId });
+/** Actualiza el estado y limpia municipio, ciudad y código postal. */
 export const selectState = (value: GeographySelection, stateId: string): GeographySelection => ({
   ...value,
   stateId,

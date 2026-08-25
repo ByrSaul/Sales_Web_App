@@ -6,6 +6,7 @@ export type DashboardQuickAction = {
   route: string;
 };
 
+/** Presenta accesos rápidos a los flujos operativos más frecuentes. */
 export const QuickActionsCard = ({
   actions,
   onNavigate,

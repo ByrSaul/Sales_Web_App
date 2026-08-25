@@ -1,5 +1,6 @@
 import type { AttachmentDto, OrderAttachment } from './attachmentTypes';
 const text = (value: unknown) => (typeof value === 'string' ? value : '');
+/** Convierte un adjunto de D365 al modelo descargable de la aplicación. */
 export const mapAttachment = (dto: AttachmentDto): OrderAttachment => ({
   companyId: text(dto.dataAreaId),
   salesOrderNumber: text(dto.SalesOrderNumber),

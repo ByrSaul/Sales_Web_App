@@ -2,6 +2,7 @@ import type { ExistingOrder, ExistingOrderLine, OfficialSalesOrderLine } from '.
 import type { MenuPermission } from '../../core/session/types';
 const open = (status: string) =>
   ['orden abierta', 'open', 'backorder'].includes(status.trim().toLowerCase());
+/** Indica si el estado actual permite considerar abierto un pedido. */
 export const isOrderOpen = (order: ExistingOrder) => open(order.status);
 export const canModifyOrder = (order: ExistingOrder) => isOrderOpen(order);
 export const canAddOrderLine = (order: ExistingOrder) => canModifyOrder(order);
@@ -19,6 +20,7 @@ const canActOnPersistedLine = (order: ExistingOrder, line: PersistedLineRuleData
   isOrderOpen(order) &&
   isPersistedLineOpen(line) &&
   Boolean(line.inventoryLotId?.trim());
+/** Evalúa si una línea persistida puede editarse según pedido y facturación. */
 export const canEditPersistedLine = (order: ExistingOrder, line: PersistedLineRuleData) =>
   canActOnPersistedLine(order, line) && line.isBonification !== true;
 export const canCancelPersistedLine = (order: ExistingOrder, line: PersistedLineRuleData) =>
@@ -36,6 +38,7 @@ export const canEditOrderLine = (order: ExistingOrder, line: ExistingOrderLine) 
 export const canCancelOrderLine = (order: ExistingOrder, line: PersistedLineRuleData) =>
   canCancelPersistedLine(order, line);
 export type PersistedLineAction = 'edit' | 'cancel' | 'delete';
+/** Explica por qué una acción sobre una línea persistida no está disponible. */
 export const persistedLineDisabledReason = (
   action: PersistedLineAction,
   order: ExistingOrder,
@@ -48,8 +51,10 @@ export const persistedLineDisabledReason = (
     return 'La l\u00ednea es una bonificaci\u00f3n y no admite edici\u00f3n.';
   return null;
 };
+/** Indica si el pedido contiene líneas y está en estado confirmable. */
 export const canConfirmOrder = (order: ExistingOrder, lines: readonly unknown[]) =>
   open(order.status) && lines.length > 0 && !order.confirmDocumentNumber;
+/** Evalúa los permisos operativos necesarios para modificar precios. */
 export const canEditPrice = (permissions: MenuPermission[]): boolean => {
   const find = (nodes: MenuPermission[], name: string): MenuPermission | undefined => {
     for (const node of nodes) {

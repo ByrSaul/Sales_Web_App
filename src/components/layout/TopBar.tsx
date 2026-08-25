@@ -12,6 +12,12 @@ interface TopBarProps {
   onBack?: () => void;
 }
 
+/**
+ * Barra superior con identidad operativa, navegación contextual y notificaciones.
+ *
+ * Dependencias:
+ * - Contexto de sesión para compañía, usuario y vendedor activos.
+ */
 const TopBar: React.FC<TopBarProps> = ({
   searchPlaceholder = 'Buscar...',
   user,

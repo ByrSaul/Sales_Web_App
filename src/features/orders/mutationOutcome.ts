@@ -4,6 +4,7 @@ import { ApiError } from '../../core/api/errors';
 // "nothing happened": the proxy collapses both pre-Dynamics failures and
 // post-Dynamics connection drops into the same status codes. Any non-5xx ApiError
 // (400/401/403/404/409/422) reflects a request Dynamics never had a chance to apply.
+/** Indica si un fallo de mutación requiere reconciliar el estado remoto. */
 export const isAmbiguousError = (error: unknown): boolean =>
   error instanceof ApiError
     ? error.kind === 'timeout' ||
@@ -12,6 +13,7 @@ export const isAmbiguousError = (error: unknown): boolean =>
       (error.status ?? 0) >= 500
     : true;
 
+/** Obtiene un mensaje estable para registrar el resultado fallido de una mutación. */
 export const mutationErrorMessage = (error: unknown): string =>
   error instanceof ApiError
     ? error.kind === 'timeout'

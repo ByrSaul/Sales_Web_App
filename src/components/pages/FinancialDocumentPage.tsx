@@ -5,6 +5,7 @@ import { openPdfReport } from '../../features/billing/billingService';
 import { userErrorMessage } from '../../core/api/errors';
 import { Button, Card, EmptyState } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/** Pantalla de detalle de un documento financiero del cliente. */
 const FinancialDocumentPage = () => {
   const { id = '' } = useParams();
   const [p] = useSearchParams();

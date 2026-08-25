@@ -14,6 +14,14 @@ import { VatSelector } from '../orders/VatSelector';
 import { Badge, Button, Card, EmptyState, Icon, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
+/**
+ * Drawer con la información comercial, direcciones y acciones del cliente seleccionado.
+ *
+ * Dependencias:
+ * - Contexto de sesión.
+ * - TanStack Query.
+ * - Catálogos de direcciones y NIF/VAT.
+ */
 const CustomerDetail = ({
   customer,
   close,
@@ -145,6 +153,20 @@ const CustomerDetail = ({
   );
 };
 
+/**
+ * Pantalla principal de consulta de clientes asignados al vendedor activo.
+ *
+ * Responsabilidades:
+ * - Buscar y paginar clientes.
+ * - Mantener el cliente seleccionado y su estado visual de enfoque.
+ * - Mostrar el drawer de detalle.
+ * - Navegar al estado de cuenta conservando la cuenta seleccionada.
+ *
+ * Dependencias:
+ * - TanStack Query.
+ * - `useCustomers`.
+ * - `CustomerDetail`.
+ */
 const ClientsPage: React.FC<{ onEstadoCuenta?: (customerAccount: string) => void }> = ({
   onEstadoCuenta = () => undefined,
 }) => {

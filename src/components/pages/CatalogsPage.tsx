@@ -7,6 +7,7 @@ import { emptyGeography, type GeographySelection } from '../../features/catalogs
 import { useReferenceCatalogs } from '../../features/catalogs/hooks';
 import { catalogKeys } from '../../features/catalogs/queryKeys';
 import { Card, EmptyState, Input } from '../ui';
+/** Pantalla de inspección de catálogos operativos asociados al contexto activo. */
 const CatalogsPage: React.FC = () => {
   const { api, context } = useSession();
   const [geo, setGeo] = useState<GeographySelection>(emptyGeography);

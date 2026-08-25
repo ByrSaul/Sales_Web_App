@@ -2,10 +2,12 @@ import type { OrderSubmission } from './types';
 export const ORDER_SUBMISSION_KEY = 'sales4app.orderSubmission.v1';
 const key = (accountId: string, companyId: string) =>
   `${ORDER_SUBMISSION_KEY}.${encodeURIComponent(accountId)}.${encodeURIComponent(companyId)}`;
+/** Persiste una ejecución de pedido para permitir su recuperación. */
 export const saveSubmission = (s: OrderSubmission) =>
   localStorage.setItem(key(s.accountId, s.companyId), JSON.stringify(s));
 export const clearSubmission = (accountId: string, companyId: string) =>
   localStorage.removeItem(key(accountId, companyId));
+/** Inspecciona la ejecución persistida sin aplicar aún el filtro de compañía. */
 export const peekSubmission = (accountId?: string): OrderSubmission | null => {
   let completed: OrderSubmission | null = null;
   for (let i = 0; i < localStorage.length; i += 1) {
@@ -22,6 +24,7 @@ export const peekSubmission = (accountId?: string): OrderSubmission | null => {
   }
   return completed;
 };
+/** Recupera una ejecución únicamente cuando coincide con cuenta y compañía activas. */
 export const loadSubmission = (accountId: string, companyId: string) => {
   try {
     const raw = localStorage.getItem(key(accountId, companyId));

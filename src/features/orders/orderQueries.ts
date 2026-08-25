@@ -7,12 +7,14 @@ import type { OrderFilters, UpdateLineInput } from './orderTypes';
 
 // Thrown when the main line was created but its linked bonus line failed — the two are
 // sequential POSTs against an already-open order, never a single atomic operation.
+/** Error de dominio que identifica el fallo específico de una línea bonificada. */
 export class BonusLineFailure extends Error {
   constructor(public readonly cause: unknown) {
     super('La línea principal se creó, pero la bonificación falló.');
     this.name = 'BonusLineFailure';
   }
 }
+/** Claves de caché para pedidos, detalles y líneas persistidas. */
 export const orderKeys = {
   all: (company: string) => ['orders', company] as const,
   list: (company: string, vendor: string, filters: OrderFilters) =>
@@ -24,6 +26,7 @@ export const orderKeys = {
   officialLine: (company: string, order: string, lineNumber: number) =>
     [...orderKeys.officialLines(company, order), lineNumber] as const,
 };
+/** Consulta el listado paginado de pedidos conforme a los filtros activos. */
 export const useOrders = (filters: OrderFilters, enabled = true) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '',
@@ -36,6 +39,7 @@ export const useOrders = (filters: OrderFilters, enabled = true) => {
     staleTime: 30_000,
   });
 };
+/** Consulta el encabezado y las líneas de un pedido existente. */
 export const useOrderDetail = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '';
@@ -53,6 +57,7 @@ export const useOrderDetail = (salesOrderNumber: string) => {
   });
   return { header, lines };
 };
+/** Consulta el detalle oficial de las líneas persistidas de un pedido. */
 export const useOfficialOrderLine = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const qc = useQueryClient();
@@ -68,6 +73,12 @@ export const useOfficialOrderLine = (salesOrderNumber: string) => {
     retry: false,
   });
 };
+/**
+ * Agrupa las mutaciones permitidas sobre un pedido y sus líneas.
+ *
+ * @param salesOrderNumber Pedido cuyas cachés deben actualizarse.
+ * @returns Mutaciones de confirmación, cancelación, actualización y eliminación.
+ */
 export const useOrderMutations = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const qc = useQueryClient();

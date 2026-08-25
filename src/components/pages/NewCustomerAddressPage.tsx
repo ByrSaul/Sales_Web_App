@@ -2,6 +2,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { NewAddressForm } from '../orders/NewAddressForm';
 import { Button, Card } from '../ui';
 
+/** Pantalla dedicada a la creación de una dirección para el cliente indicado. */
 const NewCustomerAddressPage = () => {
   const { customerAccount = '' } = useParams();
   const [params] = useSearchParams();

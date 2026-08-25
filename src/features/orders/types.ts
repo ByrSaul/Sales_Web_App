@@ -1,5 +1,6 @@
 import type { OrderDraft, OrderDraftLine } from '../orderDraft/types';
 
+/** Contrato enviado a `POST /d365/sales` para crear el encabezado. */
 export type SalesHeaderRequest = {
   dataAreaId: string;
   CurrencyCode: string;
@@ -20,6 +21,7 @@ export type SalesHeaderRequest = {
   Observations?: string;
   CustomersOrderReference?: string;
 };
+/** Respuesta normalizada después de crear el encabezado de venta. */
 export type SalesHeaderResponse = {
   dataAreaId: string;
   salesOrderNumber: string;
@@ -28,6 +30,7 @@ export type SalesHeaderResponse = {
   customerAccount: string;
   paymentTermsName: string;
 };
+/** Contrato base enviado para crear una línea normal de venta. */
 export type SalesLineRequest = {
   dataAreaId: string;
   SalesOrderNumber: string;
@@ -44,6 +47,7 @@ export type SalesLineRequest = {
   CSFASuppItemGroupId?: string;
   FABonification: '0' | '1';
 };
+/** Contrato de línea que incorpora la referencia al convenio comercial. */
 export type AgreementLineRequest = SalesLineRequest & {
   ChangeShippingWarehouseId: string;
   MatchingAgreementLine: number;
@@ -83,6 +87,7 @@ export type SubmissionLine = {
   backendLineNumber: number | null;
   draftLine: OrderDraftLine;
 };
+/** Estado persistible del proceso de envío y reconciliación de un pedido. */
 export type OrderSubmission = {
   schemaVersion: 1;
   accountId: string;
@@ -107,6 +112,7 @@ export type SubmissionAttachmentInput = {
   description: string;
 };
 export type SubmissionResult = { submission: OrderSubmission; completed: boolean };
+/** Puerto de infraestructura requerido por el ejecutor de envío de pedidos. */
 export interface OrderSubmissionGateway {
   createHeader(request: SalesHeaderRequest): Promise<SalesHeaderResponse>;
   createNormalLine(request: SalesLineRequest): Promise<ExistingSalesLine[]>;

@@ -7,6 +7,7 @@ import { sessionService } from '../../features/session/sessionService';
 import { Button, Card, Icon } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
+/** Pantalla de selección de la compañía que inicia el contexto operativo. */
 const CompanySelectPage: React.FC = () => {
   const { api, context, selectCompany } = useSession();
   const navigate = useNavigate();

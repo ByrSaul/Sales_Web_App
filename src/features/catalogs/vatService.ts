@@ -7,10 +7,22 @@ const pagination = (value: unknown, count: number) => {
   const p = (value ?? {}) as Json;
   return { currentPage: Number(p.CurrentPage ?? 1), perPage: Number(p.PerPage ?? 25), fromRecord: Number(p.FromRecord ?? 0), toRecord: Number(p.ToRecord ?? count), totalRecords: Number(p.TotalRecords ?? count), totalPages: Number(p.TotalPages ?? 1) };
 };
+/** Datos requeridos para registrar un identificador fiscal en D365. */
 export type CreateVatInput = {
   company: string; countryId: string; vatNumber: string; name: string; documentType: string;
   taxpayerType: string; personType: string;
 };
+/**
+ * Servicio de consulta y creación de identificadores NIF/VAT.
+ *
+ * Endpoints utilizados:
+ * - `POST /d365/vat_num/query`
+ * - `POST /d365/vat_num/document_type/query`
+ * - `POST /d365/vat_num`
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operaciones de búsqueda, catálogos documentales y creación de NIF/VAT.
+ */
 export const vatService = (api: ApiClient) => ({
   async query(company: string, countryId: string, search: string, page: number, signal?: AbortSignal): Promise<PageResult<VatNumber>> {
     const response = await api.post<Json>('/d365/vat_num/query', { filters: { Name: search, dataAreaId: company, CountryRegionId: countryId }, sort: { fields: [{ name: 'VATNum', order: 'desc' }] }, page, perpage: 25 }, { signal });

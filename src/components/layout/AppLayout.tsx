@@ -24,6 +24,14 @@ const BOTTOM_NAV = [
   { label: 'Facturas', icon: 'description', href: '/facturas' },
 ];
 
+/**
+ * Layout principal de las rutas autenticadas.
+ *
+ * Responsabilidades:
+ * - Componer Sidebar, TopBar, navegación móvil y contenido.
+ * - Mantener la apertura del menú móvil.
+ * - Presentar la acción flotante cuando corresponde.
+ */
 const AppLayout: React.FC<AppLayoutProps> = ({
   children,
   activeRoute,

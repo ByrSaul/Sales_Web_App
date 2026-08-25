@@ -3,6 +3,7 @@ import { ApiError } from './errors';
 type TokenProvider = (forceRefresh: boolean) => Promise<string>;
 type UnauthorizedHandler = () => Promise<void> | void;
 
+/** Configuración de autenticación, transporte y tiempos límite del cliente HTTP. */
 export type ApiClientOptions = {
   baseUrl: string;
   getToken: TokenProvider;
@@ -12,11 +13,22 @@ export type ApiClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
+/**
+ * Cliente HTTP autenticado utilizado por los servicios de la aplicación.
+ *
+ * Responsabilidades:
+ * - Resolver y adjuntar el token de acceso.
+ * - Serializar cuerpos JSON y deserializar respuestas.
+ * - Aplicar tiempos límite y cancelación mediante `AbortSignal`.
+ * - Clasificar errores HTTP, de red y de autenticación.
+ * - Reintentar una vez después de renovar un token no autorizado.
+ */
 export class ApiClient {
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private refreshPromise: Promise<string> | null = null;
 
+  /** Inicializa el cliente con sus proveedores de autenticación y transporte. */
   constructor(private readonly options: ApiClientOptions) {
     this.timeoutMs = options.timeoutMs ?? 20_000;
     // fetch is a native method that requires `window` as its receiver; storing the bare
@@ -25,6 +37,7 @@ export class ApiClient {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
+  /** Ejecuta una solicitud GET y devuelve su respuesta JSON tipada. */
   get<T>(
     path: string,
     options?: { body?: unknown; signal?: AbortSignal; timeoutMs?: number },
@@ -36,6 +49,7 @@ export class ApiClient {
       timeoutMs: options?.timeoutMs,
     });
   }
+  /** Ejecuta una solicitud POST serializando opcionalmente un cuerpo JSON. */
   post<T>(
     path: string,
     body?: unknown,
@@ -49,6 +63,7 @@ export class ApiClient {
       retryOnUnauthorized: options?.retryOnUnauthorized,
     });
   }
+  /** Ejecuta una actualización parcial mediante PATCH. */
   patch<T>(path: string, body?: unknown, options?: { timeoutMs?: number }): Promise<T> {
     return this.request<T>(path, {
       method: 'PATCH',
@@ -56,6 +71,7 @@ export class ApiClient {
       timeoutMs: options?.timeoutMs,
     });
   }
+  /** Ejecuta una eliminación y admite los contratos que requieren cuerpo JSON. */
   delete<T>(
     path: string,
     body?: unknown,
@@ -69,6 +85,14 @@ export class ApiClient {
     });
   }
 
+  /**
+   * Ejecuta el flujo común de autenticación, cancelación, reintento y manejo de errores.
+   *
+   * @param path Ruta relativa al API configurado.
+   * @param init Opciones nativas de la solicitud y extensiones del cliente.
+   * @param retried Indica si ya se consumió el reintento por autenticación.
+   * @returns Respuesta JSON convertida al tipo solicitado.
+   */
   private async request<T>(
     path: string,
     init: RequestInit & { timeoutMs?: number; retryOnUnauthorized?: boolean } = {},

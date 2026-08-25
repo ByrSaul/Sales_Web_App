@@ -4,6 +4,7 @@ import { useInfiniteProducts, useInventory, useVariants } from '../../features/c
 import type { Product } from '../../features/catalogs/types';
 import { Badge, Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/** Pantalla de consulta de existencias por producto, variante y ubicación. */
 const InventoryPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search);

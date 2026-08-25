@@ -1,6 +1,15 @@
 import type { ApiClient } from '../../core/api/apiClient';
 import { buildStatementSummary, mapInvoices, mapPdf } from './billingMappers';
 import type { InvoiceFilters } from './billingTypes';
+/**
+ * Servicio de facturación, estado de cuenta y reportes financieros.
+ *
+ * Endpoints utilizados:
+ * - Endpoints de facturas, antigüedad de saldos, estados de cuenta y reportes PDF.
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operaciones financieras asociadas al cliente activo.
+ */
 export const billingService = (api: ApiClient) => ({
   invoices: async (company: string, vendor: string, f: InvoiceFilters, signal?: AbortSignal) =>
     mapInvoices(
@@ -56,6 +65,12 @@ const validBase64 = (value: string) => {
     return false;
   }
 };
+/**
+ * Abre en una pestaña del navegador un reporte PDF recibido en Base64.
+ *
+ * @param report Archivo y contenido retornados por el servicio de reportes.
+ * @param fallbackName Nombre utilizado cuando el API no informa uno válido.
+ */
 export const openPdfReport = (
   fileName: string,
   base64: string,

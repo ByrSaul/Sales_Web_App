@@ -37,6 +37,15 @@ type SessionContextValue = {
 };
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+/**
+ * Proveedor del contexto operativo formado por usuario, compañía y vendedor.
+ *
+ * Flujo:
+ * - Recupera y valida el contexto almacenado.
+ * - Consulta los datos reales de sesión.
+ * - Persiste los cambios de compañía y vendedor.
+ * - Expone permisos y advertencias operativas.
+ */
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -181,6 +190,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };
 
+/** @returns Contexto operativo disponible dentro de `SessionProvider`. */
 export const useSession = (): SessionContextValue => {
   const value = useContext(SessionContext);
   if (!value) throw new Error('useSession must be used inside SessionProvider');

@@ -27,6 +27,14 @@ type Value = {
   reset: () => void;
 };
 const Context = createContext<Value | null>(null);
+/**
+ * Proveedor del borrador de pedido y sus operaciones de edición local.
+ *
+ * Flujo:
+ * - Restaura un borrador compatible con la sesión.
+ * - Mantiene encabezado, líneas y adjuntos.
+ * - Persiste cambios en almacenamiento local.
+ */
 export const OrderDraftProvider = ({ children }: { children: ReactNode }) => {
   const { context } = useSession();
   if (!context.company || !context.vendor || !context.user)
@@ -95,6 +103,7 @@ export const OrderDraftProvider = ({ children }: { children: ReactNode }) => {
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 };
+/** @returns Estado y operaciones del borrador de pedido actual. */
 export const useOrderDraft = () => {
   const value = useContext(Context);
   if (!value) throw new Error('useOrderDraft must be inside OrderDraftProvider');

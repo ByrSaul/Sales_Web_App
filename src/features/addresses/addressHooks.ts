@@ -3,6 +3,7 @@ import { useSession } from '../../app/providers/SessionProvider';
 import { addressService, geographyMappers, type AddressForm } from './addressService';
 
 const body = (filters: object, page = 1) => ({ filters, page, perpage: 100 });
+/** Claves de caché para catálogos geográficos asociados a direcciones. */
 export const addressKeys = {
   countries: ['address', 'countries'] as const,
   states: (country: string) => ['address', 'states', country] as const,
@@ -10,6 +11,11 @@ export const addressKeys = {
   cities: (country: string, state: string, county: string) => ['address', 'cities', country, state, county] as const,
   zip: (country: string, state: string, county: string, city: string) => ['address', 'zip', country, state, county, city] as const,
 };
+/**
+ * Coordina las consultas dependientes de país, estado, municipio, ciudad y código postal.
+ *
+ * @returns Catálogos geográficos habilitados según la selección actual.
+ */
 export const useAddressGeography = (open: boolean, country: string, state: string, county: string, city: string) => {
   const { api } = useSession();
   const service = addressService(api);
@@ -21,6 +27,7 @@ export const useAddressGeography = (open: boolean, country: string, state: strin
     zipCodes: useQuery({ queryKey: addressKeys.zip(country, state, county, city), queryFn: ({ signal }) => service.geography('/d365/address/zip_codes', { filters: { CountryRegionId: [country], State: [state], County: [county], City: [city] } }, geographyMappers.zip, signal), enabled: open && Boolean(country && state && county && city) }),
   };
 };
+/** Devuelve la mutación para crear una dirección e invalidar su caché relacionada. */
 export const useCreateAddress = () => {
   const { api, context } = useSession();
   return useMutation({ mutationFn: (form: AddressForm) => addressService(api).create(context.company?.id ?? '', form), retry: false });

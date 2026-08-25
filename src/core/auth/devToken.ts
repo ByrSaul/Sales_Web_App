@@ -1,5 +1,6 @@
 export type DevTokenErrorKind = 'configuration' | 'identity';
 
+/** Error tipado para tokens de desarrollo ausentes o incompatibles. */
 export class DevTokenConfigurationError extends Error {
   constructor(
     message: string,
@@ -25,6 +26,7 @@ const decodePayload = (token: string): Record<string, unknown> => {
   }
 };
 
+/** Extrae la identidad estable de cuenta desde el payload de un token de desarrollo. */
 export const devAccountId = (token: string): string => {
   if (!token) throw new DevTokenConfigurationError('El token de desarrollo no está configurado.');
   const claims = decodePayload(token);
@@ -37,6 +39,7 @@ export const devAccountId = (token: string): string => {
   return `dev-token:${id.trim()}`;
 };
 
+/** Crea un proveedor de token fijo que valida configuración e identidad antes de usarlo. */
 export const createDevTokenProvider = (token: string) => async (): Promise<string> => {
   if (!token) throw new DevTokenConfigurationError('El token de desarrollo no está configurado.');
   return token;

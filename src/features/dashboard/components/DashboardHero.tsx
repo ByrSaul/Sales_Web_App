@@ -7,6 +7,7 @@ type Props = {
   onOrders: () => void;
 };
 
+/** Encabezado del Dashboard con saludo y acciones comerciales principales. */
 export const DashboardHero = ({ userName, onNewOrder, onOrders }: Props) => (
   <Card className="relative overflow-hidden border-0 bg-gradient-to-r from-primary to-primary-container p-8">
     <div className="absolute right-[-100px] top-[-50px] h-[400px] w-[400px] rounded-full bg-white/10" />

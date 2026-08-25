@@ -17,6 +17,7 @@ const pagination = (j: Json): Pagination => ({
   totalRecords: n(j.TotalRecords ?? j.total_records),
   hasMore: Boolean(j.HasMore ?? j.has_more),
 });
+/** Convierte una factura del API al modelo financiero Web. */
 export const mapInvoice = (j: Json): Invoice => ({
   salesId: s(j.salesid),
   customerAccount: s(j.invoiceaccount),

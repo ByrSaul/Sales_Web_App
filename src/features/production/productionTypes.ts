@@ -1,4 +1,5 @@
 export type ProductionMode = 'orders' | 'daily';
+/** Filtros compartidos por las vistas de producción disponibles. */
 export type ProductionFilters = {
   mode: ProductionMode;
   customer: string;
@@ -15,6 +16,7 @@ export type Pagination = {
   totalPages: number;
   totalRecords: number;
 };
+/** Registro de producción asociado a una orden de venta. */
 export type SalesProduction = {
   companyId: string;
   salesGroup: string;
@@ -30,6 +32,7 @@ export type SalesProduction = {
   scheduledQuantity: number;
   backorderStatus: string;
 };
+/** Resumen agregado de producción para una fecha determinada. */
 export type DailyProduction = {
   started: string;
   finished: string;

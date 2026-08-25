@@ -19,6 +19,7 @@ const orderFilters = (from: string, to: string, status = '', perPage = 1): Order
   perPage,
 });
 
+/** Claves de caché para los indicadores y actividades del Dashboard. */
 export const dashboardKeys = {
   ordersToday: (company: string, vendor: string, today: string) =>
     ['dashboard', 'orders-today', company, vendor, today] as const,
@@ -30,6 +31,16 @@ export const dashboardKeys = {
     ['dashboard', 'assigned-customers', company, vendor] as const,
 };
 
+/**
+ * Compone los indicadores del Dashboard a partir de consultas comerciales reales.
+ *
+ * Flujo:
+ * - Resuelve compañía y vendedor activos.
+ * - Consulta pedidos del periodo y estados relevantes.
+ * - Expone métricas, actividad y estados de carga consolidados.
+ *
+ * @returns Datos agregados requeridos por la pantalla inicial.
+ */
 export const useDashboardData = () => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '';

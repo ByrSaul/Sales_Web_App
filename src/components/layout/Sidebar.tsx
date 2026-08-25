@@ -41,6 +41,7 @@ interface NavLinkProps {
   danger?: boolean;
   onClick: () => void;
 }
+/** Opción reutilizable de navegación para las variantes desktop y móvil. */
 const NavLink: React.FC<NavLinkProps> = ({ label, icon, isActive, danger, onClick }) => (
   <button
     onClick={onClick}
@@ -57,6 +58,7 @@ const NavLink: React.FC<NavLinkProps> = ({ label, icon, isActive, danger, onClic
   </button>
 );
 
+/** Navegación lateral principal adaptada a desktop y drawer móvil. */
 const Sidebar: React.FC<SidebarProps> = ({
   activeRoute,
   user,

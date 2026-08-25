@@ -1,3 +1,4 @@
+/** Metadatos normalizados de una respuesta paginada. */
 export type Pagination = {
   currentPage: number;
   perPage: number;
@@ -6,6 +7,7 @@ export type Pagination = {
   totalRecords: number;
   totalPages: number;
 };
+/** Cliente normalizado utilizado por consultas, selectores y pedidos. */
 export type Customer = {
   salesGroupId: string;
   account: string;
@@ -23,6 +25,7 @@ export type Customer = {
   creditAvailableUsd: number;
   isCashAccount: boolean;
 };
+/** Información resumida de cliente devuelta por el backend. */
 export type CustomerDto = {
   commissionsalesgroupid: string;
   customeraccount: string;
@@ -40,6 +43,7 @@ export type CustomerDto = {
   usd_creditavailable: number;
   csfaiscashaccount: number;
 };
+/** Contrato paginado recibido desde `POST /customer/data`. */
 export type CustomerSearchResponseDto = {
   customers: CustomerDto[];
   pagination: {
@@ -51,6 +55,7 @@ export type CustomerSearchResponseDto = {
     TotalPages: number;
   };
 };
+/** Dirección postal y roles registrados para un cliente. */
 export type CustomerAddress = {
   locationId: string;
   description: string;
@@ -59,6 +64,7 @@ export type CustomerAddress = {
   countryId: string;
   recId: number;
 };
+/** Producto comercial disponible en el catálogo activo. */
 export type Product = {
   itemId: string;
   name: string;
@@ -66,6 +72,7 @@ export type Product = {
   dimensionGroup: string;
   requiresVariant: boolean;
 };
+/** Combinación de dimensiones válida para un producto. */
 export type ProductVariant = {
   itemId: string;
   displayProductNumber: string;
@@ -77,6 +84,7 @@ export type ProductVariant = {
   styleId: string;
   versionId: string;
 };
+/** Existencia de producto asociada a almacén, ubicación y dimensiones. */
 export type InventoryItem = {
   companyId: string;
   itemId: string;
@@ -116,6 +124,7 @@ export type Price = {
 };
 export type DeliveryMode = { code: string; description: string };
 export type SalesOrigin = { id: string; description: string };
+/** Encabezado de convenio comercial aplicable a un cliente. */
 export type Agreement = {
   title: string;
   customerAccount: string;
@@ -127,6 +136,7 @@ export type Agreement = {
   lineTypeDescription: string;
   recId: number;
 };
+/** Línea de producto y condiciones perteneciente a un convenio comercial. */
 export type AgreementLine = {
   lineNumber: number;
   matchingLine: number;
@@ -164,6 +174,7 @@ export type ZipCode = {
   countyId: string;
   cityId: string;
 };
+/** Identificador fiscal registrado para un país y tipo documental. */
 export type VatNumber = {
   companyId: string;
   vatNumber: string;
@@ -180,4 +191,5 @@ export type DocumentTypes = {
   felPanama: string[];
   felElSalvador: string[];
 };
+/** Resultado genérico compuesto por elementos y metadatos de paginación. */
 export type PageResult<T> = { items: T[]; pagination: Pagination };

@@ -2,6 +2,13 @@ import type { ApiClient } from '../../core/api/apiClient';
 import { fileToBase64 } from '../attachments/attachmentService';
 import type { SupportRequest, SupportResponse } from './supportTypes';
 type Json = Record<string, unknown>;
+/**
+ * Valida el contenido y los adjuntos de una solicitud de soporte antes de enviarla.
+ *
+ * @param body Descripción proporcionada por el usuario.
+ * @param files Archivos adjuntos seleccionados.
+ * @returns Mensaje de validación o `null` cuando la solicitud es válida.
+ */
 export const validateSupport = (body: string, files: File[]) => {
   if (body.trim().length < 10) return 'El mensaje debe tener al menos 10 caracteres.';
   const tooLarge = files.find((f) => f.size > 5 * 1024 * 1024);
@@ -9,6 +16,15 @@ export const validateSupport = (body: string, files: File[]) => {
   const invalid = files.find((f) => !f.type.startsWith('image/'));
   return invalid ? 'Soporte permite únicamente imágenes.' : null;
 };
+/**
+ * Servicio de envío de solicitudes de soporte técnico.
+ *
+ * Endpoints utilizados:
+ * - `POST /support/send_email`
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operación para enviar correo de soporte con adjuntos.
+ */
 export const supportService = (api: ApiClient) => ({
   send: async (email: string, body: string, files: File[]): Promise<SupportResponse> => {
     const attachments = await Promise.all(

@@ -10,6 +10,7 @@ type Props = {
   onSelect: (address: CustomerAddress | null) => void;
 };
 
+/** Selector buscable de direcciones pertenecientes al cliente del pedido. */
 export const CustomerAddressSelector = ({ customerAccount, selected, onSelect }: Props) => {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);

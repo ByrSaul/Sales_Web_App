@@ -3,6 +3,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 type Props = { children: ReactNode };
 type State = { failed: boolean };
 
+/** Captura errores de renderizado no controlados y presenta una recuperación segura. */
 export class GlobalErrorBoundary extends Component<Props, State> {
   state: State = { failed: false };
 

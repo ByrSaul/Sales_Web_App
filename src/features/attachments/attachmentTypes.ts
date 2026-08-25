@@ -7,6 +7,7 @@ export type AttachmentStatus =
   | 'success'
   | 'failed';
 
+/** Adjunto ya persistido y asociado a un pedido de venta. */
 export type OrderAttachment = {
   companyId: string;
   salesOrderNumber: string;
@@ -18,6 +19,7 @@ export type OrderAttachment = {
   contentBase64: string;
 };
 
+/** Archivo local pendiente de cargar durante el envío del pedido. */
 export type PendingAttachment = {
   localId: string;
   file: File;
@@ -29,6 +31,7 @@ export type PendingAttachment = {
   attempts: number;
 };
 
+/** Contrato de carga enviado al servicio de adjuntos. */
 export type AttachmentUploadRequest = {
   dataAreaId: string;
   AttachmentDescription: string;

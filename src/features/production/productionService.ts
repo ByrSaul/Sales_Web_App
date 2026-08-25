@@ -14,6 +14,7 @@ const pagination = (j: J): Pagination => ({
   totalPages: n(j.TotalPages ?? j.total_pages) || 1,
   totalRecords: n(j.TotalRecords ?? j.total_records),
 });
+/** Convierte una orden de producción del API al modelo presentado por la Web. */
 export const mapSalesProduction = (j: J): SalesProduction => ({
   companyId: s(j.dataareaid),
   salesGroup: s(j.salesgroup),
@@ -29,6 +30,7 @@ export const mapSalesProduction = (j: J): SalesProduction => ({
   scheduledQuantity: n(j.qtysched),
   backorderStatus: s(j.backorderstatus),
 });
+/** Convierte un resumen diario del API al modelo de producción diaria. */
 export const mapDailyProduction = (j: J): DailyProduction => ({
   started: s(j.iniciado),
   finished: s(j.terminado),
@@ -51,6 +53,15 @@ export const mapDailyProduction = (j: J): DailyProduction => ({
   year: n(j.anio),
   month: n(j.mes),
 });
+/**
+ * Servicio de consulta de producción por pedido y por fecha.
+ *
+ * Endpoints utilizados:
+ * - Endpoints de producción seleccionados según el modo de consulta.
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operación paginada de consulta de producción.
+ */
 export const productionService = (api: ApiClient) => ({
   list: async (company: string, vendor: string, f: ProductionFilters, signal?: AbortSignal) => {
     const body = {

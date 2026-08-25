@@ -1,4 +1,6 @@
+/** Adjunto codificado incluido en una solicitud de soporte. */
 export type SupportAttachment = { file_name: string; file_content: string };
+/** Contrato enviado al endpoint de correo de soporte. */
 export type SupportRequest = {
   to: 'soporte@foragro.com';
   cc: string;

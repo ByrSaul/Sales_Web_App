@@ -1,11 +1,13 @@
 import { Button, Icon } from './index';
 
+/** Presenta un estado de carga accesible con mensaje contextual. */
 export const LoadingState = ({ message = 'Cargando...' }: { message?: string }) => (
   <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3 text-on-surface-variant">
     <Icon name="progress_activity" size={28} className="animate-spin text-primary" />
     <p className="text-sm">{message}</p>
   </div>
 );
+/** Presenta un error recuperable y una acción opcional de reintento. */
 export const ErrorState = ({ message, onRetry }: { message: string; onRetry?: () => void }) => (
   <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3 text-center px-6">
     <Icon name="error" size={34} className="text-error" />

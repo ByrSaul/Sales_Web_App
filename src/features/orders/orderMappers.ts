@@ -12,6 +12,7 @@ type Json = Record<string, unknown>;
 const s = (v: unknown) => (typeof v === 'string' ? v : '');
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
 const b = (v: unknown) => v === true;
+/** Convierte un encabezado de venta del API al modelo de pedido existente. */
 export const mapOrder = (j: Json): ExistingOrder => ({
   companyId: s(j.dataareaid ?? j.dataAreaId),
   salesOrderNumber: s(j.salesid ?? j.SalesOrderNumber),
@@ -42,6 +43,7 @@ const pagination = (j: Json, fallback = 10): Pagination => ({
   totalRecords: n(j.TotalRecords ?? j.totalrecords),
   totalPages: n(j.TotalPages ?? j.totalpages) || 1,
 });
+/** Normaliza una respuesta paginada de pedidos y sus metadatos. */
 export const mapOrders = (raw: unknown, perPage = 10): OrdersResult => {
   if (Array.isArray(raw))
     return { items: raw.map((x) => mapOrder(x as Json)), pagination: pagination({}, perPage) };
@@ -52,6 +54,7 @@ export const mapOrders = (raw: unknown, perPage = 10): OrdersResult => {
     pagination: pagination((j.pagination ?? {}) as Json, perPage),
   };
 };
+/** Extrae las líneas resumidas incluidas en el detalle de un pedido. */
 export const mapOrderLines = (raw: unknown): ExistingOrderLine[] =>
   (Array.isArray(raw) ? raw : []).map((x) => {
     const j = x as Json;
@@ -84,6 +87,7 @@ export const mapOrderLines = (raw: unknown): ExistingOrderLine[] =>
       versionId: optionalString('ProductVersionId', 'productversionid'),
     };
   });
+/** Convierte la consulta oficial de líneas al contrato utilizado para edición. */
 export const mapOfficialOrderLines = (raw: unknown): OfficialSalesOrderLine[] =>
   (Array.isArray(raw) ? raw : []).map((x) => {
     const j = x as Json;
@@ -116,6 +120,7 @@ export const mapOfficialOrderLines = (raw: unknown): OfficialSalesOrderLine[] =>
       lineDiscountPercentage: n(j.LineDiscountPercentage),
     };
   });
+/** Normaliza el resultado devuelto al confirmar un pedido. */
 export const mapConfirmation = (raw: unknown): ConfirmationResult => {
   const j = raw as Json;
   return {
@@ -127,6 +132,7 @@ export const mapConfirmation = (raw: unknown): ConfirmationResult => {
     sentToCreditManagement: b(j.sentToCreditManagement),
   };
 };
+/** Normaliza el resultado devuelto al cancelar un pedido o una línea. */
 export const mapCancel = (raw: unknown): CancelResult => {
   const j = raw as Json;
   return {

@@ -10,6 +10,7 @@ import type {
   SalesOrigin,
 } from '../catalogs/types';
 
+/** Dimensiones de producto conservadas en una línea del borrador. */
 export type DraftDimensions = {
   configId: string;
   colorId: string;
@@ -19,6 +20,7 @@ export type DraftDimensions = {
 };
 export type DraftAgreement = Pick<Agreement, 'recId' | 'number' | 'title' | 'currency'>;
 
+/** Línea local editable antes de su persistencia en D365. */
 export type OrderDraftLine = {
   localId: string;
   parentLineId: string | null;
@@ -47,6 +49,11 @@ export type OrderDraftLine = {
   agreementRemainingQuantity: number | null;
 };
 
+/**
+ * Borrador completo de un pedido de venta.
+ *
+ * Conserva encabezado, contexto operativo, líneas y adjuntos pendientes.
+ */
 export type OrderDraft = {
   id: string;
   accountId: string;
@@ -69,6 +76,7 @@ export type OrderDraft = {
   updatedAt: string;
 };
 
+/** Selección temporal requerida para construir una nueva línea de pedido. */
 export type NewLineSelection = {
   product: Product;
   variant: ProductVariant | null;

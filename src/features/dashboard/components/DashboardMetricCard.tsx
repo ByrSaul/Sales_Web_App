@@ -9,6 +9,7 @@ type Props = {
   accent?: 'primary' | 'secondary';
 };
 
+/** Tarjeta de indicador que representa valor, tendencia y estado de consulta. */
 export const DashboardMetricCard = ({
   label,
   icon,

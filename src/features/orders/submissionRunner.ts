@@ -42,17 +42,39 @@ const initial = (draft: OrderDraft): OrderSubmission => {
   };
 };
 
+/**
+ * Orquestador reanudable para crear encabezado, líneas y adjuntos de un pedido.
+ *
+ * Flujo:
+ * - Persiste cada transición del envío.
+ * - Reconciliación líneas ambiguas contra D365.
+ * - Permite reintentar únicamente las etapas pendientes o fallidas.
+ * - Notifica cambios de estado a suscriptores.
+ */
 export class SubmissionRunner {
   private running = false;
+  /**
+   * @param gateway Operaciones de infraestructura necesarias para persistir el pedido.
+   * @param listener Suscriptor notificado después de cada transición observable.
+   */
   constructor(
     private readonly gateway: OrderSubmissionGateway,
     private readonly listener: Listener = () => undefined,
   ) {}
+  /** Actualiza la marca temporal, persiste opcionalmente y publica una copia del estado. */
   private publish(state: OrderSubmission, persist = Boolean(state.salesOrderNumber)) {
     state.updatedAt = timestamp();
     if (persist) saveSubmission(state);
     this.listener(clone(state));
   }
+  /**
+   * Ejecuta o reanuda el envío completo de un borrador validando cada etapa.
+   *
+   * @param draft Borrador que actúa como snapshot del envío.
+   * @param recovery Ejecución previa que debe reconciliarse y continuar.
+   * @param attachments Adjuntos locales pendientes de cargar.
+   * @returns Estado final de la ejecución e indicador de finalización completa.
+   */
   async submit(
     draft: OrderDraft,
     recovery?: OrderSubmission | null,
@@ -288,6 +310,11 @@ export class SubmissionRunner {
       this.running = false;
     }
   }
+  /**
+   * Comprueba si una línea local ya está representada entre las líneas remotas.
+   *
+   * @returns `exists`, `missing` o `unknown` si la verificación no pudo completarse.
+   */
   private async verify(
     state: OrderSubmission,
     line: OrderDraftLine,

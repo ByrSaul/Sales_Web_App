@@ -2,6 +2,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCustomerAddresses } from '../../features/catalogs/hooks';
 import { Button, Card, EmptyState } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/** Pantalla de consulta de las direcciones pertenecientes a un cliente. */
 const CustomerAddressesPage = () => {
   const { customerAccount = '' } = useParams();
   const [p] = useSearchParams();

@@ -3,6 +3,7 @@ import type { NewLineSelection, OrderDraft, OrderDraftLine } from './types';
 
 const id = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
+/** Construye un borrador nuevo vinculado al contexto operativo actual. */
 export const createOrderDraft = (
   accountId: string,
   company: Company,
@@ -30,6 +31,7 @@ export const createOrderDraft = (
   updatedAt: now(),
 });
 
+/** Calcula la cantidad bonificada derivada de cantidad y porcentaje de descuento. */
 export const bonusQuantity = (quantity: number, discount: number) => {
   if (quantity <= 0 || discount <= 0) return 0;
   const result = (quantity * discount) / 100;
@@ -78,6 +80,7 @@ const baseLine = (
   };
 };
 
+/** Construye las líneas normales y bonificadas a partir de una selección validada. */
 export const buildDraftLines = (
   draft: OrderDraft,
   selection: NewLineSelection,
@@ -108,6 +111,7 @@ export const buildDraftLines = (
   return [linkedOriginal, bonus];
 };
 
+/** Elimina una línea local y su línea bonificada vinculada cuando existe. */
 export const removeDraftLine = (lines: OrderDraftLine[], localId: string) => {
   const target = lines.find((line) => line.localId === localId);
   if (!target) return lines;

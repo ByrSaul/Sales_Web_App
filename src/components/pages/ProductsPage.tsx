@@ -5,6 +5,7 @@ import { useProducts, useVariants } from '../../features/catalogs/hooks';
 import type { Product } from '../../features/catalogs/types';
 import { Badge, Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/** Pantalla de consulta de productos y sus variantes disponibles. */
 const ProductsPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const page = Number(params.get('page') ?? 1);

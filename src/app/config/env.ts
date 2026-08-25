@@ -1,3 +1,4 @@
+/** Configuración de ejecución obtenida desde variables públicas de Vite. */
 export type AppConfig = {
   apiBaseUrl: string;
   authMode: 'msal' | 'dev-token' | 'e2e-mock';
@@ -26,6 +27,7 @@ export const appConfig: AppConfig = {
   featureForecast: flag('VITE_FEATURE_FORECAST'),
 };
 
+/** Valida las variables obligatorias para la estrategia de autenticación activa. */
 export const getConfigurationErrors = (
   config = appConfig,
   production = import.meta.env.PROD,

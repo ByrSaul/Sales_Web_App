@@ -33,6 +33,22 @@ const inventoryList = (value: unknown) =>
       ? [value as Json]
       : [];
 
+/**
+ * Servicio central de catálogos comerciales, clientes, productos y geografía.
+ *
+ * Endpoints utilizados:
+ * - `POST /customer/data` y `POST /customer/address`
+ * - Endpoints de productos, variantes, inventario, precios y promociones.
+ * - Endpoints de acuerdos, modos de entrega y orígenes de venta.
+ * - Endpoints `/d365/address/*` de catálogos geográficos.
+ * - Endpoints `/d365/vat_num/*` de identificación fiscal.
+ *
+ * Responsabilidad:
+ * Encapsular los contratos HTTP y convertir sus respuestas al dominio Web.
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operaciones de consulta para los catálogos operativos.
+ */
 export const catalogService = (api: ApiClient) => ({
   async customers(
     input: {

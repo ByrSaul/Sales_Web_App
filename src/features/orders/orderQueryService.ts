@@ -6,6 +6,16 @@ import {
   mapOrders,
 } from './orderMappers';
 import type { OrderFilters, UpdateLineInput } from './orderTypes';
+/**
+ * Servicio de consulta y mantenimiento de pedidos existentes.
+ *
+ * Endpoints utilizados:
+ * - Endpoints D365 de consulta, confirmación y cancelación de pedidos.
+ * - Endpoints D365 de actualización, cancelación y eliminación de líneas.
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operaciones sobre pedidos y líneas persistidas.
+ */
 export const orderQueryService = (api: ApiClient) => ({
   async list(company: string, salesGroup: string, filters: OrderFilters, signal?: AbortSignal) {
     return mapOrders(

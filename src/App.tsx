@@ -33,6 +33,7 @@ const CustomerAddressesPage = lazy(() => import('./components/pages/CustomerAddr
 const NewCustomerAddressPage = lazy(() => import('./components/pages/NewCustomerAddressPage'));
 const ProductionPage = lazy(() => import('./components/pages/ProductionPage'));
 const ForecastPage = lazy(() => import('./components/pages/ForecastPage'));
+/** Protege rutas que requieren un borrador aún editable. */
 const DraftEditableRoute = ({ children }: { children: React.ReactNode }) => {
   const { submission, active } = useOrderSubmission();
   return active || submission?.salesOrderNumber || submission?.headerAmbiguous ? (
@@ -42,6 +43,7 @@ const DraftEditableRoute = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+/** Declara las rutas funcionales conservadas del prototipo Web. */
 const ExistingPrototypeRoutes: React.FC = () => {
   const navigate = useNavigate();
   return (
@@ -117,6 +119,14 @@ const ExistingPrototypeRoutes: React.FC = () => {
     </Routes>
   );
 };
+/**
+ * Raíz de la aplicación y composición de providers y rutas.
+ *
+ * Dependencias:
+ * - React Router.
+ * - TanStack Query.
+ * - Providers de autenticación, sesión, borrador y envío.
+ */
 const App: React.FC = () => (
   <Suspense fallback={<LoadingState message="Cargando módulo..." />}>
     <Routes>

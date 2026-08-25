@@ -13,6 +13,14 @@ const labels = {
   created: 'Creada',
   failed: 'Fallida',
 } as const;
+/**
+ * Pantalla de revisión, validación y envío del borrador de pedido.
+ *
+ * Dependencias:
+ * - `OrderDraftProvider`.
+ * - `OrderSubmissionProvider`.
+ * - Validadores de borrador y adjuntos.
+ */
 const OrderDraftReviewPage = () => {
   const navigate = useNavigate();
   const { draft: editableDraft, attachments, updateLine, removeLine, reset } = useOrderDraft();

@@ -11,6 +11,13 @@ import { extensionOf, validateAttachment } from '../../features/attachments/atta
 import { Button, Card, EmptyState, Input } from '../ui';
 
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+/**
+ * Pantalla de consulta y carga de adjuntos para un pedido persistido.
+ *
+ * Dependencias:
+ * - React Router.
+ * - Queries y servicio de adjuntos.
+ */
 const OrderAttachmentsPage = () => {
   const { salesOrderNumber = '' } = useParams();
   const [search] = useSearchParams();

@@ -10,6 +10,7 @@ type Envelope = {
   draft: OrderDraft;
 };
 const available = () => typeof localStorage !== 'undefined';
+/** Persiste el borrador con versión de esquema y fecha de expiración. */
 export const saveDraft = (draft: OrderDraft) => {
   if (!available()) return;
   const value: Envelope = {
@@ -21,9 +22,15 @@ export const saveDraft = (draft: OrderDraft) => {
   };
   localStorage.setItem(ORDER_DRAFT_STORAGE_KEY, JSON.stringify(value));
 };
+/** Elimina del almacenamiento local el borrador persistido. */
 export const clearDraftStorage = () => {
   if (available()) localStorage.removeItem(ORDER_DRAFT_STORAGE_KEY);
 };
+/**
+ * Recupera un borrador vigente y compatible con la identidad operativa indicada.
+ *
+ * @returns Borrador válido o `null` cuando falta, expiró o no corresponde al contexto.
+ */
 export const loadDraft = (
   accountId: string,
   companyId: string,

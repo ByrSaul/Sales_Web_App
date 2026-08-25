@@ -10,6 +10,17 @@ type Json = Record<string, unknown>;
 const s = (v: unknown) => (typeof v === 'string' ? v : '');
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
 const optionalText = (value: string | null | undefined) => value?.trim() || undefined;
+/**
+ * Traduce el borrador al contrato de creación del encabezado de venta.
+ *
+ * Flujo:
+ * - Conserva compañía, idioma y datos comerciales.
+ * - Usa el `personnelnumber` del usuario como responsable del pedido.
+ * - Usa el grupo del vendedor seleccionado como grupo de comisión.
+ *
+ * @param d Borrador validado del pedido.
+ * @returns Payload para `POST /d365/sales`.
+ */
 export const mapHeaderRequest = (d: OrderDraft): SalesHeaderRequest => {
   if (!d.languageId) {
     throw new Error('No se pudo determinar LanguageId del usuario ni del cliente seleccionado.');
@@ -62,11 +73,13 @@ const lineBase = (line: OrderDraftLine, order: string): Omit<SalesLineRequest, '
   ...(line.promotion ? { CSFASuppItemGroupId: line.promotion.groupId } : {}),
   FABonification: line.isBonification ? '1' : '0',
 });
+/** Construye el payload de una línea comercial normal. */
 export const mapNormalLineRequest = (
   draft: OrderDraft,
   line: OrderDraftLine,
   order: string,
 ): SalesLineRequest => ({ ...lineBase(line, order), dataAreaId: draft.dataAreaId });
+/** Construye el payload especializado de una línea proveniente de convenio. */
 export const mapAgreementLineRequest = (
   draft: OrderDraft,
   line: OrderDraftLine,
@@ -76,8 +89,10 @@ export const mapAgreementLineRequest = (
   ChangeShippingWarehouseId: '',
   MatchingAgreementLine: line.matchingAgreementLine!,
 });
+/** Selecciona el endpoint de creación según el origen normal o de convenio de la línea. */
 export const lineEndpoint = (line: OrderDraftLine) =>
   line.source === 'agreement' ? '/d365/sales/line/agreement' : '/d365/sales/line';
+/** Normaliza la respuesta de creación del encabezado y extrae el número de pedido. */
 export const mapHeaderResponse = (raw: unknown): SalesHeaderResponse => {
   const list = Array.isArray(raw) ? raw : [];
   const j = (list[0] ?? {}) as Json;
@@ -90,6 +105,7 @@ export const mapHeaderResponse = (raw: unknown): SalesHeaderResponse => {
     paymentTermsName: s(j.PaymentTermsName),
   };
 };
+/** Convierte una línea persistida de D365 al modelo usado para reconciliación. */
 export const mapExistingLine = (j: Json): ExistingSalesLine => ({
   lineNumber: n(j.LineNumber),
   itemNumber: s(j.ItemNumber),
@@ -105,6 +121,7 @@ export const mapExistingLine = (j: Json): ExistingSalesLine => ({
   csfaSuppItemGroupId: s(j.CSFASuppItemGroupId),
   faBonification: s(j.FABonification),
 });
+/** Extrae y mapea líneas persistidas desde las variantes conocidas de respuesta. */
 export const mapExistingLines = (raw: unknown): ExistingSalesLine[] => {
   const value = Array.isArray(raw)
     ? raw
@@ -113,6 +130,7 @@ export const mapExistingLines = (raw: unknown): ExistingSalesLine[] => {
       : [];
   return value.filter((v) => v && typeof v === 'object').map((v) => mapExistingLine(v as Json));
 };
+/** Determina si una línea local corresponde a una línea ya persistida. */
 export const sameLine = (line: OrderDraftLine, existing: ExistingSalesLine) =>
   existing.itemNumber.toLowerCase() === line.itemId.toLowerCase() &&
   existing.productConfigurationId === line.dimensions.configId &&
@@ -126,6 +144,7 @@ export const sameLine = (line: OrderDraftLine, existing: ExistingSalesLine) =>
   existing.shippingWarehouseId === line.warehouseId &&
   existing.csfaSuppItemGroupId === (line.promotion?.groupId ?? '') &&
   ['yes', '1'].includes(existing.faBonification.toLowerCase()) === line.isBonification;
+/** Verifica si una línea del borrador ya existe en el pedido remoto. */
 export const isDraftLineAlreadyCreated = (
   line: OrderDraftLine,
   existing: ExistingSalesLine[],

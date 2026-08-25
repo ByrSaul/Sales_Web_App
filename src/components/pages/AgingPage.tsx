@@ -2,6 +2,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStatement } from '../../features/billing/billingQueries';
 import { Button, Card, EmptyState } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
+/**
+ * Pantalla de antigüedad de saldos obtenida desde el reporte financiero real.
+ *
+ * Dependencias:
+ * - Contexto de sesión.
+ * - Query de reporte Aging.
+ */
 const AgingPage = () => {
   const [p] = useSearchParams();
   const nav = useNavigate();

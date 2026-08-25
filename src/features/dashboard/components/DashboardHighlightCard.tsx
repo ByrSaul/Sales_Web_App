@@ -7,6 +7,7 @@ type Props = {
   onOpen: () => void;
 };
 
+/** Tarjeta destacada para el indicador prioritario del Dashboard. */
 export const DashboardHighlightCard = ({ value, loading, error, onOpen }: Props) => (
   <Card className="overflow-hidden">
     <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">

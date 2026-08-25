@@ -4,6 +4,16 @@ import { catalogService } from './catalogService';
 import { catalogKeys } from './queryKeys';
 import type { Product } from './types';
 
+/**
+ * Consulta los clientes asignados al vendedor activo.
+ *
+ * Endpoint:
+ * - `POST /customer/data`
+ *
+ * @param search Cuenta o nombre buscado.
+ * @param page Página solicitada.
+ * @returns Estado de consulta y clientes paginados.
+ */
 export const useCustomers = (search: string, page: number) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '',
@@ -23,6 +33,7 @@ export const useCustomers = (search: string, page: number) => {
     placeholderData: keepPreviousData,
   });
 };
+/** Consulta las direcciones registradas para una cuenta de cliente. */
 export const useCustomerAddresses = (account: string) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '';
@@ -34,6 +45,7 @@ export const useCustomerAddresses = (account: string) => {
     refetchOnMount: false,
   });
 };
+/** Consulta productos paginados por código o descripción. */
 export const useProducts = (search: string, page: number) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '';
@@ -45,6 +57,7 @@ export const useProducts = (search: string, page: number) => {
     placeholderData: keepPreviousData,
   });
 };
+/** Proporciona búsqueda infinita de clientes para selectores operativos. */
 export const useInfiniteCustomers = (search: string) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '';
@@ -77,6 +90,7 @@ export const useInfiniteCustomers = (search: string) => {
   );
   return { ...query, items };
 };
+/** Resuelve una cuenta exacta de cliente dentro del contexto operativo actual. */
 export const useCustomerByAccount = (account: string) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '',
@@ -97,6 +111,7 @@ export const useCustomerByAccount = (account: string) => {
     enabled: Boolean(company && vendor && account),
   });
 };
+/** Proporciona búsqueda infinita de productos y permite forzar la consulta al registro. */
 export const useInfiniteProducts = (search: string, forceRegistry = false) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '';
@@ -123,6 +138,7 @@ export const useInfiniteProducts = (search: string, forceRegistry = false) => {
   );
   return { ...query, items };
 };
+/** Consulta las variantes disponibles para un producto y región determinados. */
 export const useVariants = (
   product: Product | null,
   options: { forceRegistry?: boolean; regionId?: string } = {},
@@ -151,6 +167,7 @@ export const useVariants = (
     ),
   });
 };
+/** Consulta existencias por producto, variante y página. */
 export const useInventory = (product: Product | null, variantNumber: string, page: number) => {
   const { api, context } = useSession();
   const company = context.company?.id ?? '',
@@ -178,6 +195,7 @@ export const useInventory = (product: Product | null, variantNumber: string, pag
     placeholderData: keepPreviousData,
   });
 };
+/** Proporciona consulta infinita de inventario para seleccionar almacén y ubicación. */
 export const useInfiniteInventoryLocations = (
   company: string,
   salesGroup: string,
@@ -206,6 +224,11 @@ export const useInfiniteInventoryLocations = (
   );
   return { ...query, items };
 };
+/**
+ * Agrupa catálogos de referencia requeridos durante la captura de pedidos.
+ *
+ * @returns Consultas de entrega, origen, promociones, acuerdos y documentos.
+ */
 export const useReferenceCatalogs = (
   customerAccount = '',
   countryId = '',

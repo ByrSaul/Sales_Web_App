@@ -11,6 +11,7 @@ import {
   selectState,
   type GeographySelection,
 } from './geography';
+/** Selector encadenado de país, estado, municipio, ciudad y código postal. */
 export const GeographySelector: React.FC<{
   value: GeographySelection;
   onChange: (value: GeographySelection) => void;

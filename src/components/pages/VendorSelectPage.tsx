@@ -7,6 +7,7 @@ import { sessionService } from '../../features/session/sessionService';
 import { Button, Icon } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
+/** Pantalla de selección del vendedor para completar el contexto operativo. */
 const VendorSelectPage: React.FC = () => {
   const { api, context, completeVendorSelection, operationError } = useSession();
   const navigate = useNavigate();

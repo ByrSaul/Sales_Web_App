@@ -7,6 +7,7 @@ interface IconProps {
   fill?: boolean;
   className?: string;
 }
+/** Renderiza un icono de Material Symbols con tamaño y relleno configurables. */
 export const Icon: React.FC<IconProps> = ({ name, size = 20, fill = false, className = '' }) => (
   <span
     className={`material-symbols-outlined select-none ${className}`}
@@ -37,6 +38,7 @@ const BADGE_STYLES: Record<BadgeVariant, string> = {
   info: 'bg-blue-50 text-blue-700 border border-blue-200',
   blocked: 'bg-red-50 text-red-600 border border-red-200',
 };
+/** Etiqueta visual de estado con variantes semánticas. */
 export const Badge: React.FC<BadgeProps> = ({
   label,
   variant = 'neutral',
@@ -73,6 +75,7 @@ const BTN_SIZES: Record<ButtonSize, string> = {
   md: 'px-4 py-2 text-sm gap-1.5',
   lg: 'px-5 py-3 text-sm gap-2',
 };
+/** Botón reutilizable con variantes, tamaños y estado de carga. */
 export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
@@ -124,6 +127,7 @@ interface CardProps {
   onClick?: () => void;
   hover?: boolean;
 }
+/** Contenedor visual reutilizable para agrupar contenido relacionado. */
 export const Card: React.FC<CardProps> = ({ children, className = '', onClick, hover }) => (
   <div
     onClick={onClick}
@@ -140,6 +144,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   rightIcon?: string;
   onRightIconClick?: () => void;
 }
+/** Campo de entrada con etiqueta, icono y mensaje de error opcionales. */
 export const Input: React.FC<InputProps> = ({
   label,
   icon,
@@ -179,6 +184,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   options: { value: string; label: string }[];
 }
+/** Selector nativo etiquetado construido desde opciones tipadas. */
 export const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => (
   <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
     {label && <label className="text-xs text-on-surface-variant font-medium">{label}</label>}
@@ -202,6 +208,7 @@ interface ToggleProps {
   label?: string;
   disabled?: boolean;
 }
+/** Interruptor accesible para valores booleanos de formulario. */
 export const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, disabled = false }) => (
   <div className="box-border flex w-full min-w-0 max-w-full items-center justify-between gap-3 rounded border border-outline-variant px-3 py-2">
     {label && <span className="min-w-0 break-words text-sm text-on-surface">{label}</span>}
@@ -229,6 +236,7 @@ interface BottomSheetProps {
   title: string;
   children: React.ReactNode;
 }
+/** Panel modal inferior adaptado a interacciones móviles. */
 export const BottomSheet: React.FC<BottomSheetProps> = ({ open, onClose, title, children }) => {
   if (!open) return null;
   return (
@@ -307,6 +315,7 @@ interface EmptyStateProps {
   title: string;
   subtitle?: string;
 }
+/** Estado vacío reutilizable con icono, título y explicación opcional. */
 export const EmptyState: React.FC<EmptyStateProps> = ({ icon = 'inbox', title, subtitle }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center">
     <Icon name={icon} size={40} className="text-outline-variant mb-3" />

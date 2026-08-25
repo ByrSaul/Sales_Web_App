@@ -17,6 +17,14 @@ const QUICK_ACTIONS: DashboardQuickAction[] = [
   { icon: 'headset_mic', label: 'Soporte técnico', route: '/soporte' },
 ];
 
+/**
+ * Pantalla inicial que presenta métricas, actividad y accesos rápidos reales.
+ *
+ * Dependencias:
+ * - Contexto de sesión.
+ * - `useDashboardData`.
+ * - Componentes visuales del Dashboard.
+ */
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { context } = useSession();

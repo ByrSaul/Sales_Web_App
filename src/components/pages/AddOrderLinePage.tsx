@@ -19,6 +19,18 @@ import { canEditPrice } from '../../features/orders/orderRules';
 import { Button, Card, Input, Select, Toggle } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
+/**
+ * Pantalla de captura de una nueva línea del borrador de pedido.
+ *
+ * Responsabilidades:
+ * - Seleccionar producto, variante e inventario.
+ * - Aplicar precio, cantidad y datos comerciales.
+ * - Validar y agregar la línea al borrador.
+ *
+ * Dependencias:
+ * - `OrderDraftProvider`.
+ * - Catálogos de productos, variantes e inventario.
+ */
 const AddOrderLinePage = () => {
   const navigate = useNavigate();
   const { api, context } = useSession();

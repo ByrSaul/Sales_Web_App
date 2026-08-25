@@ -11,6 +11,18 @@ import type {
   VendorDto,
 } from '../../core/session/types';
 
+/**
+ * Servicio de acceso a los datos que conforman la sesión operativa.
+ *
+ * Endpoints utilizados:
+ * - `POST /company/companies`
+ * - `POST /company/salesGroupByUser`
+ * - `POST /user/data`
+ * - `POST /company/accessMenuByUser`
+ *
+ * @param api Cliente HTTP autenticado.
+ * @returns Operaciones para consultar compañías, vendedores, usuario y permisos.
+ */
 export const sessionService = (api: ApiClient) => ({
   async getCompanies(): Promise<Company[]> {
     return (await api.post<CompanyDto[]>('/company/companies')).map(mapCompany);

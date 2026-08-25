@@ -12,6 +12,7 @@ export type InvoiceFilters = {
   openOnly: boolean;
   page: number;
 };
+/** Factura normalizada para consulta y navegación financiera. */
 export type Invoice = {
   salesId: string;
   customerAccount: string;
@@ -35,6 +36,7 @@ export type Invoice = {
   timePeriod: string;
 };
 export type InvoiceResult = { items: Invoice[]; pagination: Pagination };
+/** Documento individual incluido en el estado de cuenta. */
 export type StatementDocument = {
   voucher: string;
   transactionType: string;
@@ -53,12 +55,14 @@ export type StatementDocument = {
   status: string;
   timePeriod: string;
 };
+/** Saldo agregado correspondiente a un rango de antigüedad. */
 export type AgingBucket = {
   label: string;
   totalUsd: number;
   documents: StatementDocument[];
   severity: string;
 };
+/** Totales consolidados del estado de cuenta de un cliente. */
 export type StatementSummary = {
   documents: StatementDocument[];
   currentTotalUsd: number;

@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/providers/SessionProvider';
 import { attachmentService } from './attachmentService';
+/** Claves de caché para adjuntos asociados a pedidos de venta. */
 export const attachmentKeys = {
   order: (companyId: string, salesOrderNumber: string) =>
     ['order-attachments', companyId, salesOrderNumber] as const,
 };
+/** Consulta los adjuntos persistidos de un pedido de venta. */
 export const useOrderAttachments = (salesOrderNumber: string, enabled = true) => {
   const { api, context } = useSession();
   const companyId = context.company?.id ?? '';
@@ -16,6 +18,7 @@ export const useOrderAttachments = (salesOrderNumber: string, enabled = true) =>
     retry: false,
   });
 };
+/** Carga adjuntos y actualiza la caché del pedido correspondiente. */
 export const useAttachmentUploader = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const client = useQueryClient();

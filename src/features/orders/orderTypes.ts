@@ -1,6 +1,7 @@
 import type { Pagination } from '../catalogs/types';
 export type SalesOrderStatus =
   'Orden Abierta' | 'Entregado' | 'Facturado' | 'Cancelado' | 'None' | string;
+/** Filtros y paginación aceptados por la consulta de pedidos existentes. */
 export type OrderFilters = {
   customer: string;
   status: string;
@@ -10,6 +11,7 @@ export type OrderFilters = {
   page: number;
   perPage: number;
 };
+/** Encabezado normalizado de un pedido persistido en D365. */
 export type ExistingOrder = {
   companyId: string;
   salesOrderNumber: string;
@@ -32,6 +34,7 @@ export type ExistingOrder = {
   matchingAgreement: number | null;
   agreementId: string;
 };
+/** Línea resumida perteneciente a un pedido persistido. */
 export type ExistingOrderLine = {
   lineNumber: number;
   itemId: string;
@@ -52,6 +55,7 @@ export type ExistingOrderLine = {
   styleId?: string;
   versionId?: string;
 };
+/** Detalle oficial recuperado para editar una línea mediante su número real. */
 export type OfficialSalesOrderLine = {
   dataAreaId: string;
   salesOrderNumber: string;
