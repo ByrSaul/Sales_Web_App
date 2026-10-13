@@ -75,18 +75,36 @@ export type SubmissionStatus =
   | 'uploading-attachments'
   | 'creating-lines'
   | 'recovering'
+  | 'awaiting-confirmation'
   | 'partial-failure'
   | 'completed'
   | 'failed';
-export type SubmissionLineStatus = 'pending' | 'creating' | 'created' | 'failed';
+export type SubmissionLineStatus = 'pending' | 'creating' | 'created' | 'failed' | 'unconfirmed';
+/**
+ * Seguimiento local de la idempotencia de una creación (encabezado o línea).
+ *
+ * `processing`, `completed` y `failed` reflejan los estados reales del Backend
+ * (`Processing`, `Completed`, `Failed`). `awaiting-confirmation` es un estado exclusivamente local:
+ * la clave se envió y todavía no se conoce el resultado (timeout, red, 5xx o recarga en curso).
+ * `rejected` es un 4xx sin aplicar la operación y `mismatch` una clave usada con otro body.
+ */
+export type OperationTracking =
+  | 'not-sent'
+  | 'awaiting-confirmation'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'rejected'
+  | 'mismatch';
 export type SubmissionLine = {
   localId: string;
   /**
    * Clave `Idempotency-Key` de la creación de esta línea. Se genera al iniciar la ejecución,
-   * se persiste antes del POST y se reutiliza en reintentos y recuperaciones; solo se renueva
-   * cuando el Backend confirmó que la clave anterior falló (ver `canRenewIdempotencyKey`).
+   * se persiste antes del POST y nunca se renueva para eludir un resultado desconocido; solo se
+   * reemplaza cuando el Backend confirmó `Failed` o un rechazo 4xx y el usuario pide reintentar.
    */
   idempotencyKey: string;
+  tracking: OperationTracking;
   status: SubmissionLineStatus;
   attempts: number;
   error: string | null;
@@ -108,6 +126,8 @@ export type OrderSubmission = {
    * Backend devuelva el resultado original. `null` en recuperaciones anteriores a la clave.
    */
   headerIdempotencyKey: string | null;
+  /** Seguimiento de la idempotencia del encabezado (ver `OperationTracking`). */
+  headerTracking: OperationTracking;
   createdAt: string;
   updatedAt: string;
   snapshot: OrderDraft;
@@ -124,6 +144,18 @@ export type SubmissionAttachmentInput = {
   description: string;
 };
 export type SubmissionResult = { submission: OrderSubmission; completed: boolean };
+/**
+ * Vista de solo lectura de `GET /d365/idempotency/{key}?dataAreaId=` (fa-sales4app-proxy,
+ * `IdempotencyService.describe`). Se usa exclusivamente para decidir si una nueva solicitud con
+ * otra clave es segura; la consulta de estado sigue siendo el POST original.
+ */
+export type IdempotencyStatusView = {
+  status: 'Processing' | 'Completed' | 'Failed';
+  dynamicsEffect: 'CREATED' | 'NONE' | 'UNKNOWN';
+  newRequestAllowed: boolean;
+  salesOrderNumber: string | null;
+  lineReference: string | null;
+};
 /** Puerto de infraestructura requerido por el ejecutor de envío de pedidos. */
 export interface OrderSubmissionGateway {
   createHeader(request: SalesHeaderRequest, idempotencyKey: string): Promise<SalesHeaderResponse>;
@@ -135,4 +167,6 @@ export interface OrderSubmissionGateway {
   getExistingLines(companyId: string, salesOrderNumber: string): Promise<ExistingSalesLine[]>;
   uploadAttachment?(companyId: string, salesOrderNumber: string, file: File, description: string): Promise<void>;
   listAttachments?(companyId: string, salesOrderNumber: string): Promise<import('../attachments/attachmentTypes').OrderAttachment[]>;
+  /** `null` cuando el Backend confirma que la clave nunca se registró. */
+  getIdempotencyStatus?(companyId: string, idempotencyKey: string): Promise<IdempotencyStatusView | null>;
 }

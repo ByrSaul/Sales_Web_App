@@ -11,14 +11,21 @@ import {
 import { useSession } from '../../app/providers/SessionProvider';
 import { clearDraftStorage } from '../orderDraft/storage';
 import { useOrderDraft } from '../orderDraft/OrderDraftProvider';
+import { hasUnresolvedOperation } from './operationTracking';
 import { orderSubmissionService } from './orderSubmissionService';
 import { SubmissionRunner } from './submissionRunner';
 import { clearSubmission, loadSubmission } from './submissionStorage';
-import type { OrderSubmission } from './types';
+import type { OrderSubmission, SubmissionResult } from './types';
 type Value = {
   submission: OrderSubmission | null;
+  /** Hay una solicitud HTTP de creación o verificación en curso en esta pestaña. */
   active: boolean;
+  /** Algún comando del envío se está ejecutando; los botones deben deshabilitarse. */
+  busy: boolean;
+  /** Existe una creación cuyo resultado el Backend todavía no confirmó. */
+  unresolved: boolean;
   submit: () => Promise<void>;
+  verifyPending: () => Promise<void>;
   retryPending: () => Promise<void>;
   discardRecovery: () => void;
   createAnother: () => void;
@@ -46,12 +53,14 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
   const [submission, setSubmission] = useState<OrderSubmission | null>(() =>
     loadSubmission(context.accountId, context.company?.id ?? ''),
   );
+  const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const runner = useMemo(
     () => new SubmissionRunner(orderSubmissionService(api), setSubmission),
     [api],
   );
   const active = Boolean(submission && activeStatus.has(submission.status));
+  const unresolved = Boolean(submission && hasUnresolvedOperation(submission));
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
       if (active) event.preventDefault();
@@ -59,12 +68,31 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [active]);
-  const run = useCallback(
-    async (recovery?: OrderSubmission | null) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
-      try {
-        const result = await runner.submit(
+  /** Ejecuta un comando a la vez: el doble clic nunca produce dos solicitudes. */
+  const exclusive = useCallback(async (work: () => Promise<void>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      await work();
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }, []);
+  const settle = useCallback(
+    (result: SubmissionResult) => {
+      setSubmission(result.submission);
+      clearAttachments(result.submission.createdAttachmentIds ?? []);
+      // El borrador solo se elimina cuando no queda ninguna operación sin resolver.
+      if (result.completed) clearDraftStorage();
+    },
+    [clearAttachments],
+  );
+  const execute = useCallback(
+    async (recovery: OrderSubmission | null) =>
+      settle(
+        await runner.submit(
           draft,
           recovery,
           attachments.map((item) => ({
@@ -72,37 +100,60 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
             file: item.file,
             description: item.description,
           })),
-        );
-        setSubmission(result.submission);
-        clearAttachments(result.submission.createdAttachmentIds ?? []);
-        if (result.completed) clearDraftStorage();
-      } finally {
-        inFlight.current = false;
-      }
-    },
-    [attachments, clearAttachments, draft, runner],
-  );
-  const submit = useCallback(() => run(null), [run]);
-  /**
-   * Reanuda la ejecución persistida conservando sus claves de idempotencia.
-   *
-   * Con pedido creado reintenta adjuntos y líneas pendientes. Con encabezado ambiguo reenvía el
-   * mismo body con la misma `Idempotency-Key`: el Backend devuelve el pedido ya creado o un 409,
-   * nunca un pedido nuevo. Las recuperaciones sin clave no se reenvían.
-   */
-  const retryPending = useCallback(async () => {
-    if (!submission) return;
-    if (!submission.salesOrderNumber) {
-      if (submission.headerAmbiguous && submission.headerIdempotencyKey) await run(submission);
-      return;
-    }
-    await run({
-      ...submission,
-      lines: submission.lines.map((line) =>
-        line.status === 'created' ? line : { ...line, status: 'pending', error: null },
+        ),
       ),
-    });
-  }, [run, submission]);
+    [attachments, draft, runner, settle],
+  );
+  const submit = useCallback(() => exclusive(() => execute(null)), [exclusive, execute]);
+  /**
+   * Consulta en el Backend el estado de las creaciones sin resultado confirmado, con su mismo POST,
+   * su misma `Idempotency-Key` y su mismo body. Nunca genera claves nuevas. Si todo quedó
+   * `Completed`, continúa con las operaciones pendientes; un `Failed` espera la decisión del usuario.
+   */
+  const verifyPending = useCallback(
+    () =>
+      exclusive(async () => {
+        if (!submission) return;
+        settle(
+          await runner.verifyAndResume(
+            submission,
+            draft,
+            attachments.map((item) => ({
+              localId: item.localId,
+              file: item.file,
+              description: item.description,
+            })),
+          ),
+        );
+      }),
+    [attachments, draft, exclusive, runner, settle, submission],
+  );
+  /**
+   * Reanuda la ejecución persistida o inicia una nueva solicitud tras un error. Está bloqueada
+   * mientras exista una operación sin resultado confirmado. Una operación fallida solo recibe otra
+   * clave cuando el Backend confirma que el intento anterior no produjo efectos en Dynamics.
+   */
+  const retryPending = useCallback(
+    () =>
+      exclusive(async () => {
+        if (!submission || hasUnresolvedOperation(submission)) return;
+        if (!submission.salesOrderNumber) {
+          const assessed = await runner.assessHeaderRetry(submission);
+          if (assessed.safe) {
+            // Nueva solicitud: un envío nuevo con claves nuevas a partir del borrador vigente.
+            clearSubmission(context.accountId, context.company!.id);
+            await execute(null);
+            return;
+          }
+          setSubmission(assessed.submission);
+          // Si el Backend confirmó que el pedido existe, se continúa con sus líneas pendientes.
+          if (assessed.submission.salesOrderNumber) await execute(assessed.submission);
+          return;
+        }
+        await execute(await runner.prepareRetry(submission));
+      }),
+    [context.accountId, context.company, exclusive, execute, runner, submission],
+  );
   const discardRecovery = useCallback(() => {
     clearSubmission(context.accountId, context.company!.id);
     setSubmission(null);
@@ -113,8 +164,18 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
     reset();
   }, [context.accountId, context.company, reset]);
   const value = useMemo(
-    () => ({ submission, active, submit, retryPending, discardRecovery, createAnother }),
-    [submission, active, submit, retryPending, discardRecovery, createAnother],
+    () => ({
+      submission,
+      active,
+      busy,
+      unresolved,
+      submit,
+      verifyPending,
+      retryPending,
+      discardRecovery,
+      createAnother,
+    }),
+    [submission, active, busy, unresolved, submit, verifyPending, retryPending, discardRecovery, createAnother],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 };

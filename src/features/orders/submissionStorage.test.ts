@@ -12,6 +12,7 @@ const submission = (accountId: string, companyId: string): OrderSubmission => ({
   companyId,
   draftId: 'D',
   headerIdempotencyKey: 'header-key',
+  headerTracking: 'completed',
   salesOrderNumber: 'OV',
   status: 'partial-failure',
   headerAmbiguous: false,
@@ -35,6 +36,43 @@ describe('submission recovery storage', () => {
     saveSubmission(submission('A', 'CO'));
     expect(loadSubmission('B', 'CO')).toBeNull();
     expect(peekSubmission('B')).toBeNull();
+  });
+  it('restores a legacy record without tracking conservatively', () => {
+    const legacy = {
+      ...submission('A', 'CO'),
+      headerTracking: undefined,
+      status: 'creating-lines',
+      lines: [
+        { localId: 'l1', idempotencyKey: 'k1', status: 'created', attempts: 1, error: null, backendLineNumber: 1, draftLine: {} },
+        { localId: 'l2', idempotencyKey: 'k2', status: 'failed', attempts: 1, error: 'x', backendLineNumber: null, draftLine: {} },
+        { localId: 'l3', idempotencyKey: '', status: 'pending', attempts: 0, error: null, backendLineNumber: null, draftLine: {} },
+      ],
+    } as unknown as OrderSubmission;
+    saveSubmission(legacy);
+    const restored = loadSubmission('A', 'CO')!;
+    expect(restored.headerTracking).toBe('completed');
+    expect(restored.status).toBe('awaiting-confirmation');
+    expect(restored.lines.map((line) => [line.tracking, line.status])).toEqual([
+      ['completed', 'created'],
+      ['awaiting-confirmation', 'unconfirmed'],
+      ['not-sent', 'pending'],
+    ]);
+    expect(restored.lines[1].idempotencyKey).toBe('k2');
+    expect(restored.lines[2].idempotencyKey).toBeTruthy();
+  });
+  it('keeps an interrupted header POST as awaiting confirmation with its key', () => {
+    saveSubmission({
+      ...submission('A', 'CO'),
+      salesOrderNumber: null,
+      status: 'creating-header',
+      headerTracking: 'awaiting-confirmation',
+    });
+    expect(loadSubmission('A', 'CO')).toMatchObject({
+      status: 'failed',
+      headerAmbiguous: true,
+      headerTracking: 'awaiting-confirmation',
+      headerIdempotencyKey: 'header-key',
+    });
   });
   it('clears only the explicitly resolved recovery', () => {
     saveSubmission(submission('A', 'CO1'));

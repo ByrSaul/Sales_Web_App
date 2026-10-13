@@ -6,13 +6,37 @@ import { useOrderSubmission } from '../../features/orders/OrderSubmissionProvide
 import { Button, Card } from '../ui';
 import { DraftAttachments } from '../orders/DraftAttachments';
 import { validateAttachment } from '../../features/attachments/attachmentValidation';
+import type { OperationTracking, SubmissionStatus } from '../../features/orders/types';
 
 const labels = {
   pending: 'Pendiente',
   creating: 'Creando…',
   created: 'Creada',
   failed: 'Fallida',
+  unconfirmed: 'Esperando confirmación',
 } as const;
+const trackingLabels: Record<OperationTracking, string> = {
+  'not-sent': 'Sin enviar',
+  'awaiting-confirmation': 'Resultado sin confirmar · reintento bloqueado',
+  processing: 'En procesamiento según el Backend · reintento bloqueado',
+  completed: 'Confirmada por el Backend',
+  failed: 'Fallida según el Backend · reintento permitido',
+  rejected: 'Rechazada por el Backend · reintento permitido',
+  mismatch: 'Clave usada con otros datos · reintento bloqueado',
+};
+const statusLabels: Record<SubmissionStatus, string> = {
+  idle: 'Preparando',
+  validating: 'Validando',
+  'creating-header': 'Creando encabezado',
+  'header-created': 'Encabezado creado',
+  'uploading-attachments': 'Subiendo adjuntos',
+  'creating-lines': 'Creando líneas',
+  recovering: 'Consultando estado en el Backend',
+  'awaiting-confirmation': 'Esperando confirmación',
+  'partial-failure': 'Pedido creado parcialmente',
+  completed: 'Operación completada',
+  failed: 'Operación fallida',
+};
 /**
  * Pantalla de revisión, validación y envío del borrador de pedido.
  *
@@ -32,11 +56,35 @@ const OrderDraftReviewPage = () => {
     .map((item) => validateAttachment(item.file, item.description))
     .filter(Boolean);
   const locked =
-    flow.active || Boolean(submission?.salesOrderNumber) || Boolean(submission?.headerAmbiguous);
+    flow.active ||
+    flow.busy ||
+    flow.unresolved ||
+    Boolean(submission?.salesOrderNumber) ||
+    Boolean(submission?.headerAmbiguous);
   const create = async () => {
+    if (flow.busy || flow.unresolved) return;
     if (!window.confirm('Se creará un pedido real en Dynamics 365. ¿Desea continuar?')) return;
     await flow.submit();
   };
+  /**
+   * Nueva solicitud tras un encabezado con error: el Backend debe confirmar antes que el intento
+   * anterior no produjo efectos (o el pedido existente se recupera). Sin evidencia queda bloqueada.
+   */
+  const requestNewHeader = async () => {
+    if (flow.busy || flow.unresolved) return;
+    if (
+      !window.confirm(
+        'Se comprobará en el Backend que el intento anterior no creó nada en Dynamics. Solo si se confirma, se creará un nuevo pedido real. ¿Continuar?',
+      )
+    )
+      return;
+    await flow.retryPending();
+  };
+  const verifyButton = (label: string) => (
+    <Button disabled={flow.busy} loading={flow.busy} onClick={() => void flow.verifyPending()}>
+      {label}
+    </Button>
+  );
   if (submission?.status === 'completed')
     return (
       <div className="space-y-4">
@@ -96,7 +144,10 @@ const OrderDraftReviewPage = () => {
                   ? `Pedido ${submission.salesOrderNumber}`
                   : 'Creación del encabezado'}
               </h2>
-              <p className="text-xs">Estado: {submission.status}</p>
+              <p className="text-xs">Estado: {statusLabels[submission.status]}</p>
+              {!submission.salesOrderNumber && (
+                <p className="text-xs">Encabezado: {trackingLabels[submission.headerTracking]}</p>
+              )}
               {submission.status === 'uploading-attachments' && (
                 <p className="text-xs font-semibold text-primary">Subiendo adjuntos...</p>
               )}
@@ -126,7 +177,7 @@ const OrderDraftReviewPage = () => {
                 <span>
                   {line.draftLine.itemId} · {line.draftLine.itemName}
                   <small className="block text-on-surface-variant">
-                    Intentos: {line.attempts}
+                    {trackingLabels[line.tracking]} · Envíos: {line.attempts}
                     {line.error ? ` · ${line.error}` : ''}
                   </small>
                 </span>
@@ -134,23 +185,49 @@ const OrderDraftReviewPage = () => {
               </li>
             ))}
           </ul>
-          {submission.status === 'partial-failure' && (
+          {submission.salesOrderNumber && flow.unresolved && (
+            <div role="status" className="bg-amber-50 p-3 rounded">
+              <strong>Esperando confirmación del Backend</strong>
+              <p className="text-xs">
+                El servidor continúa procesando la operación o todavía no ha confirmado su resultado.
+                No vuelva a enviarla hasta verificar su estado. Las líneas posteriores no se crearán
+                hasta resolver esta.
+              </p>
+              <p className="text-xs mt-1">
+                La consulta reenvía la misma operación con su misma clave: el Backend devuelve el
+                resultado registrado y no crea duplicados. Si se confirma, el envío continúa con las
+                líneas pendientes.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {verifyButton('Consultar estado')}
+                <Button variant="outline" onClick={() => navigate('/pedidos')}>
+                  Ir a Mis pedidos
+                </Button>
+              </div>
+            </div>
+          )}
+          {submission.status === 'partial-failure' && !flow.unresolved && (
             <div className="bg-amber-50 p-3 rounded">
               <strong>Pedido creado parcialmente</strong>
               <p className="text-xs">
                 {submission.attachmentError
                   ? 'El encabezado existe, pero un adjunto quedó ambiguo. No se crearán líneas ni se reenviará el archivo automáticamente.'
-                  : 'Se verificará Dynamics antes de volver a intentar cada línea pendiente.'}
+                  : 'Las líneas fallidas se comprobarán en Dynamics antes de enviarse como operaciones nuevas.'}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 {!submission.attachmentError && (
-                  <Button onClick={() => flow.retryPending()}>Reintentar líneas pendientes</Button>
+                  <Button disabled={flow.busy} onClick={() => void flow.retryPending()}>
+                    Reintentar líneas pendientes
+                  </Button>
                 )}
                 {submission.attachmentError && submission.attachmentRetryAllowed && (
-                  <Button onClick={() => flow.retryPending()}>Reintentar carga del comprobante</Button>
+                  <Button disabled={flow.busy} onClick={() => void flow.retryPending()}>
+                    Reintentar carga del comprobante
+                  </Button>
                 )}
                 <Button
                   variant="danger"
+                  disabled={flow.busy}
                   onClick={() => {
                     if (
                       window.confirm(
@@ -172,26 +249,23 @@ const OrderDraftReviewPage = () => {
               {submission.headerAmbiguous ? (
                 <>
                   <p className="text-xs font-bold mt-1">
-                    No es posible determinar si Dynamics creó el pedido. No se habilita un pedido
-                    nuevo para evitar duplicados.
+                    El Backend no ha confirmado que el encabezado se pueda reintentar. No se habilita
+                    un pedido nuevo para evitar duplicados.
                     {submission.headerIdempotencyKey &&
-                      ' La verificación reenvía la misma operación: si el pedido ya existe, el Backend devuelve ese pedido en lugar de crear otro.'}
+                      ' La consulta reenvía la misma operación con su misma clave: si el pedido ya existe, el Backend devuelve ese pedido en lugar de crear otro.'}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {submission.headerIdempotencyKey && (
-                      <Button disabled={flow.active} onClick={() => flow.retryPending()}>
-                        Verificar con la misma operación
-                      </Button>
-                    )}
+                    {submission.headerIdempotencyKey && verifyButton('Consultar estado del encabezado')}
                     <Button variant="outline" onClick={() => navigate('/pedidos')}>
                       Ir a Mis pedidos
                     </Button>
                     <Button
                       variant="danger"
+                      disabled={flow.busy}
                       onClick={() => {
                         if (
                           window.confirm(
-                            'Descartar esta recuperación no elimina ningún pedido que pueda existir en Dynamics. Únicamente elimina el estado local de recuperación. ¿Continuar?',
+                            'El resultado del encabezado aún no está confirmado. Descartar esta recuperación no elimina ningún pedido que pueda existir en Dynamics y deja de darle seguimiento. Verifique Mis pedidos antes de crear otro. ¿Continuar?',
                           )
                         )
                           flow.discardRecovery();
@@ -202,23 +276,47 @@ const OrderDraftReviewPage = () => {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <Button onClick={create}>Reintentar encabezado</Button>
-                  <Button variant="outline" onClick={() => flow.discardRecovery()}>
-                    Volver al borrador
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={() => {
-                      if (window.confirm('¿Descartar este borrador y crear otro pedido?')) {
-                        flow.createAnother();
-                        navigate('/crear-pedido');
-                      }
-                    }}
-                  >
-                    Descartar y crear otro pedido
-                  </Button>
-                </div>
+                submission.headerTracking === 'not-sent' ? (
+                  // No se envió ningún POST (validación previa): repetir es una primera ejecución.
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Button disabled={flow.busy} onClick={create}>
+                      Reintentar encabezado
+                    </Button>
+                    <Button variant="outline" disabled={flow.busy} onClick={() => flow.discardRecovery()}>
+                      Volver al borrador
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs font-bold mt-1">
+                      Un nuevo pedido solo se crea si el Backend confirma que el intento anterior no
+                      produjo efectos en Dynamics. Si confirma que el pedido existe, se recupera su
+                      número. Sin esa evidencia, la nueva creación permanece bloqueada.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Button disabled={flow.busy} loading={flow.busy} onClick={() => void requestNewHeader()}>
+                        Reintentar encabezado
+                      </Button>
+                      <Button variant="outline" onClick={() => navigate('/pedidos')}>
+                        Ir a Mis pedidos
+                      </Button>
+                      <Button
+                        variant="danger"
+                        disabled={flow.busy}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              'Esto NO comprueba si el pedido existe en Dynamics: solo abandona el seguimiento local de esta operación bajo su responsabilidad. Verifique Mis pedidos antes de crear otro. ¿Continuar?',
+                            )
+                          )
+                            flow.discardRecovery();
+                        }}
+                      >
+                        Descartar recuperación local
+                      </Button>
+                    </div>
+                  </>
+                )
               )}
             </div>
           )}

@@ -9,8 +9,9 @@ export const msalInstance = new PublicClientApplication({
   auth: {
     clientId: appConfig.clientId || '00000000-0000-0000-0000-000000000000',
     authority: `https://login.microsoftonline.com/${appConfig.tenantId || 'common'}`,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: `${window.location.origin}/login`,
+    // Redirect URI SPA registrada en Entra ID; la sirve auth/redirect.html (redirect bridge).
+    redirectUri: `${window.location.origin}/auth/redirect.html`,
+    postLogoutRedirectUri: `${window.location.origin}/auth/redirect.html`,
   },
   cache: {
     cacheLocation: BrowserCacheLocation.SessionStorage,

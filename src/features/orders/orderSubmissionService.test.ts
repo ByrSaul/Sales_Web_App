@@ -57,12 +57,16 @@ describe('orderSubmissionService contracts', () => {
       headers: { 'Idempotency-Key': 'key-2' },
     });
   });
-  it('uses the exact Mobile GET-body recovery contract', async () => {
+  it('verifies existing lines through the browser-compatible POST query without paging limits', async () => {
     const api = fake();
-    api.get.mockResolvedValue([]);
+    api.post.mockResolvedValue([]);
     await orderSubmissionService(api as unknown as ApiClient).getExistingLines('CO', 'OV');
-    expect(api.get).toHaveBeenCalledWith('/d365/sales/line', {
-      body: { filters: { dataAreaId: ['CO'], SalesOrderNumber: ['OV'] } },
+    expect(api.get).not.toHaveBeenCalled();
+    expect(api.post).toHaveBeenCalledWith('/d365/sales/line/query', {
+      filters: { dataAreaId: ['CO'], SalesOrderNumber: ['OV'] },
+      cross_company: true,
+      page: 1,
+      perpage: 1000,
     });
   });
 });

@@ -1,4 +1,6 @@
 import {
+  AuthError,
+  BrowserAuthErrorCodes,
   InteractionRequiredAuthError,
   type AccountInfo,
   type PublicClientApplication,
@@ -99,8 +101,14 @@ export const AuthProvider = ({
     try {
       const result = await instance.loginPopup(loginRequest);
       activateAccount(result.account);
-    } catch {
-      setError('No fue posible iniciar sesión con Microsoft.');
+    } catch (cause) {
+      // Solo se muestra el código de MSAL; el mensaje completo puede incluir datos de la solicitud.
+      const code = cause instanceof AuthError ? cause.errorCode : '';
+      setError(
+        code === BrowserAuthErrorCodes.userCancelled
+          ? 'Inicio de sesión cancelado.'
+          : `No fue posible iniciar sesión con Microsoft${code ? ` (${code})` : ''}.`,
+      );
       setStatus('unauthenticated');
     }
   }, [activateAccount, activateDevToken, instance]);
@@ -146,7 +154,6 @@ export const AuthProvider = ({
     activateAccount(null);
     await instance.logoutPopup({
       account: current ?? undefined,
-      postLogoutRedirectUri: `${window.location.origin}/login`,
     });
   }, [account, activateAccount, instance]);
   const unauthorized = useCallback(async () => {

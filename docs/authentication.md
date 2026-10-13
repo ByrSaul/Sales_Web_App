@@ -1,5 +1,7 @@
 # Autenticación y Microsoft Entra ID
 
+> **Referencia de fases anteriores.** Revisado documentalmente el 2026-10-13: se conserva el contenido histórico. Para implementación, contratos y resultados actuales consultar el [manual técnico](./MANUAL_TECNICO_SALES4APP_WEB.md), el [inventario](./INVENTARIO_COMPONENTES_SALES4APP.md) y la [idempotencia](./IDEMPOTENCIA_FRONTEND_SALES4APP.md). Las cifras de pruebas, GET con body, ausencia de idempotencia, redirect URI y estados de paridad/readiness de esta guía no son evidencia vigente ni validación real de Mobile o producción.
+
 La Web usa `@azure/msal-browser` como SPA **public client**. No debe existir client secret. El login es popup, la adquisición normal es silenciosa y, sólo si Entra exige interacción, se abre popup. Ante un segundo 401 después de renovar una vez, se cierra la sesión; no existe bucle de renovación.
 
 ## Modo temporal de desarrollo

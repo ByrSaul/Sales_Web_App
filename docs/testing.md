@@ -1,5 +1,7 @@
 # Estrategia de pruebas
 
+> **Referencia de fases anteriores.** Revisado documentalmente el 2026-10-13: se conserva el contenido histórico. Para implementación, contratos y resultados actuales consultar el [manual técnico](./MANUAL_TECNICO_SALES4APP_WEB.md), el [inventario](./INVENTARIO_COMPONENTES_SALES4APP.md) y la [idempotencia](./IDEMPOTENCIA_FRONTEND_SALES4APP.md). Las cifras de pruebas, GET con body, ausencia de idempotencia, redirect URI y estados de paridad/readiness de esta guía no son evidencia vigente ni validación real de Mobile o producción.
+
 - Unitarias: mappers, validaciones, storage, reglas y ApiClient.
 - Componentes: estados, URLs, páginas y mutaciones con servicios simulados.
 - Integración Web: providers, guards, servicios y contratos verifican payloads sin llamar Dynamics.

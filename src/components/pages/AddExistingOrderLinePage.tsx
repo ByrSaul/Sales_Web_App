@@ -16,11 +16,13 @@ import { buildDraftLines, removeDraftLine } from '../../features/orderDraft/doma
 import { validateDraftLine } from '../../features/orderDraft/validation';
 import type { NewLineSelection, OrderDraftLine } from '../../features/orderDraft/types';
 import {
-  canRenewIdempotencyKey,
-  isIdempotencyConflict,
+  canRetryWithNewKey,
+  classifyCreationError,
+  creationOutcomeMessage,
   newIdempotencyKey,
 } from '../../features/orders/idempotency';
-import { isAmbiguousError, mutationErrorMessage } from '../../features/orders/mutationOutcome';
+import { mutationErrorMessage } from '../../features/orders/mutationOutcome';
+import { assessNewRequest } from '../../features/orders/operationTracking';
 import {
   orderKeys,
   useOrderDetail,
@@ -30,7 +32,6 @@ import { statusLabel } from '../../features/orders/orderMappers';
 import {
   mapAgreementLineRequest,
   mapNormalLineRequest,
-  sameLine,
 } from '../../features/orders/orderSubmissionMapper';
 import { orderSubmissionService } from '../../features/orders/orderSubmissionService';
 import { Button, Card, Input, Select, Toggle } from '../ui';
@@ -45,18 +46,28 @@ type PendingLine = OrderDraftLine & {
   submissionError: string | null;
   /**
    * `Idempotency-Key` de la creación de esta línea. Se genera al agregarla a pendientes y se
-   * persiste en sessionStorage antes del POST; se conserva mientras el resultado sea ambiguo y
-   * solo se renueva cuando el Backend confirmó el fallo (su clave anterior ya no es reutilizable).
+   * persiste en sessionStorage antes del POST; se conserva mientras el resultado no esté confirmado
+   * y solo se renueva cuando el Backend confirmó `Failed` o un rechazo 4xx.
    */
   idempotencyKey: string;
 };
 
-/** Restaura pendientes guardados; los registros anteriores a la idempotencia reciben una clave. */
+/**
+ * Restaura pendientes guardados. Los registros anteriores a la idempotencia reciben una clave y
+ * una línea que estaba enviándose al recargar queda pendiente de confirmación: nunca se reenvía sola.
+ */
 const restorePendingLines = (raw: string | null): PendingLine[] =>
   raw
-    ? (JSON.parse(raw) as PendingLine[]).map((line) =>
-        line.idempotencyKey ? line : { ...line, idempotencyKey: newIdempotencyKey() },
-      )
+    ? (JSON.parse(raw) as PendingLine[]).map((line) => {
+        const withKey = line.idempotencyKey ? line : { ...line, idempotencyKey: newIdempotencyKey() };
+        return withKey.submissionStatus === 'submitting'
+          ? {
+              ...withKey,
+              submissionStatus: 'ambiguous',
+              submissionError: creationOutcomeMessage({ kind: 'unknown' }),
+            }
+          : withKey;
+      })
     : [];
 
 /**
@@ -276,35 +287,61 @@ const AddExistingOrderLinePage = () => {
     }
   };
 
-  /** Envía secuencialmente cada pendiente con su propia `Idempotency-Key` persistida. */
-  const sendPendingLines = async (draft: NonNullable<typeof shellDraft>, companyId: string) => {
-    if (paymentRequired) {
+  /**
+   * Envía las líneas pendientes en orden, una sola vez cada una, con su `Idempotency-Key`
+   * persistida. En modo `verify` solo consulta las líneas sin resultado confirmado reenviando la
+   * misma clave y el mismo body (el Backend devuelve el resultado registrado sin duplicar).
+   * Se detiene en la primera línea que no quede creada: las siguientes pueden depender de ella.
+   */
+  const sendPendingLines = async (
+    draft: NonNullable<typeof shellDraft>,
+    companyId: string,
+    mode: 'send' | 'verify' = 'send',
+    source: PendingLine[] = pendingLines,
+  ): Promise<PendingLine[] | null> => {
+    if (mode === 'send' && paymentRequired) {
       const refreshed = await attachments.refetch();
       if (!hasValidPaymentAttachment(refreshed.data ?? [])) {
         setMessage('Debe adjuntar un comprobante de pago en formato imagen antes de enviar líneas. No se realizó ningún POST de línea.');
-        return;
+        return null;
       }
     }
     setSubmitting(true);
     setMessage(null);
     const gateway = orderSubmissionService(api);
-    const snapshot = [...pendingLines];
+    const working = source.map((line) => ({ ...line }));
+    // Se persiste de forma síncrona antes de cada POST: una recarga a mitad de envío conserva el estado.
+    const commit = () => {
+      sessionStorage.setItem(pendingStorageKey, JSON.stringify(working));
+      setPendingLines(working.map((line) => ({ ...line })));
+    };
     const created = new Set<string>();
-    for (const line of snapshot) {
-      let matchingBefore: number | null = null;
-      try {
-        const existingBefore = await gateway.getExistingLines(companyId, salesOrderNumber);
-        matchingBefore = existingBefore.filter((existing) => sameLine(line, existing)).length;
-      } catch {
-        // Creation can continue, but an ambiguous response cannot be recovered without a baseline.
+    for (const line of working) {
+      const eligible =
+        mode === 'verify' ? line.submissionStatus === 'ambiguous' : line.submissionStatus !== 'ambiguous';
+      if (!eligible) {
+        if (mode === 'send') break;
+        continue;
       }
-      setPendingLines((current) =>
-        current.map((item) =>
-          item.localId === line.localId
-            ? { ...item, submissionStatus: 'submitting', submissionError: null }
-            : item,
-        ),
-      );
+      // Nueva solicitud tras un error: solo se usa otra clave si el Backend confirma que el intento
+      // anterior no produjo efectos. Con efectos confirmados la línea ya existe y no se duplica; sin
+      // evidencia el envío queda bloqueado. Una consulta (`verify`) nunca genera claves.
+      if (mode === 'send' && line.submissionStatus === 'failed') {
+        const evidence = await assessNewRequest(gateway, companyId, line.idempotencyKey);
+        if (evidence.decision === 'created') {
+          created.add(line.localId);
+          continue;
+        }
+        if (evidence.decision === 'blocked') {
+          line.submissionError = evidence.reason;
+          commit();
+          break;
+        }
+        line.idempotencyKey = newIdempotencyKey();
+      }
+      line.submissionStatus = 'submitting';
+      line.submissionError = null;
+      commit();
       try {
         if (line.source === 'agreement')
           await gateway.createAgreementLine(
@@ -318,40 +355,21 @@ const AddExistingOrderLinePage = () => {
           );
         created.add(line.localId);
       } catch (error) {
-        const ambiguous = isAmbiguousError(error) || isIdempotencyConflict(error);
-        let recovered = false;
-        if (ambiguous && matchingBefore !== null) {
-          try {
-            const existing = await gateway.getExistingLines(companyId, salesOrderNumber);
-            recovered = existing.filter((item) => sameLine(line, item)).length > matchingBefore;
-          } catch {
-            // Keep an ambiguous line and never repeat its POST automatically.
-          }
-        }
-        if (recovered) created.add(line.localId);
-        else
-          setPendingLines((current) =>
-            current.map((item) =>
-              item.localId === line.localId
-                ? {
-                    ...item,
-                    submissionStatus: ambiguous ? 'ambiguous' : 'failed',
-                    submissionError: ambiguous
-                      ? `${mutationErrorMessage(error)} No se reenviará automáticamente.`
-                      : mutationErrorMessage(error),
-                    // Ambiguo: se conserva la clave. Fallo confirmado: el Backend no reejecuta
-                    // una clave fallida, así que el siguiente envío manual usará otra.
-                    idempotencyKey:
-                      !ambiguous && canRenewIdempotencyKey(error)
-                        ? newIdempotencyKey()
-                        : item.idempotencyKey,
-                  }
-                : item,
-            ),
-          );
+        const outcome = classifyCreationError(error);
+        const retryable = canRetryWithNewKey(outcome);
+        line.submissionStatus = retryable ? 'failed' : 'ambiguous';
+        line.submissionError = retryable
+          ? `${creationOutcomeMessage(outcome)} ${mutationErrorMessage(error)}`
+          : creationOutcomeMessage(outcome);
+        // La clave se conserva siempre aquí. Solo un `Failed` o rechazo confirmado habilita que el
+        // siguiente envío explícito use otra; desconocido, `Processing` u otro body bloquean.
+        commit();
+        if (mode === 'send') break;
       }
     }
-    setPendingLines((current) => current.filter((line) => !created.has(line.localId)));
+    const remainingLines = working.filter((line) => !created.has(line.localId));
+    working.splice(0, working.length, ...remainingLines);
+    commit();
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: orderKeys.detail(companyId, salesOrderNumber) }),
       queryClient.invalidateQueries({ queryKey: orderKeys.lines(companyId, salesOrderNumber) }),
@@ -359,13 +377,28 @@ const AddExistingOrderLinePage = () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.all(companyId) }),
     ]);
     setSubmitting(false);
-    const remaining = snapshot.length - created.size;
-    if (!remaining) {
+    if (!remainingLines.length) {
       sessionStorage.removeItem(pendingStorageKey);
       navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`);
-      return;
+      return remainingLines;
     }
-    setMessage(`${created.size} creada(s); ${remaining} requieren revisión. Las exitosas no se reenviarán.`);
+    setMessage(`${created.size} creada(s); ${remainingLines.length} pendiente(s). Las exitosas no se reenviarán.`);
+    return remainingLines;
+  };
+  /**
+   * Consulta las líneas sin resultado confirmado con su mismo POST, clave y body. Si todas quedan
+   * `Completed`, continúa con las líneas pendientes que aún no se enviaron (primeras ejecuciones).
+   */
+  const verifyPendingLines = async () => {
+    if (!shellDraft || !order || submitting || submitInFlight.current) return;
+    submitInFlight.current = true;
+    try {
+      const remaining = await sendPendingLines(shellDraft, order.companyId, 'verify');
+      if (remaining?.length && remaining.every((line) => line.submissionStatus === 'pending'))
+        await sendPendingLines(shellDraft, order.companyId, 'send', remaining);
+    } finally {
+      submitInFlight.current = false;
+    }
   };
 
   const beginPendingEdit = (line: PendingLine) => {
@@ -709,14 +742,28 @@ const AddExistingOrderLinePage = () => {
             <h2 className="font-bold">Líneas pendientes ({pendingLines.length})</h2>
             <p className="text-xs text-on-surface-variant">Temporales hasta su envío explícito.</p>
           </div>
-          <Button
-            loading={submitting}
-            disabled={!pendingLines.length || pendingLines.some((line) => line.submissionStatus === 'ambiguous')}
-            onClick={() => void submitPending()}
-          >
-            Enviar {pendingLines.length} línea{pendingLines.length === 1 ? '' : 's'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {pendingLines.some((line) => line.submissionStatus === 'ambiguous') && (
+              <Button variant="outline" loading={submitting} disabled={submitting} onClick={() => void verifyPendingLines()}>
+                Consultar estado
+              </Button>
+            )}
+            <Button
+              loading={submitting}
+              disabled={submitting || !pendingLines.length || pendingLines.some((line) => line.submissionStatus === 'ambiguous')}
+              onClick={() => void submitPending()}
+            >
+              Enviar {pendingLines.length} línea{pendingLines.length === 1 ? '' : 's'}
+            </Button>
+          </div>
         </div>
+        {pendingLines.some((line) => line.submissionStatus === 'ambiguous') && (
+          <p role="status" className="border-t bg-amber-50 p-3 text-xs">
+            Hay líneas sin resultado confirmado. El envío queda bloqueado hasta consultar su estado: la
+            consulta reenvía la misma operación con su misma clave y el Backend devuelve el resultado
+            registrado sin crear duplicados.
+          </p>
+        )}
         {!pendingLines.length && <p className="border-t p-3 text-sm">No hay líneas pendientes.</p>}
         {pendingLines.length > 0 && (
           <div className="max-h-72 overflow-auto border-t">
@@ -733,9 +780,12 @@ const AddExistingOrderLinePage = () => {
                     <td className="text-center">{line.currency} {(line.quantity * line.price).toFixed(2)}</td>
                     <td className="p-2">
                       {line.submissionError && <p className="mb-1 text-xs text-error">{line.submissionError}</p>}
-                      {line.submissionStatus === 'submitting' ? <span className="text-xs font-semibold text-primary">Enviando...</span> : line.submissionStatus === 'ambiguous' ? <span className="text-xs font-semibold text-amber-700">Revisión manual requerida</span> : editingPendingId ? <span className="text-xs font-semibold text-primary">Editando localmente</span> : (
+                      {line.submissionStatus === 'submitting' ? <span className="text-xs font-semibold text-primary">Enviando...</span> : line.submissionStatus === 'ambiguous' ? <span className="text-xs font-semibold text-amber-700">Esperando confirmación · reintento bloqueado</span> : editingPendingId ? <span className="text-xs font-semibold text-primary">Editando localmente</span> : (
                         <div className="flex gap-1">
-                          <Button size="sm" variant="outline" onClick={() => beginPendingEdit(line)}>Editar</Button>
+                          {/* Editar generaría otra clave: una línea fallida solo se reenvía tras la evidencia del Backend. */}
+                          {line.submissionStatus !== 'failed' && (
+                            <Button size="sm" variant="outline" onClick={() => beginPendingEdit(line)}>Editar</Button>
+                          )}
                           <Button size="sm" variant="danger" onClick={() => setPendingLines((current) => removeDraftLine(current, line.localId) as PendingLine[])}>Eliminar</Button>
                         </div>
                       )}
