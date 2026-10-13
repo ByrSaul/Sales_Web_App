@@ -11,6 +11,7 @@ const submission = (accountId: string, companyId: string): OrderSubmission => ({
   accountId,
   companyId,
   draftId: 'D',
+  headerIdempotencyKey: 'header-key',
   salesOrderNumber: 'OV',
   status: 'partial-failure',
   headerAmbiguous: false,

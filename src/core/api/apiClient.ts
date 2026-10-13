@@ -49,11 +49,22 @@ export class ApiClient {
       timeoutMs: options?.timeoutMs,
     });
   }
-  /** Ejecuta una solicitud POST serializando opcionalmente un cuerpo JSON. */
+  /**
+   * Ejecuta una solicitud POST serializando opcionalmente un cuerpo JSON.
+   *
+   * `headers` agrega encabezados propios de la operación (p. ej. `Idempotency-Key`); se
+   * conservan `Accept`/`Content-Type` por defecto y `Authorization` no puede sobrescribirse.
+   * Los mismos encabezados se reenvían en el reintento posterior a la renovación del token.
+   */
   post<T>(
     path: string,
     body?: unknown,
-    options?: { signal?: AbortSignal; timeoutMs?: number; retryOnUnauthorized?: boolean },
+    options?: {
+      signal?: AbortSignal;
+      timeoutMs?: number;
+      retryOnUnauthorized?: boolean;
+      headers?: Record<string, string>;
+    },
   ): Promise<T> {
     return this.request<T>(path, {
       method: 'POST',
@@ -61,6 +72,7 @@ export class ApiClient {
       signal: options?.signal,
       timeoutMs: options?.timeoutMs,
       retryOnUnauthorized: options?.retryOnUnauthorized,
+      headers: options?.headers,
     });
   }
   /** Ejecuta una actualización parcial mediante PATCH. */

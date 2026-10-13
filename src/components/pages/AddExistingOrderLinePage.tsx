@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
@@ -15,6 +15,11 @@ import type { InventoryItem, Product, ProductVariant } from '../../features/cata
 import { buildDraftLines, removeDraftLine } from '../../features/orderDraft/domain';
 import { validateDraftLine } from '../../features/orderDraft/validation';
 import type { NewLineSelection, OrderDraftLine } from '../../features/orderDraft/types';
+import {
+  canRenewIdempotencyKey,
+  isIdempotencyConflict,
+  newIdempotencyKey,
+} from '../../features/orders/idempotency';
 import { isAmbiguousError, mutationErrorMessage } from '../../features/orders/mutationOutcome';
 import {
   orderKeys,
@@ -38,7 +43,21 @@ import { hasValidPaymentAttachment, requiresPaymentAttachment } from '../../feat
 type PendingLine = OrderDraftLine & {
   submissionStatus: 'pending' | 'submitting' | 'failed' | 'ambiguous';
   submissionError: string | null;
+  /**
+   * `Idempotency-Key` de la creación de esta línea. Se genera al agregarla a pendientes y se
+   * persiste en sessionStorage antes del POST; se conserva mientras el resultado sea ambiguo y
+   * solo se renueva cuando el Backend confirmó el fallo (su clave anterior ya no es reutilizable).
+   */
+  idempotencyKey: string;
 };
+
+/** Restaura pendientes guardados; los registros anteriores a la idempotencia reciben una clave. */
+const restorePendingLines = (raw: string | null): PendingLine[] =>
+  raw
+    ? (JSON.parse(raw) as PendingLine[]).map((line) =>
+        line.idempotencyKey ? line : { ...line, idempotencyKey: newIdempotencyKey() },
+      )
+    : [];
 
 /**
  * Pantalla para agregar o editar líneas de un pedido ya persistido.
@@ -77,13 +96,15 @@ const AddExistingOrderLinePage = () => {
   const [pendingLines, setPendingLines] = useState<PendingLine[]>([]);
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Bloqueo síncrono contra doble clic: `submitting` no se actualiza hasta el siguiente render
+  // y la validación del comprobante ocurre antes de activarlo.
+  const submitInFlight = useRef(false);
   const deliveryCountryRegionId = order?.deliveryCountryRegionId ?? '';
   const pendingStorageKey = `sales4app.existingOrderPendingLines.v1:${context.accountId}:${order?.companyId ?? ''}:${salesOrderNumber}`;
 
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(pendingStorageKey);
-      setPendingLines(saved ? (JSON.parse(saved) as PendingLine[]) : []);
+      setPendingLines(restorePendingLines(sessionStorage.getItem(pendingStorageKey)));
     } catch {
       setPendingLines([]);
     }
@@ -227,6 +248,7 @@ const AddExistingOrderLinePage = () => {
         ...line,
         submissionStatus: 'pending' as const,
         submissionError: null,
+        idempotencyKey: newIdempotencyKey(),
       }));
     setPendingLines((current) => [
       ...(editingPendingId
@@ -244,7 +266,18 @@ const AddExistingOrderLinePage = () => {
   };
 
   const submitPending = async () => {
-    if (!shellDraft || !order || !pendingLines.length || submitting) return;
+    if (!shellDraft || !order || !pendingLines.length || submitting || submitInFlight.current)
+      return;
+    submitInFlight.current = true;
+    try {
+      await sendPendingLines(shellDraft, order.companyId);
+    } finally {
+      submitInFlight.current = false;
+    }
+  };
+
+  /** Envía secuencialmente cada pendiente con su propia `Idempotency-Key` persistida. */
+  const sendPendingLines = async (draft: NonNullable<typeof shellDraft>, companyId: string) => {
     if (paymentRequired) {
       const refreshed = await attachments.refetch();
       if (!hasValidPaymentAttachment(refreshed.data ?? [])) {
@@ -260,7 +293,7 @@ const AddExistingOrderLinePage = () => {
     for (const line of snapshot) {
       let matchingBefore: number | null = null;
       try {
-        const existingBefore = await gateway.getExistingLines(order.companyId, salesOrderNumber);
+        const existingBefore = await gateway.getExistingLines(companyId, salesOrderNumber);
         matchingBefore = existingBefore.filter((existing) => sameLine(line, existing)).length;
       } catch {
         // Creation can continue, but an ambiguous response cannot be recovered without a baseline.
@@ -275,17 +308,21 @@ const AddExistingOrderLinePage = () => {
       try {
         if (line.source === 'agreement')
           await gateway.createAgreementLine(
-            mapAgreementLineRequest(shellDraft, line, salesOrderNumber),
+            mapAgreementLineRequest(draft, line, salesOrderNumber),
+            line.idempotencyKey,
           );
         else
-          await gateway.createNormalLine(mapNormalLineRequest(shellDraft, line, salesOrderNumber));
+          await gateway.createNormalLine(
+            mapNormalLineRequest(draft, line, salesOrderNumber),
+            line.idempotencyKey,
+          );
         created.add(line.localId);
       } catch (error) {
-        const ambiguous = isAmbiguousError(error);
+        const ambiguous = isAmbiguousError(error) || isIdempotencyConflict(error);
         let recovered = false;
         if (ambiguous && matchingBefore !== null) {
           try {
-            const existing = await gateway.getExistingLines(order.companyId, salesOrderNumber);
+            const existing = await gateway.getExistingLines(companyId, salesOrderNumber);
             recovered = existing.filter((item) => sameLine(line, item)).length > matchingBefore;
           } catch {
             // Keep an ambiguous line and never repeat its POST automatically.
@@ -302,6 +339,12 @@ const AddExistingOrderLinePage = () => {
                     submissionError: ambiguous
                       ? `${mutationErrorMessage(error)} No se reenviará automáticamente.`
                       : mutationErrorMessage(error),
+                    // Ambiguo: se conserva la clave. Fallo confirmado: el Backend no reejecuta
+                    // una clave fallida, así que el siguiente envío manual usará otra.
+                    idempotencyKey:
+                      !ambiguous && canRenewIdempotencyKey(error)
+                        ? newIdempotencyKey()
+                        : item.idempotencyKey,
                   }
                 : item,
             ),
@@ -310,10 +353,10 @@ const AddExistingOrderLinePage = () => {
     }
     setPendingLines((current) => current.filter((line) => !created.has(line.localId)));
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.companyId, salesOrderNumber) }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.lines(order.companyId, salesOrderNumber) }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.officialLines(order.companyId, salesOrderNumber) }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.all(order.companyId) }),
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(companyId, salesOrderNumber) }),
+      queryClient.invalidateQueries({ queryKey: orderKeys.lines(companyId, salesOrderNumber) }),
+      queryClient.invalidateQueries({ queryKey: orderKeys.officialLines(companyId, salesOrderNumber) }),
+      queryClient.invalidateQueries({ queryKey: orderKeys.all(companyId) }),
     ]);
     setSubmitting(false);
     const remaining = snapshot.length - created.size;

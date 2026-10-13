@@ -21,7 +21,7 @@ export const DashboardHero = ({ userName, onNewOrder, onOrders }: Props) => (
       <div className="mb-2 flex items-center gap-2">
         <AgricultureIcon sx={{ color: 'white', fontSize: 20 }} />
         <p className="text-xs font-bold uppercase tracking-widest text-white/60">
-          Plataforma Agro_Sales
+          Plataforma Sales4App
         </p>
       </div>
       <h1 className="mb-2 text-2xl font-extrabold leading-tight text-white md:text-3xl">

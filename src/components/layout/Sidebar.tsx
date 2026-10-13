@@ -121,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <aside className="hidden md:flex flex-col w-56 h-screen fixed left-0 top-0 bg-surface border-r border-outline-variant z-40">
         {/* Brand */}
         <div className="px-6 py-3 ">
-          <h1 className="text-base font-bold text-primary">AgroGestiones</h1>
+          <h1 className="text-base font-bold text-primary">Sales4App</h1>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">{content}</div>
       </aside>

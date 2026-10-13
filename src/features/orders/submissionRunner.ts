@@ -1,6 +1,7 @@
 import { validateOrderDraft } from '../orderDraft/validation';
 import { hasValidLocalPaymentAttachment, hasValidPaymentAttachment, requiresPaymentAttachment, validateAttachment } from '../attachments/attachmentValidation';
 import type { OrderDraft, OrderDraftLine } from '../orderDraft/types';
+import { canRenewIdempotencyKey, isIdempotencyConflict, newIdempotencyKey } from './idempotency';
 import { isAmbiguousError, mutationErrorMessage } from './mutationOutcome';
 import {
   isDraftLineAlreadyCreated,
@@ -9,14 +10,38 @@ import {
   mapNormalLineRequest,
   sameLine,
 } from './orderSubmissionMapper';
-import { saveSubmission } from './submissionStorage';
-import type { OrderSubmission, OrderSubmissionGateway, SubmissionAttachmentInput, SubmissionResult } from './types';
+import { clearSubmission, saveSubmission } from './submissionStorage';
+import type {
+  OrderSubmission,
+  OrderSubmissionGateway,
+  SubmissionAttachmentInput,
+  SubmissionLine,
+  SubmissionResult,
+} from './types';
 
 type Listener = (state: OrderSubmission) => void;
 const clone = <T>(value: T): T => structuredClone(value);
 const timestamp = () => new Date().toISOString();
 const friendly = mutationErrorMessage;
-const ambiguousHeader = isAmbiguousError;
+// Un 409 del encabezado indica que su Idempotency-Key ya existía (en proceso, fallida o con
+// otro body): el resultado original sigue sin resolverse y no debe habilitar un pedido nuevo.
+const ambiguousHeader = (error: unknown) => isAmbiguousError(error) || isIdempotencyConflict(error);
+/**
+ * Renueva la clave de una línea cuyo intento falló de forma confirmada por el Backend.
+ *
+ * El Backend nunca reejecuta una clave `Failed`, por lo que el siguiente intento requiere otra
+ * clave. La clave nueva solo se usa después de que `verify` confirme que la línea no existe;
+ * ante timeouts, errores de red o conflictos se conserva la clave original.
+ */
+const renewKeyAfterConfirmedFailure = (line: SubmissionLine, error: unknown) => {
+  if (canRenewIdempotencyKey(error)) line.idempotencyKey = newIdempotencyKey();
+};
+/**
+ * Crea el estado inicial de una ejecución nueva.
+ *
+ * Es el único punto donde se generan las claves de idempotencia del encabezado y de cada línea:
+ * una por operación lógica, independientes del número de pedido y del contenido comercial.
+ */
 const initial = (draft: OrderDraft): OrderSubmission => {
   const time = timestamp();
   return {
@@ -27,11 +52,13 @@ const initial = (draft: OrderDraft): OrderSubmission => {
     salesOrderNumber: null,
     status: 'idle',
     headerAmbiguous: false,
+    headerIdempotencyKey: newIdempotencyKey(),
     createdAt: time,
     updatedAt: time,
     snapshot: clone(draft),
     lines: draft.lines.map((line) => ({
       localId: line.localId,
+      idempotencyKey: newIdempotencyKey(),
       status: 'pending',
       attempts: 0,
       error: null,
@@ -49,6 +76,7 @@ const initial = (draft: OrderDraft): OrderSubmission => {
  * - Persiste cada transición del envío.
  * - Reconciliación líneas ambiguas contra D365.
  * - Permite reintentar únicamente las etapas pendientes o fallidas.
+ * - Envía cada creación con la `Idempotency-Key` persistida de su operación.
  * - Notifica cambios de estado a suscriptores.
  */
 export class SubmissionRunner {
@@ -129,15 +157,34 @@ export class SubmissionRunner {
           this.publish(state, false);
           return { submission: state, completed: false };
         }
+        if (!state.headerIdempotencyKey) {
+          // Recuperación ambigua anterior a la Idempotency-Key: reenviar podría duplicar el pedido.
+          state.status = 'failed';
+          state.headerAmbiguous = true;
+          state.error =
+            'La recuperación no tiene clave de idempotencia; verifique el pedido en Dynamics.';
+          this.publish(state, true);
+          return { submission: state, completed: false };
+        }
+        // La clave se persiste antes del POST: si la página se cierra con la solicitud en curso,
+        // la recuperación conserva la misma operación en lugar de crear otra.
+        this.publish(state, true);
         try {
-          const header = await this.gateway.createHeader(request);
+          const header = await this.gateway.createHeader(request, state.headerIdempotencyKey);
           state.salesOrderNumber = header.salesOrderNumber;
           state.status = 'header-created';
+          state.headerAmbiguous = false;
+          state.error = null;
           this.publish(state, true);
         } catch (error) {
           state.status = 'failed';
           state.headerAmbiguous = ambiguousHeader(error);
-          state.error = friendly(error);
+          state.error = isIdempotencyConflict(error)
+            ? 'El Backend indica que este encabezado ya está en proceso o falló previamente con la misma clave. Verifique el pedido en Dynamics antes de continuar.'
+            : friendly(error);
+          // Un fallo confirmado no creó nada y su clave ya no es reutilizable: se descarta la
+          // recuperación persistida y un nuevo envío partirá de otra clave.
+          if (!state.headerAmbiguous) clearSubmission(state.accountId, state.companyId);
           this.publish(state, state.headerAmbiguous);
           return { submission: state, completed: false };
         }
@@ -247,9 +294,11 @@ export class SubmissionRunner {
           return line.source === 'agreement'
             ? this.gateway.createAgreementLine(
                 mapAgreementLineRequest(state.snapshot, line, state.salesOrderNumber!),
+                operational.idempotencyKey,
               )
             : this.gateway.createNormalLine(
                 mapNormalLineRequest(state.snapshot, line, state.salesOrderNumber!),
+                operational.idempotencyKey,
               );
         };
         try {
@@ -261,6 +310,7 @@ export class SubmissionRunner {
         } catch (firstError) {
           operational.status = 'failed';
           operational.error = friendly(firstError);
+          renewKeyAfterConfirmedFailure(operational, firstError);
           state.status = 'recovering';
           this.publish(state, true);
           const verified = await this.verify(state, operational.draftLine);
@@ -291,6 +341,7 @@ export class SubmissionRunner {
           } catch (retryError) {
             operational.status = 'failed';
             operational.error = friendly(retryError);
+            renewKeyAfterConfirmedFailure(operational, retryError);
             const afterRetry = await this.verify(state, operational.draftLine);
             if (afterRetry === 'exists') {
               operational.status = 'created';

@@ -172,10 +172,17 @@ const OrderDraftReviewPage = () => {
               {submission.headerAmbiguous ? (
                 <>
                   <p className="text-xs font-bold mt-1">
-                    No es posible determinar si Dynamics creó el pedido. No se habilita otro POST
-                    para evitar un pedido duplicado.
+                    No es posible determinar si Dynamics creó el pedido. No se habilita un pedido
+                    nuevo para evitar duplicados.
+                    {submission.headerIdempotencyKey &&
+                      ' La verificación reenvía la misma operación: si el pedido ya existe, el Backend devuelve ese pedido en lugar de crear otro.'}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-2">
+                    {submission.headerIdempotencyKey && (
+                      <Button disabled={flow.active} onClick={() => flow.retryPending()}>
+                        Verificar con la misma operación
+                      </Button>
+                    )}
                     <Button variant="outline" onClick={() => navigate('/pedidos')}>
                       Ir a Mis pedidos
                     </Button>

@@ -81,6 +81,12 @@ export type SubmissionStatus =
 export type SubmissionLineStatus = 'pending' | 'creating' | 'created' | 'failed';
 export type SubmissionLine = {
   localId: string;
+  /**
+   * Clave `Idempotency-Key` de la creación de esta línea. Se genera al iniciar la ejecución,
+   * se persiste antes del POST y se reutiliza en reintentos y recuperaciones; solo se renueva
+   * cuando el Backend confirmó que la clave anterior falló (ver `canRenewIdempotencyKey`).
+   */
+  idempotencyKey: string;
   status: SubmissionLineStatus;
   attempts: number;
   error: string | null;
@@ -96,6 +102,12 @@ export type OrderSubmission = {
   salesOrderNumber: string | null;
   status: SubmissionStatus;
   headerAmbiguous: boolean;
+  /**
+   * Clave `Idempotency-Key` del encabezado. Se persiste antes del POST y nunca se renueva
+   * automáticamente; un encabezado ambiguo solo se reenvía con esta misma clave para que el
+   * Backend devuelva el resultado original. `null` en recuperaciones anteriores a la clave.
+   */
+  headerIdempotencyKey: string | null;
   createdAt: string;
   updatedAt: string;
   snapshot: OrderDraft;
@@ -114,9 +126,12 @@ export type SubmissionAttachmentInput = {
 export type SubmissionResult = { submission: OrderSubmission; completed: boolean };
 /** Puerto de infraestructura requerido por el ejecutor de envío de pedidos. */
 export interface OrderSubmissionGateway {
-  createHeader(request: SalesHeaderRequest): Promise<SalesHeaderResponse>;
-  createNormalLine(request: SalesLineRequest): Promise<ExistingSalesLine[]>;
-  createAgreementLine(request: AgreementLineRequest): Promise<ExistingSalesLine[]>;
+  createHeader(request: SalesHeaderRequest, idempotencyKey: string): Promise<SalesHeaderResponse>;
+  createNormalLine(request: SalesLineRequest, idempotencyKey: string): Promise<ExistingSalesLine[]>;
+  createAgreementLine(
+    request: AgreementLineRequest,
+    idempotencyKey: string,
+  ): Promise<ExistingSalesLine[]>;
   getExistingLines(companyId: string, salesOrderNumber: string): Promise<ExistingSalesLine[]>;
   uploadAttachment?(companyId: string, salesOrderNumber: string, file: File, description: string): Promise<void>;
   listAttachments?(companyId: string, salesOrderNumber: string): Promise<import('../attachments/attachmentTypes').OrderAttachment[]>;

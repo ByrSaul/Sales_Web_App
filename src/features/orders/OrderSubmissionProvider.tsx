@@ -83,8 +83,19 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
     [attachments, clearAttachments, draft, runner],
   );
   const submit = useCallback(() => run(null), [run]);
+  /**
+   * Reanuda la ejecución persistida conservando sus claves de idempotencia.
+   *
+   * Con pedido creado reintenta adjuntos y líneas pendientes. Con encabezado ambiguo reenvía el
+   * mismo body con la misma `Idempotency-Key`: el Backend devuelve el pedido ya creado o un 409,
+   * nunca un pedido nuevo. Las recuperaciones sin clave no se reenvían.
+   */
   const retryPending = useCallback(async () => {
-    if (!submission?.salesOrderNumber) return;
+    if (!submission) return;
+    if (!submission.salesOrderNumber) {
+      if (submission.headerAmbiguous && submission.headerIdempotencyKey) await run(submission);
+      return;
+    }
     await run({
       ...submission,
       lines: submission.lines.map((line) =>

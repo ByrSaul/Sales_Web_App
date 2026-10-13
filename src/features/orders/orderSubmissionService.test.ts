@@ -31,23 +31,30 @@ describe('orderSubmissionService contracts', () => {
   it('creates header through the authorized endpoint with Mobile timeout', async () => {
     const api = fake();
     api.post.mockResolvedValue([{ SalesOrderNumber: 'OV-1' }]);
-    const result = await orderSubmissionService(api as unknown as ApiClient).createHeader(header);
-    expect(api.post).toHaveBeenCalledWith('/d365/sales', header, { timeoutMs: 60_000 });
+    const result = await orderSubmissionService(api as unknown as ApiClient).createHeader(header, 'key-h');
+    expect(api.post).toHaveBeenCalledWith('/d365/sales', header, {
+      timeoutMs: 60_000,
+      headers: { 'Idempotency-Key': 'key-h' },
+    });
     expect(result.salesOrderNumber).toBe('OV-1');
   });
   it('routes normal and agreement lines to different endpoints', async () => {
     const api = fake();
     api.post.mockResolvedValue([]);
     const service = orderSubmissionService(api as unknown as ApiClient);
-    await service.createNormalLine(line);
+    await service.createNormalLine(line, 'key-1');
     await service.createAgreementLine({
       ...line,
       ChangeShippingWarehouseId: '',
       MatchingAgreementLine: 1,
-    } as AgreementLineRequest);
-    expect(api.post).toHaveBeenNthCalledWith(1, '/d365/sales/line', line, { timeoutMs: 60_000 });
+    } as AgreementLineRequest, 'key-2');
+    expect(api.post).toHaveBeenNthCalledWith(1, '/d365/sales/line', line, {
+      timeoutMs: 60_000,
+      headers: { 'Idempotency-Key': 'key-1' },
+    });
     expect(api.post).toHaveBeenNthCalledWith(2, '/d365/sales/line/agreement', expect.any(Object), {
       timeoutMs: 60_000,
+      headers: { 'Idempotency-Key': 'key-2' },
     });
   });
   it('uses the exact Mobile GET-body recovery contract', async () => {

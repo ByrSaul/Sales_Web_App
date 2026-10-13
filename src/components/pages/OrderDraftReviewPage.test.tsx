@@ -46,11 +46,13 @@ describe('OrderDraftReviewPage transaction flow', () => {
       salesOrderNumber: 'OV-100',
       status: 'completed',
       headerAmbiguous: false,
+      headerIdempotencyKey: 'header-key',
       createdAt: draft.updatedAt,
       updatedAt: draft.updatedAt,
       snapshot: draft,
       lines: draft.lines.map((line) => ({
         localId: line.localId,
+        idempotencyKey: `key-${line.localId}`,
         status: 'created',
         attempts: 1,
         error: null,

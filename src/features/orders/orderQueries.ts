@@ -114,13 +114,22 @@ export const useOrderMutations = (salesOrderNumber: string) => {
       retry: false,
       onSettled: invalidate,
     }),
+    // Cada línea requiere su propia Idempotency-Key, generada y conservada por el llamador
+    // para que un reintento de la misma operación reutilice la clave.
     addLine: useMutation({
-      mutationFn: async (input: { main: SalesLineRequest; bonus?: SalesLineRequest }) => {
+      mutationFn: async (input: {
+        main: SalesLineRequest;
+        mainIdempotencyKey: string;
+        bonus?: SalesLineRequest;
+        bonusIdempotencyKey?: string;
+      }) => {
         const gateway = orderSubmissionService(api);
-        const main = await gateway.createNormalLine(input.main);
+        const main = await gateway.createNormalLine(input.main, input.mainIdempotencyKey);
         if (!input.bonus) return { main, bonus: null };
+        if (!input.bonusIdempotencyKey)
+          throw new BonusLineFailure(new Error('La bonificación no tiene Idempotency-Key.'));
         try {
-          const bonus = await gateway.createNormalLine(input.bonus);
+          const bonus = await gateway.createNormalLine(input.bonus, input.bonusIdempotencyKey);
           return { main, bonus };
         } catch (bonusError) {
           throw new BonusLineFailure(bonusError);
