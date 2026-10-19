@@ -17,19 +17,8 @@ const NAV_ITEMS = [
   { label: "Mis pedidos de venta", icon: "receipt_long", href: "/pedidos" },
   { label: "Mis clientes", icon: "group", href: "/clientes" },
   { label: "Consulta de Inventario", icon: "inventory_2", href: "/inventario" },
-  {
-    label: "Crear pedidos de venta",
-    icon: "add_shopping_cart",
-    href: "/crear-pedido",
-  },
+  { label: "Crear pedidos de venta", icon: "add_shopping_cart", href: "/crear-pedido"},
   { label: "Facturas de venta", icon: "description", href: "/facturas" },
-  // Producción/Forecast ya están implementados; solo ocultos temporalmente vía feature flag (fail closed).
-  ...(appConfig.featureProduction
-    ? [{ label: "Producción", icon: "factory", href: "/produccion" }]
-    : []),
-  ...(appConfig.featureForecast
-    ? [{ label: "Forecast de ventas", icon: "monitoring", href: "/forecast" }]
-    : []),
   { label: "Soporte Técnico", icon: "headset_mic", href: "/soporte" },
 ];
 
