@@ -128,13 +128,65 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('AddOrderLinePage commercial selection', () => {
+  it('keeps agreement terms when a general price arrives late and blocks duplicate references', async () => {
+    draft = { ...draft, agreement: map.agreement({ recid: 42 }) };
+    let release!: (value: unknown) => void;
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === '/customer/agreement/parcial_lines')
+        return [
+          {
+            matchingagreementline: 7,
+            itemid: 'I1',
+            qtyline: 3,
+            price: 17,
+            currency: 'GTQ',
+            inventsiteid: 'PACK-S',
+            inventlocationid: 'PACK-W',
+          },
+        ];
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    });
+    const view = mount();
+    await choose();
+    change('Línea de acuerdo (opcional)', '7');
+    expect(screen.getByRole('button', { name: 'Agregar línea' })).toBeEnabled();
+    expect(screen.getByRole('switch', { name: 'Bonificación independiente' })).toBeDisabled();
+    await act(async () => {
+      release({ Success: true, Price: 999, Currencycode: 'GTQ' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar línea' }));
+    expect(mocks.add.mock.calls[0][0]).toMatchObject({
+      price: expect.objectContaining({ price: 17 }),
+      siteId: 'PACK-S',
+      warehouseId: 'PACK-W',
+    });
+    draft = {
+      ...draft,
+      lines: [{ ...draft.lines[0], matchingAgreementLine: 7, source: 'agreement' }],
+    };
+    view.rerender(<QueryClientProvider client={client}>{content()}</QueryClientProvider>);
+    change('Línea de acuerdo (opcional)', '7');
+    expect(screen.getByText('La línea del paquete ya está en el borrador.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agregar línea' })).toBeDisabled();
+  });
   it('retains the agreement reference and prevents quantities beyond its remaining balance', async () => {
     draft = { ...draft, agreement: map.agreement({ recid: 42, agreementid: 'AG-1' }) };
     mocks.post.mockImplementation(async (path: string) => {
       if (path === '/customer/agreement/parcial_lines')
         return [
-          { matchingagreementline: 7, itemid: 'I1', qtyline: 3 },
-          { matchingagreementline: 8, itemid: 'OTHER', qtyline: 100 },
+          {
+            matchingagreementline: 7,
+            itemid: 'I1',
+            qtyline: 3,
+            price: 17,
+            currency: 'GTQ',
+            inventsiteid: 'S2',
+            inventlocationid: 'W2',
+            configid: 'PACK',
+          },
+          { matchingagreementline: 8, itemid: 'OTHER', qtyline: 100, price: 19 },
         ];
       return { Success: true, Price: 25, PriceUnit: 1, Currencycode: 'GTQ' };
     });
@@ -155,6 +207,9 @@ describe('AddOrderLinePage commercial selection', () => {
       matchingAgreementLine: 7,
       agreementRemainingQuantity: 3,
       quantity: 3,
+      siteId: 'S2',
+      warehouseId: 'W2',
+      price: expect.objectContaining({ price: 17 }),
     });
     expect(mocks.post).toHaveBeenCalledWith(
       '/customer/agreement/parcial_lines',

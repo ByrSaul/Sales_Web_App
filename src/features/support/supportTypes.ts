@@ -2,11 +2,15 @@
 export type SupportAttachment = { file_name: string; file_content: string };
 /** Contrato enviado al endpoint de correo de soporte. */
 export type SupportRequest = {
-  to: 'soporte@foragro.com';
+  to: "soporte@foragro.com";
   cc: string;
-  from_email: 'dynamics@foragro.com';
-  subject: 'Sales4App';
+  from_email: "dynamics@foragro.com";
+  subject: "Sales4App";
   body: string;
   attachments?: SupportAttachment[];
 };
-export type SupportResponse = { success: boolean; message: string; errorMessage: string };
+export type SupportResponse = {
+  success: boolean;
+  message: string;
+  errorMessage: string;
+};

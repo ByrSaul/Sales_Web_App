@@ -1,4 +1,4 @@
-import type { Pagination } from '../catalogs/types';
+import type { Pagination } from "../catalogs/types";
 import type {
   CancelResult,
   ConfirmationResult,
@@ -7,10 +7,10 @@ import type {
   OfficialSalesOrderLine,
   OrdersResult,
   SalesOrderStatus,
-} from './orderTypes';
+} from "./orderTypes";
 type Json = Record<string, unknown>;
-const s = (v: unknown) => (typeof v === 'string' ? v : '');
-const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
+const s = (v: unknown) => (typeof v === "string" ? v : "");
+const n = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 const b = (v: unknown) => v === true;
 /** Convierte un encabezado de venta del API al modelo de pedido existente. */
 export const mapOrder = (j: Json): ExistingOrder => ({
@@ -46,8 +46,11 @@ const pagination = (j: Json, fallback = 10): Pagination => ({
 /** Normaliza una respuesta paginada de pedidos y sus metadatos. */
 export const mapOrders = (raw: unknown, perPage = 10): OrdersResult => {
   if (Array.isArray(raw))
-    return { items: raw.map((x) => mapOrder(x as Json)), pagination: pagination({}, perPage) };
-  const j = raw && typeof raw === 'object' ? (raw as Json) : {};
+    return {
+      items: raw.map((x) => mapOrder(x as Json)),
+      pagination: pagination({}, perPage),
+    };
+  const j = raw && typeof raw === "object" ? (raw as Json) : {};
   const list = Array.isArray(j.sales_orders) ? j.sales_orders : [];
   return {
     items: list.map((x) => mapOrder(x as Json)),
@@ -63,28 +66,39 @@ export const mapOrderLines = (raw: unknown): ExistingOrderLine[] =>
       return key === undefined ? undefined : s(j[key]) || undefined;
     };
     const agreement = n(j.MatchingAgreementLine ?? j.matchingagreementline);
-    const hasAgreement = 'MatchingAgreementLine' in j || 'matchingagreementline' in j;
-    const rawBonus = optionalString('FABonification', 'fabonification');
+    const hasAgreement =
+      "MatchingAgreementLine" in j || "matchingagreementline" in j;
+    const rawBonus = optionalString("FABonification", "fabonification");
     return {
       lineNumber: n(j.LineNumber ?? j.linenum),
       itemId: s(j.ItemNumber ?? j.itemid),
-      displayProductNumber: s(j.displayproductnumber ?? j.ItemNumber ?? j.itemid),
+      displayProductNumber: s(
+        j.displayproductnumber ?? j.ItemNumber ?? j.itemid,
+      ),
       quantity: n(j.OrderedSalesQuantity ?? j.salesqty),
       lineAmount: n(j.LineAmount ?? j.lineamount),
       price: n(j.SalesPrice ?? j.salesprice),
       itemName: s(j.LineDescription ?? j.item_name),
-      inventoryLotId: optionalString('InventoryLotId', 'inventorylotid'),
-      status: optionalString('SalesOrderLineStatus', 'salesorderlinestatus'),
+      inventoryLotId: optionalString("InventoryLotId", "inventorylotid"),
+      status: optionalString("SalesOrderLineStatus", "salesorderlinestatus"),
       isBonification:
-        rawBonus === undefined ? undefined : !['no', '0', 'false'].includes(rawBonus.toLowerCase()),
+        rawBonus === undefined
+          ? undefined
+          : !["no", "0", "false"].includes(rawBonus.toLowerCase()),
       matchingAgreementLine: hasAgreement ? agreement || null : undefined,
-      shippingSiteId: optionalString('ShippingSiteId', 'shippingsiteid'),
-      shippingWarehouseId: optionalString('ShippingWarehouseId', 'shippingwarehouseid'),
-      configurationId: optionalString('ProductConfigurationId', 'productconfigurationid'),
-      colorId: optionalString('ProductColorId', 'productcolorid'),
-      sizeId: optionalString('ProductSizeId', 'productsizeid'),
-      styleId: optionalString('ProductStyleId', 'productstyleid'),
-      versionId: optionalString('ProductVersionId', 'productversionid'),
+      shippingSiteId: optionalString("ShippingSiteId", "shippingsiteid"),
+      shippingWarehouseId: optionalString(
+        "ShippingWarehouseId",
+        "shippingwarehouseid",
+      ),
+      configurationId: optionalString(
+        "ProductConfigurationId",
+        "productconfigurationid",
+      ),
+      colorId: optionalString("ProductColorId", "productcolorid"),
+      sizeId: optionalString("ProductSizeId", "productsizeid"),
+      styleId: optionalString("ProductStyleId", "productstyleid"),
+      versionId: optionalString("ProductVersionId", "productversionid"),
     };
   });
 /** Convierte la consulta oficial de líneas al contrato utilizado para edición. */
@@ -92,7 +106,9 @@ export const mapOfficialOrderLines = (raw: unknown): OfficialSalesOrderLine[] =>
   (Array.isArray(raw) ? raw : []).map((x) => {
     const j = x as Json;
     const bonus = j.FABonification;
-    const bonusText = String(bonus ?? '').trim().toLowerCase();
+    const bonusText = String(bonus ?? "")
+      .trim()
+      .toLowerCase();
     return {
       dataAreaId: s(j.dataAreaId),
       salesOrderNumber: s(j.SalesOrderNumber),
@@ -107,7 +123,8 @@ export const mapOfficialOrderLines = (raw: unknown): OfficialSalesOrderLine[] =>
       salesUnitSymbol: s(j.SalesUnitSymbol),
       status: s(j.SalesOrderLineStatus),
       isBonification:
-        bonus === true || (!['', 'no', '0', 'false'].includes(bonusText) && Boolean(bonusText)),
+        bonus === true ||
+        (!["", "no", "0", "false"].includes(bonusText) && Boolean(bonusText)),
       suppItemGroupId: s(j.CSFASuppItemGroupId),
       matchingAgreementLine: n(j.MatchingAgreementLine) || null,
       shippingSiteId: s(j.ShippingSiteId),
@@ -144,8 +161,8 @@ export const mapCancel = (raw: unknown): CancelResult => {
 };
 export const statusLabel = (status: SalesOrderStatus) =>
   Object.assign(Object.create(null) as Record<string, string>, {
-    Backorder: 'Orden Abierta',
-    Delivered: 'Entregado',
-    Invoiced: 'Facturado',
-    Canceled: 'Cancelado',
+    Backorder: "Orden Abierta",
+    Delivered: "Entregado",
+    Invoiced: "Facturado",
+    Canceled: "Cancelado",
   })[status] ?? status;

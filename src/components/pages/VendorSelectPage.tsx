@@ -1,20 +1,21 @@
-import { runUiAction } from '../../core/async/uiAction';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { useSession } from '../../app/providers/SessionProvider';
-import type { Vendor } from '../../core/session/types';
-import { userErrorMessage } from '../../core/api/errors';
-import { sessionService } from '../../features/session/sessionService';
-import { Button, Icon } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import React, { useCallback, useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import { useSession } from "../../app/providers/SessionProvider";
+import type { Vendor } from "../../core/session/types";
+import { userErrorMessage } from "../../core/api/errors";
+import { sessionService } from "../../features/session/sessionService";
+import { Button, Icon } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 
 /** Pantalla de selección del vendedor para completar el contexto operativo. */
 const VendorSelectPage: React.FC = () => {
-  const { api, context, completeVendorSelection, operationError } = useSession();
+  const { api, context, completeVendorSelection, operationError } =
+    useSession();
   const navigate = useNavigate();
   const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [selected, setSelected] = useState(context.vendor?.id ?? '');
+  const [selected, setSelected] = useState(context.vendor?.id ?? "");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +37,9 @@ const VendorSelectPage: React.FC = () => {
   if (!context.company) return <Navigate to="/company" replace />;
   if (loading) return <LoadingState message="Cargando vendedores..." />;
   if (error && vendors.length === 0)
-    return <ErrorState message={error} onRetry={() => runUiAction(() => load())} />;
+    return (
+      <ErrorState message={error} onRetry={() => runUiAction(() => load())} />
+    );
   const submit = async () => {
     const vendor = vendors.find((item) => item.id === selected);
     if (!vendor) return;
@@ -44,7 +47,7 @@ const VendorSelectPage: React.FC = () => {
     setError(null);
     try {
       await completeVendorSelection(vendor);
-      navigate('/home', { replace: true });
+      navigate("/home", { replace: true });
     } catch (cause) {
       setError(userErrorMessage(cause));
     } finally {
@@ -57,10 +60,15 @@ const VendorSelectPage: React.FC = () => {
         <div className="text-center mb-6">
           <Icon name="person" size={40} className="text-primary" />
           <h1 className="text-xl font-bold mt-2">Favor seleccione vendedor</h1>
-          <p className="text-xs text-on-surface-variant mt-1">Empresa: {context.company.name}</p>
+          <p className="text-xs text-on-surface-variant mt-1">
+            Empresa: {context.company.name}
+          </p>
         </div>
         {(error || operationError) && (
-          <p role="alert" className="text-sm text-error bg-red-50 rounded-lg p-3 mb-3">
+          <p
+            role="alert"
+            className="text-sm text-error bg-red-50 rounded-lg p-3 mb-3"
+          >
             {error ?? operationError}
           </p>
         )}
@@ -69,19 +77,23 @@ const VendorSelectPage: React.FC = () => {
             <button
               key={vendor.id}
               onClick={() => setSelected(vendor.id)}
-              className={`w-full flex items-center gap-4 p-4 bg-white rounded-xl border text-left ${selected === vendor.id ? 'border-primary ring-1 ring-primary/20' : 'border-outline-variant'}`}
+              className={`w-full flex items-center gap-4 p-4 bg-white rounded-xl border text-left ${selected === vendor.id ? "border-primary ring-1 ring-primary/20" : "border-outline-variant"}`}
             >
               <Icon name="person" className="text-primary" />
               <span className="flex-1">
                 <strong className="block text-sm">{vendor.name}</strong>
-                <span className="text-xs text-on-surface-variant">{vendor.id}</span>
+                <span className="text-xs text-on-surface-variant">
+                  {vendor.id}
+                </span>
               </span>
-              {selected === vendor.id && <Icon name="check_circle" className="text-primary" />}
+              {selected === vendor.id && (
+                <Icon name="check_circle" className="text-primary" />
+              )}
             </button>
           ))}
         </div>
         <div className="flex justify-between mt-6">
-          <Button variant="ghost" onClick={() => navigate('/company')}>
+          <Button variant="ghost" onClick={() => navigate("/company")}>
             Volver
           </Button>
           <Button

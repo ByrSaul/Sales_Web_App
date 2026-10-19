@@ -1,11 +1,11 @@
-import { runUiAction } from '../../core/async/uiAction';
-import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
-import { useProducts, useVariants } from '../../features/catalogs/hooks';
-import type { Product } from '../../features/catalogs/types';
-import { Badge, Button, Card, EmptyState, Input } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useDebouncedValue } from "../../core/hooks/useDebouncedValue";
+import { useProducts, useVariants } from "../../features/catalogs/hooks";
+import type { Product } from "../../features/catalogs/types";
+import { Badge, Button, Card, EmptyState, Input } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de consulta de productos y sus variantes disponibles. */
 const ProductsPage: React.FC = () => {
   const renderProducts = () => {
@@ -23,10 +23,17 @@ const ProductsPage: React.FC = () => {
     return (
       <div className="grid md:grid-cols-2 gap-3">
         {products.data.items.map((p) => (
-          <Card key={p.itemId} hover className="p-4" onClick={() => setSelected(p)}>
+          <Card
+            key={p.itemId}
+            hover
+            className="p-4"
+            onClick={() => setSelected(p)}
+          >
             <div className="flex justify-between">
               <strong>{p.itemId}</strong>
-              {p.requiresVariant && <Badge label="REQUIERE VARIANTE" variant="info" />}
+              {p.requiresVariant && (
+                <Badge label="REQUIERE VARIANTE" variant="info" />
+              )}
             </div>
             <p className="text-sm mt-1">{p.name}</p>
             <p className="text-xs text-on-surface-variant mt-2">
@@ -35,13 +42,22 @@ const ProductsPage: React.FC = () => {
             {selected?.itemId === p.itemId && p.requiresVariant && (
               <div className="mt-3 border-t pt-3">
                 {variants.isPending
-                  ? 'Cargando variantes...'
+                  ? "Cargando variantes..."
                   : variants.data?.items.map((v) => (
-                      <div key={v.displayProductNumber} className="text-xs py-1">
-                        <strong>{v.displayProductNumber}</strong> —{' '}
-                        {[v.configId, v.sizeId, v.colorId, v.styleId, v.versionId]
+                      <div
+                        key={v.displayProductNumber}
+                        className="text-xs py-1"
+                      >
+                        <strong>{v.displayProductNumber}</strong> —{" "}
+                        {[
+                          v.configId,
+                          v.sizeId,
+                          v.colorId,
+                          v.styleId,
+                          v.versionId,
+                        ]
                           .filter(Boolean)
-                          .join(' / ')}
+                          .join(" / ")}
                       </div>
                     ))}
               </div>
@@ -53,17 +69,18 @@ const ProductsPage: React.FC = () => {
   };
 
   const [params, setParams] = useSearchParams();
-  const page = Number(params.get('page') ?? 1);
-  const [search, setSearch] = useState(params.get('search') ?? '');
+  const page = Number(params.get("page") ?? 1);
+  const [search, setSearch] = useState(params.get("search") ?? "");
   const debounced = useDebouncedValue(search);
   const [selected, setSelected] = useState<Product | null>(null);
   const products = useProducts(debounced, page);
   const variants = useVariants(selected);
   React.useEffect(
-    () => setParams({ ...(debounced ? { search: debounced } : {}), page: '1' }),
+    () => setParams({ ...(debounced ? { search: debounced } : {}), page: "1" }),
     [debounced],
   );
-  if (products.isPending) return <LoadingState message="Cargando productos..." />;
+  if (products.isPending)
+    return <LoadingState message="Cargando productos..." />;
   return (
     <div className="space-y-4">
       <div className="flex justify-between gap-4">
@@ -85,14 +102,18 @@ const ProductsPage: React.FC = () => {
         <Button
           variant="outline"
           disabled={page <= 1}
-          onClick={() => setParams({ search: debounced, page: String(page - 1) })}
+          onClick={() =>
+            setParams({ search: debounced, page: String(page - 1) })
+          }
         >
           Anterior
         </Button>
         <Button
           variant="outline"
           disabled={page >= (products.data?.pagination.totalPages ?? 0)}
-          onClick={() => setParams({ search: debounced, page: String(page + 1) })}
+          onClick={() =>
+            setParams({ search: debounced, page: String(page + 1) })
+          }
         >
           Siguiente
         </Button>

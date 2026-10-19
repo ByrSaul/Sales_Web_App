@@ -1,26 +1,39 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useSession } from '../../app/providers/SessionProvider';
-import { catalogService } from '../../features/catalogs/catalogService';
-import { GeographySelector } from '../../features/catalogs/GeographySelector';
-import { emptyGeography, type GeographySelection } from '../../features/catalogs/geography';
-import { useReferenceCatalogs } from '../../features/catalogs/hooks';
-import { catalogKeys } from '../../features/catalogs/queryKeys';
-import { Card, EmptyState, Input } from '../ui';
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSession } from "../../app/providers/SessionProvider";
+import { catalogService } from "../../features/catalogs/catalogService";
+import { GeographySelector } from "../../features/catalogs/GeographySelector";
+import {
+  emptyGeography,
+  type GeographySelection,
+} from "../../features/catalogs/geography";
+import { useReferenceCatalogs } from "../../features/catalogs/hooks";
+import { catalogKeys } from "../../features/catalogs/queryKeys";
+import { Card, EmptyState, Input } from "../ui";
 /** Pantalla de inspección de catálogos operativos asociados al contexto activo. */
 const CatalogsPage: React.FC = () => {
   const { api, context } = useSession();
   const [geo, setGeo] = useState<GeographySelection>(emptyGeography);
-  const [vatSearch, setVatSearch] = useState('');
-  const refs = useReferenceCatalogs('', geo.countryId, {
+  const [vatSearch, setVatSearch] = useState("");
+  const refs = useReferenceCatalogs("", geo.countryId, {
     delivery: false,
     origins: false,
     agreements: false,
   });
   const vats = useQuery({
-    queryKey: catalogKeys.catalog('vat', context.company?.id ?? '', geo.countryId, vatSearch),
+    queryKey: catalogKeys.catalog(
+      "vat",
+      context.company?.id ?? "",
+      geo.countryId,
+      vatSearch,
+    ),
     queryFn: ({ signal }) =>
-      catalogService(api).vatNumbers(context.company!.id, geo.countryId, vatSearch, { signal }),
+      catalogService(api).vatNumbers(
+        context.company!.id,
+        geo.countryId,
+        vatSearch,
+        { signal },
+      ),
     enabled: Boolean(context.company && geo.countryId),
   });
   return (
@@ -52,7 +65,8 @@ const CatalogsPage: React.FC = () => {
         ) : (
           <>
             <p className="text-xs mb-3">
-              Tipos: {refs.documents.data?.documentTypes.join(', ') || 'Sin opciones'}
+              Tipos:{" "}
+              {refs.documents.data?.documentTypes.join(", ") || "Sin opciones"}
             </p>
             <Input
               label="Buscar nombre/NIT"

@@ -1,5 +1,5 @@
-import type { ApiClient } from '../../core/api/apiClient';
-import * as map from './mappers';
+import type { ApiClient } from "../../core/api/apiClient";
+import * as map from "./mappers";
 import type {
   Agreement,
   AgreementLine,
@@ -22,13 +22,13 @@ import type {
   State,
   VatNumber,
   ZipCode,
-} from './types';
+} from "./types";
 type Json = Record<string, unknown>;
 type Signal = { signal?: AbortSignal };
 const paging = (page: number, perpage: number) => ({ page, perpage });
 const inventoryList = (value: unknown): Json[] => {
   if (Array.isArray(value)) return value as Json[];
-  if (value && typeof value === 'object') return [value as Json];
+  if (value && typeof value === "object") return [value as Json];
   return [];
 };
 
@@ -59,7 +59,7 @@ export const catalogService = (api: ApiClient) => ({
     } & Signal,
   ): Promise<PageResult<Customer>> {
     const r = await api.post<CustomerSearchResponseDto>(
-      '/customer/data',
+      "/customer/data",
       {
         company: input.company,
         sales_group: input.salesGroup,
@@ -68,7 +68,11 @@ export const catalogService = (api: ApiClient) => ({
       },
       input,
     );
-    return map.pageResult(r.customers.map(map.customer), r.pagination, input.perPage);
+    return map.pageResult(
+      r.customers.map(map.customer),
+      r.pagination,
+      input.perPage,
+    );
   },
   async customerAddresses(
     company: string,
@@ -76,7 +80,11 @@ export const catalogService = (api: ApiClient) => ({
     options?: Signal,
   ): Promise<CustomerAddress[]> {
     return (
-      await api.post<Json[]>('/customer/address', { company, account_id: account }, options)
+      await api.post<Json[]>(
+        "/customer/address",
+        { company, account_id: account },
+        options,
+      )
     ).map(map.customerAddress);
   },
   async products(
@@ -89,16 +97,20 @@ export const catalogService = (api: ApiClient) => ({
     } & Signal,
   ): Promise<PageResult<Product>> {
     const r = await api.post<Json>(
-      '/company/products',
+      "/company/products",
       {
         company: input.company,
         search_text: input.search,
         pagination: paging(input.page, input.perPage),
-        force_registry: input.forceRegistry ? 'true' : 'false',
+        force_registry: input.forceRegistry ? "true" : "false",
       },
       input,
     );
-    return map.pageResult(map.list(r.products).map(map.product), r.pagination, input.perPage);
+    return map.pageResult(
+      map.list(r.products).map(map.product),
+      r.pagination,
+      input.perPage,
+    );
   },
   async variants(
     input: {
@@ -116,11 +128,15 @@ export const catalogService = (api: ApiClient) => ({
       company: input.company,
       itemid: input.itemId,
       pagination: paging(page, perPage),
-      force_registry: input.forceRegistry ? 'true' : 'false',
+      force_registry: input.forceRegistry ? "true" : "false",
     };
     if (input.forceRegistry && input.regionId) body.regionid = input.regionId;
-    const r = await api.post<Json>('/company/products/variants', body, input);
-    return map.pageResult(map.list(r.variants).map(map.variant), r.pagination, perPage);
+    const r = await api.post<Json>("/company/products/variants", body, input);
+    return map.pageResult(
+      map.list(r.variants).map(map.variant),
+      r.pagination,
+      perPage,
+    );
   },
   async inventory(
     input: {
@@ -136,7 +152,7 @@ export const catalogService = (api: ApiClient) => ({
     const page = input.page ?? 1,
       perPage = input.perPage ?? 10;
     const r = await api.post<Json>(
-      '/inventory',
+      "/inventory",
       {
         company: input.company,
         ...(input.itemId ? { itemid: input.itemId } : {}),
@@ -148,7 +164,11 @@ export const catalogService = (api: ApiClient) => ({
       },
       input,
     );
-    return map.pageResult(inventoryList(r.inventory).map(map.inventory), r.pagination, perPage);
+    return map.pageResult(
+      inventoryList(r.inventory).map(map.inventory),
+      r.pagination,
+      perPage,
+    );
   },
   async variantInventory(
     input: {
@@ -163,7 +183,7 @@ export const catalogService = (api: ApiClient) => ({
     const page = input.page ?? 1,
       perPage = input.perPage ?? 10;
     const r = await api.post<Json>(
-      '/inventory/variant',
+      "/inventory/variant",
       {
         company: input.company,
         itemid: input.itemId,
@@ -175,13 +195,22 @@ export const catalogService = (api: ApiClient) => ({
       },
       input,
     );
-    return map.pageResult(inventoryList(r.inventory).map(map.inventory), r.pagination, perPage);
+    return map.pageResult(
+      inventoryList(r.inventory).map(map.inventory),
+      r.pagination,
+      perPage,
+    );
   },
   async inventoryLocations(
-    input: { company: string; salesGroup: string; page: number; perPage: number } & Signal,
+    input: {
+      company: string;
+      salesGroup: string;
+      page: number;
+      perPage: number;
+    } & Signal,
   ): Promise<PageResult<InventoryLocation>> {
     const r = await api.post<Json>(
-      '/inventory/locations_by_sales_group_and_company',
+      "/inventory/locations_by_sales_group_and_company",
       {
         company: input.company,
         sales_group: input.salesGroup,
@@ -210,34 +239,40 @@ export const catalogService = (api: ApiClient) => ({
   ): Promise<Price> {
     return map.price(
       await api.post<Json>(
-        '/d365_services/get_price',
+        "/d365_services/get_price",
         {
           Company: input.company,
           Currencycode: input.currency,
           ItemId: input.itemId,
           CustAccount: input.customerAccount,
-          ConfigId: input.configId ?? '',
-          InventColorId: input.colorId ?? '',
-          InventSizeId: input.sizeId ?? '',
-          InventStyleId: input.styleId ?? '',
-          InventVersionId: input.versionId ?? '',
+          ConfigId: input.configId ?? "",
+          InventColorId: input.colorId ?? "",
+          InventSizeId: input.sizeId ?? "",
+          InventStyleId: input.styleId ?? "",
+          InventVersionId: input.versionId ?? "",
         },
         input,
       ),
     );
   },
-  async deliveryModes(company: string, options?: Signal): Promise<DeliveryMode[]> {
+  async deliveryModes(
+    company: string,
+    options?: Signal,
+  ): Promise<DeliveryMode[]> {
     const r = await api.post<Json>(
-      '/delivery/mode',
+      "/delivery/mode",
       { company, pagination: paging(1, 100) },
       options,
     );
     return Array.isArray(r) ? [] : map.list(r.mode).map(map.deliveryMode);
   },
-  async salesOrigins(company: string, options?: Signal): Promise<SalesOrigin[]> {
-    return (await api.post<Json[]>('/company/sales_origin', { company }, options)).map(
-      map.salesOrigin,
-    );
+  async salesOrigins(
+    company: string,
+    options?: Signal,
+  ): Promise<SalesOrigin[]> {
+    return (
+      await api.post<Json[]>("/company/sales_origin", { company }, options)
+    ).map(map.salesOrigin);
   },
   async agreements(
     company: string,
@@ -245,15 +280,19 @@ export const catalogService = (api: ApiClient) => ({
     options?: Signal,
   ): Promise<PageResult<Agreement>> {
     const r = await api.post<Json>(
-      '/customer/agreement',
+      "/customer/agreement",
       { company, account_id: account, pagination: paging(1, 100) },
       options,
     );
-    return map.pageResult(map.list(r.agreement).map(map.agreement), r.pagination, 100);
+    return map.pageResult(
+      map.list(r.agreement).map(map.agreement),
+      r.pagination,
+      100,
+    );
   },
   async agreementDetails(recid: number, options?: Signal): Promise<Json> {
     return api.post<Json>(
-      '/customer/agreement/details',
+      "/customer/agreement/details",
       { recid, pagination: paging(1, 100) },
       options,
     );
@@ -265,7 +304,7 @@ export const catalogService = (api: ApiClient) => ({
     options?: Signal,
   ): Promise<AgreementLine[]> {
     const r = await api.post<unknown>(
-      '/customer/agreement/parcial_lines',
+      "/customer/agreement/parcial_lines",
       { company, account_id: account, recid },
       options,
     );
@@ -273,29 +312,53 @@ export const catalogService = (api: ApiClient) => ({
     const raw = j.parcial_lines ?? j.parcialLines ?? j.lines;
     return map.list(raw).map(map.agreementLine);
   },
-  async promotions(company: string, options?: Signal): Promise<PromotionGroup[]> {
+  async promotions(
+    company: string,
+    options?: Signal,
+  ): Promise<PromotionGroup[]> {
     const r = await api.post<Json>(
-      '/suppItemGroup',
+      "/suppItemGroup",
       { company, pagination: paging(1, 100) },
       options,
     );
     return map.list(r.suppitemgroup).map(map.promotion);
   },
-  async countries(search = '', options?: Signal): Promise<Country[]> {
-    const r = await api.post<Json>('/d365/address/country_regions', { filters: {}, ...(search ? { search_text: search } : {}), page: 1, perpage: 100 }, options);
-    return map.list(r['@odata']).map(map.country);
+  async countries(search = "", options?: Signal): Promise<Country[]> {
+    const r = await api.post<Json>(
+      "/d365/address/country_regions",
+      {
+        filters: {},
+        ...(search ? { search_text: search } : {}),
+        page: 1,
+        perpage: 100,
+      },
+      options,
+    );
+    return map.list(r["@odata"]).map(map.country);
   },
   async states(countryId: string, options?: Signal): Promise<State[]> {
-    const r = await api.post<Json>('/d365/address/states', { filters: { CountryRegionId: [countryId] }, page: 1, perpage: 100 }, options);
-    return map.list(r['@odata']).map(map.state);
+    const r = await api.post<Json>(
+      "/d365/address/states",
+      { filters: { CountryRegionId: [countryId] }, page: 1, perpage: 100 },
+      options,
+    );
+    return map.list(r["@odata"]).map(map.state);
   },
-  async counties(countryId: string, stateId: string, options?: Signal): Promise<County[]> {
-    const r = await api.post<Json>('/d365/address/counties', {
+  async counties(
+    countryId: string,
+    stateId: string,
+    options?: Signal,
+  ): Promise<County[]> {
+    const r = await api.post<Json>(
+      "/d365/address/counties",
+      {
         filters: { CountryRegionId: [countryId], StateId: [stateId] },
         page: 1,
         perpage: 100,
-      }, options);
-    return map.list(r['@odata']).map(map.county);
+      },
+      options,
+    );
+    return map.list(r["@odata"]).map(map.county);
   },
   async cities(
     countryId: string,
@@ -303,12 +366,20 @@ export const catalogService = (api: ApiClient) => ({
     countyId: string,
     options?: Signal,
   ): Promise<City[]> {
-    const r = await api.post<Json>('/d365/address/cities', {
-        filters: { CountryRegionId: [countryId], StateId: [stateId], CountyId: [countyId] },
+    const r = await api.post<Json>(
+      "/d365/address/cities",
+      {
+        filters: {
+          CountryRegionId: [countryId],
+          StateId: [stateId],
+          CountyId: [countyId],
+        },
         page: 1,
         perpage: 100,
-      }, options);
-    return map.list(r['@odata']).map(map.city);
+      },
+      options,
+    );
+    return map.list(r["@odata"]).map(map.city);
   },
   async zipCodes(
     countryId: string,
@@ -317,29 +388,41 @@ export const catalogService = (api: ApiClient) => ({
     cityId: string,
     options?: Signal,
   ): Promise<ZipCode[]> {
-    const r = await api.post<Json>('/d365/address/zip_codes', {
+    const r = await api.post<Json>(
+      "/d365/address/zip_codes",
+      {
         filters: {
           CountryRegionId: [countryId],
           State: [stateId],
           County: [countyId],
           City: [cityId],
         },
-      }, options);
-    return map.list(r['@odata']).map(map.zip);
+      },
+      options,
+    );
+    return map.list(r["@odata"]).map(map.zip);
   },
   async vatNumbers(
     company: string,
     countryId: string,
-    name = '',
+    name = "",
     options?: Signal,
   ): Promise<PageResult<VatNumber>> {
-    const r = await api.post<Json>('/d365/vat_num/query', {
-        filters: { Name: name, dataAreaId: company, CountryRegionId: countryId },
-        sort: { fields: [{ name: 'VATNum', order: 'desc' }] },
+    const r = await api.post<Json>(
+      "/d365/vat_num/query",
+      {
+        filters: {
+          Name: name,
+          dataAreaId: company,
+          CountryRegionId: countryId,
+        },
+        sort: { fields: [{ name: "VATNum", order: "desc" }] },
         page: 1,
         perpage: 25,
-      }, options);
-    return map.pageResult(map.list(r['@odata']).map(map.vat), r.pagination, 25);
+      },
+      options,
+    );
+    return map.pageResult(map.list(r["@odata"]).map(map.vat), r.pagination, 25);
   },
   async documentTypes(
     company: string,
@@ -347,7 +430,11 @@ export const catalogService = (api: ApiClient) => ({
     options?: Signal,
   ): Promise<DocumentTypes> {
     return map.documentTypes(
-      await api.post<Json>('/d365/vat_num/document_type/query', { filters: { dataAreaId: company, CountryRegionId: countryId } }, options),
+      await api.post<Json>(
+        "/d365/vat_num/document_type/query",
+        { filters: { dataAreaId: company, CountryRegionId: countryId } },
+        options,
+      ),
     );
   },
 });

@@ -1,17 +1,20 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useInvoices, useReportService } from '../../features/billing/billingQueries';
-import { openPdfReport } from '../../features/billing/billingService';
-import type { InvoiceFilters } from '../../features/billing/billingTypes';
-import { userErrorMessage } from '../../core/api/errors';
-import { Button, Card, EmptyState, Input } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import { useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
+  useInvoices,
+  useReportService,
+} from "../../features/billing/billingQueries";
+import { openPdfReport } from "../../features/billing/billingService";
+import type { InvoiceFilters } from "../../features/billing/billingTypes";
+import { userErrorMessage } from "../../core/api/errors";
+import { Button, Card, EmptyState, Input } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 const money = (value: number, currency: string) => {
   try {
-    return new Intl.NumberFormat('es-GT', {
-      style: 'currency',
-      currency: currency || 'USD',
+    return new Intl.NumberFormat("es-GT", {
+      style: "currency",
+      currency: currency || "USD",
     }).format(value);
   } catch {
     return `${currency} ${value.toFixed(2)}`;
@@ -42,8 +45,8 @@ const InvoicesPage = () => {
         <EmptyState
           title={
             filters.customer
-              ? 'El cliente no tiene facturas para estos filtros'
-              : 'La consulta no devolvió facturas'
+              ? "El cliente no tiene facturas para estos filtros"
+              : "La consulta no devolvió facturas"
           }
         />
       );
@@ -66,7 +69,10 @@ const InvoicesPage = () => {
             </thead>
             <tbody>
               {query.data.items.map((x) => (
-                <tr key={`${x.invoiceId}-${x.customerAccount}`} className="border-t">
+                <tr
+                  key={`${x.invoiceId}-${x.customerAccount}`}
+                  className="border-t"
+                >
                   <td className="p-2">
                     <strong>{x.invoiceId}</strong>
                     <small className="block">Pedido {x.salesId}</small>
@@ -78,13 +84,17 @@ const InvoicesPage = () => {
                   <td>{x.invoiceDate}</td>
                   <td>{x.dueDate}</td>
                   <td>{x.status}</td>
-                  <td className="text-right">{money(x.invoiceAmount, x.currency)}</td>
+                  <td className="text-right">
+                    {money(x.invoiceAmount, x.currency)}
+                  </td>
                   <td className="text-right">{money(x.balance, x.currency)}</td>
                   <td className="p-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => runUiAction(() => pdf(x.invoiceId, x.companyName))}
+                      onClick={() =>
+                        runUiAction(() => pdf(x.invoiceId, x.companyName))
+                      }
                     >
                       PDF
                     </Button>
@@ -122,29 +132,29 @@ const InvoicesPage = () => {
 
   const [params, setParams] = useSearchParams();
   const filters: InvoiceFilters = {
-    customer: params.get('customer') ?? '',
-    from: params.get('from') ?? '',
-    to: params.get('to') ?? '',
-    openOnly: params.get('openOnly') === 'true',
-    page: Math.max(1, Number(params.get('page') ?? 1)),
+    customer: params.get("customer") ?? "",
+    from: params.get("from") ?? "",
+    to: params.get("to") ?? "",
+    openOnly: params.get("openOnly") === "true",
+    page: Math.max(1, Number(params.get("page") ?? 1)),
   };
   const [form, setForm] = useState(filters);
   const query = useInvoices(filters);
   const report = useReportService();
   const locks = useRef(new Set<string>());
-  const [pdfError, setPdfError] = useState('');
+  const [pdfError, setPdfError] = useState("");
   const apply = (f: InvoiceFilters) =>
     setParams({
       ...(f.customer ? { customer: f.customer } : {}),
       ...(f.from ? { from: f.from } : {}),
       ...(f.to ? { to: f.to } : {}),
-      ...(f.openOnly ? { openOnly: 'true' } : {}),
+      ...(f.openOnly ? { openOnly: "true" } : {}),
       page: String(f.page),
     });
   const pdf = async (id: string, company: string) => {
     if (!id || locks.current.has(id)) return;
     locks.current.add(id);
-    setPdfError('');
+    setPdfError("");
     try {
       const r = await report.pdf(company, id);
       openPdfReport(r.fileName || `Factura_${id}.pdf`, r.base64);
@@ -196,7 +206,13 @@ const InvoicesPage = () => {
           <Button
             variant="outline"
             onClick={() => {
-              const empty = { customer: '', from: '', to: '', openOnly: false, page: 1 };
+              const empty = {
+                customer: "",
+                from: "",
+                to: "",
+                openOnly: false,
+                page: 1,
+              };
               setForm(empty);
               apply(empty);
             }}
@@ -206,7 +222,9 @@ const InvoicesPage = () => {
         </div>
       </Card>
       {form.from && form.to && form.from > form.to && (
-        <p className="text-error text-sm">La fecha inicial no puede ser posterior a la final.</p>
+        <p className="text-error text-sm">
+          La fecha inicial no puede ser posterior a la final.
+        </p>
       )}
       {pdfError && (
         <p role="alert" className="bg-red-50 p-3 text-error">

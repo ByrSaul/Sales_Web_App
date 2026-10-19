@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { ApiClient } from '../../core/api/apiClient';
-import type { Product, ProductVariant } from '../catalogs/types';
-import { catalogKeys } from '../catalogs/queryKeys';
-import { catalogService } from '../catalogs/catalogService';
-import type { ExistingOrder } from './orderTypes';
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { ApiClient } from "../../core/api/apiClient";
+import type { Product, ProductVariant } from "../catalogs/types";
+import { catalogKeys } from "../catalogs/queryKeys";
+import { catalogService } from "../catalogs/catalogService";
+import type { ExistingOrder } from "./orderTypes";
 
 /** Owns price lookup and the lifetime of a manual override, preserving local edit values. */
 export const useExistingOrderLinePrice = (
@@ -14,13 +14,13 @@ export const useExistingOrderLinePrice = (
   variant: ProductVariant | null,
   editingPendingId: string | null,
 ) => {
-  const [priceOverride, setPriceOverride] = useState('');
+  const [priceOverride, setPriceOverride] = useState("");
   const price = useQuery({
     queryKey: catalogKeys.price(
-      order?.companyId ?? '',
-      order?.customerAccount ?? '',
-      order?.currencyCode ?? '',
-      product?.itemId ?? '',
+      order?.companyId ?? "",
+      order?.customerAccount ?? "",
+      order?.currencyCode ?? "",
+      product?.itemId ?? "",
       variant,
     ),
     queryFn: ({ signal }) =>
@@ -40,7 +40,7 @@ export const useExistingOrderLinePrice = (
   });
   // A new product/variant/customer/currency invalidates any manual price override and the previous DebugMessage.
   useEffect(() => {
-    if (!editingPendingId) setPriceOverride('');
+    if (!editingPendingId) setPriceOverride("");
   }, [
     editingPendingId,
     product?.itemId,
@@ -52,19 +52,26 @@ export const useExistingOrderLinePrice = (
   const effectivePrice = price.data
     ? {
         ...price.data,
-        price: priceOverride !== '' ? Number(priceOverride) || 0 : price.data.price,
+        price:
+          priceOverride !== "" ? Number(priceOverride) || 0 : price.data.price,
       }
     : null;
 
   const displayedPrice = () => {
-    if (priceOverride !== '') {
+    if (priceOverride !== "") {
       return priceOverride;
     }
     if (price.data) {
       return String(price.data.price);
     }
-    return '';
+    return "";
   };
 
-  return { price, priceOverride, setPriceOverride, effectivePrice, displayedPrice };
+  return {
+    price,
+    priceOverride,
+    setPriceOverride,
+    effectivePrice,
+    displayedPrice,
+  };
 };

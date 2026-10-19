@@ -1,10 +1,10 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useForecast } from '../../features/forecast/forecastQueries';
-import type { ForecastFilters } from '../../features/forecast/forecastTypes';
-import { Button, Card, EmptyState, Input, Select } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useForecast } from "../../features/forecast/forecastQueries";
+import type { ForecastFilters } from "../../features/forecast/forecastTypes";
+import { Button, Card, EmptyState, Input, Select } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de consulta del pronóstico comercial del vendedor activo. */
 const ForecastPage = () => {
   const renderForecast = () => {
@@ -40,14 +40,31 @@ const ForecastPage = () => {
               {q.data.items.map((x) => (
                 <tr
                   className="border-t"
-                  key={JSON.stringify([x.salesGroup, x.customer, x.itemId, x.variant])}
+                  key={JSON.stringify([
+                    x.salesGroup,
+                    x.customer,
+                    x.itemId,
+                    x.variant,
+                  ])}
                 >
                   <td>{x.itemId}</td>
                   <td>{x.variant}</td>
                   <td>{x.customer}</td>
-                  <td>{x.salesQuantity ?? x.salesAmount ?? x.salesVolume ?? '—'}</td>
-                  <td>{x.budgetQuantity ?? x.budgetAmount ?? x.budgetVolume ?? '—'}</td>
-                  <td>{x.projectionQuantity ?? x.projectionAmount ?? x.projectionVolume ?? '—'}</td>
+                  <td>
+                    {x.salesQuantity ?? x.salesAmount ?? x.salesVolume ?? "—"}
+                  </td>
+                  <td>
+                    {x.budgetQuantity ??
+                      x.budgetAmount ??
+                      x.budgetVolume ??
+                      "—"}
+                  </td>
+                  <td>
+                    {x.projectionQuantity ??
+                      x.projectionAmount ??
+                      x.projectionVolume ??
+                      "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -81,13 +98,13 @@ const ForecastPage = () => {
 
   const [p, setP] = useSearchParams();
   const f: ForecastFilters = {
-    from: p.get('from') ?? '',
-    to: p.get('to') ?? '',
-    item: p.get('item') ?? '',
-    variant: p.get('variant') ?? '',
-    customer: p.get('customer') ?? '',
-    view: (p.get('view') as ForecastFilters['view']) || 'all',
-    page: Math.max(1, Number(p.get('page') ?? 1)),
+    from: p.get("from") ?? "",
+    to: p.get("to") ?? "",
+    item: p.get("item") ?? "",
+    variant: p.get("variant") ?? "",
+    customer: p.get("customer") ?? "",
+    view: (p.get("view") as ForecastFilters["view"]) || "all",
+    page: Math.max(1, Number(p.get("page") ?? 1)),
   };
   const [form, setForm] = useState(f);
   const q = useForecast(f);
@@ -106,8 +123,8 @@ const ForecastPage = () => {
       <div>
         <h1 className="text-xl font-bold">Forecast de ventas</h1>
         <p className="text-xs">
-          Consulta de Venta, Presupuesto y Proyección registrados en Dynamics. No es una predicción
-          calculada por Web.
+          Consulta de Venta, Presupuesto y Proyección registrados en Dynamics.
+          No es una predicción calculada por Web.
         </p>
       </div>
       <Card className="p-4 grid md:grid-cols-4 gap-3">
@@ -141,12 +158,17 @@ const ForecastPage = () => {
         <Select
           label="Métrica"
           value={form.view}
-          onChange={(e) => setForm({ ...form, view: e.target.value as ForecastFilters['view'] })}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              view: e.target.value as ForecastFilters["view"],
+            })
+          }
           options={[
-            { value: 'all', label: 'Todas' },
-            { value: 'qty', label: 'Cantidad' },
-            { value: 'amount', label: 'Importe' },
-            { value: 'volume', label: 'Volumen' },
+            { value: "all", label: "Todas" },
+            { value: "qty", label: "Cantidad" },
+            { value: "amount", label: "Importe" },
+            { value: "volume", label: "Volumen" },
           ]}
         />
         <Button

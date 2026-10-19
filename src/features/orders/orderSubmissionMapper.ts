@@ -1,15 +1,16 @@
-import type { OrderDraft, OrderDraftLine } from '../orderDraft/types';
+import type { OrderDraft, OrderDraftLine } from "../orderDraft/types";
 import type {
   AgreementLineRequest,
   ExistingSalesLine,
   SalesHeaderRequest,
   SalesHeaderResponse,
   SalesLineRequest,
-} from './types';
+} from "./types";
 type Json = Record<string, unknown>;
-const s = (v: unknown) => (typeof v === 'string' ? v : '');
-const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
-const optionalText = (value: string | null | undefined) => value?.trim() || undefined;
+const s = (v: unknown) => (typeof v === "string" ? v : "");
+const n = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
+const optionalText = (value: string | null | undefined) =>
+  value?.trim() || undefined;
 /**
  * Traduce el borrador al contrato de creación del encabezado de venta.
  *
@@ -23,11 +24,15 @@ const optionalText = (value: string | null | undefined) => value?.trim() || unde
  */
 export const mapHeaderRequest = (d: OrderDraft): SalesHeaderRequest => {
   if (!d.languageId) {
-    throw new Error('No se pudo determinar LanguageId del usuario ni del cliente seleccionado.');
+    throw new Error(
+      "No se pudo determinar LanguageId del usuario ni del cliente seleccionado.",
+    );
   }
   const personnelnumber = d.personnelnumber?.trim();
   if (!personnelnumber) {
-    throw new Error('No se pudo determinar el número de personal del usuario actual.');
+    throw new Error(
+      "No se pudo determinar el número de personal del usuario actual.",
+    );
   }
   const observations = optionalText(d.observations);
   const customerReference = optionalText(d.customerReference);
@@ -37,10 +42,10 @@ export const mapHeaderRequest = (d: OrderDraft): SalesHeaderRequest => {
     dataAreaId: d.dataAreaId,
     CurrencyCode: d.currencyCode,
     LanguageId: d.languageId,
-    InvoiceCustomerAccountNumber: d.customer?.account ?? '',
-    OrderingCustomerAccountNumber: d.customer?.account ?? '',
+    InvoiceCustomerAccountNumber: d.customer?.account ?? "",
+    OrderingCustomerAccountNumber: d.customer?.account ?? "",
     OrderResponsiblePersonnelNumber: personnelnumber,
-    DeliveryAddressLocationId: d.deliveryAddress?.locationId ?? '',
+    DeliveryAddressLocationId: d.deliveryAddress?.locationId ?? "",
     ...(d.deliveryMode ? { FADlvMode: d.deliveryMode.code } : {}),
     ...(d.requestedShippingDate
       ? {
@@ -49,16 +54,24 @@ export const mapHeaderRequest = (d: OrderDraft): SalesHeaderRequest => {
         }
       : {}),
     ...(d.agreement
-      ? { MatchingAgreement: d.agreement.recId, CSFASalesAgreementId: d.agreement.number }
+      ? {
+          MatchingAgreement: d.agreement.recId,
+          CSFASalesAgreementId: d.agreement.number,
+        }
       : {}),
     ...(vendorId ? { CommissionSalesRepresentativeGroupId: vendorId } : {}),
     ...(taxExemptNumber ? { TaxExemptNumber: taxExemptNumber } : {}),
     ...(d.salesOrigin ? { SalesOrderOriginCode: d.salesOrigin.id } : {}),
     ...(observations ? { Observations: observations } : {}),
-    ...(customerReference ? { CustomersOrderReference: customerReference } : {}),
+    ...(customerReference
+      ? { CustomersOrderReference: customerReference }
+      : {}),
   };
 };
-const lineBase = (line: OrderDraftLine, order: string): Omit<SalesLineRequest, 'dataAreaId'> => ({
+const lineBase = (
+  line: OrderDraftLine,
+  order: string,
+): Omit<SalesLineRequest, "dataAreaId"> => ({
   SalesOrderNumber: order,
   ItemNumber: line.itemId,
   ProductConfigurationId: line.dimensions.configId,
@@ -71,14 +84,17 @@ const lineBase = (line: OrderDraftLine, order: string): Omit<SalesLineRequest, '
   ShippingSiteId: line.siteId,
   ShippingWarehouseId: line.warehouseId,
   ...(line.promotion ? { CSFASuppItemGroupId: line.promotion.groupId } : {}),
-  FABonification: line.isBonification ? '1' : '0',
+  FABonification: line.isBonification ? "1" : "0",
 });
 /** Construye el payload de una línea comercial normal. */
 export const mapNormalLineRequest = (
   draft: OrderDraft,
   line: OrderDraftLine,
   order: string,
-): SalesLineRequest => ({ ...lineBase(line, order), dataAreaId: draft.dataAreaId });
+): SalesLineRequest => ({
+  ...lineBase(line, order),
+  dataAreaId: draft.dataAreaId,
+});
 /** Construye el payload especializado de una línea proveniente de convenio. */
 export const mapAgreementLineRequest = (
   draft: OrderDraft,
@@ -86,12 +102,14 @@ export const mapAgreementLineRequest = (
   order: string,
 ): AgreementLineRequest => ({
   ...mapNormalLineRequest(draft, line, order),
-  ChangeShippingWarehouseId: '',
+  ChangeShippingWarehouseId: "",
   MatchingAgreementLine: line.matchingAgreementLine!,
 });
 /** Selecciona el endpoint de creación según el origen normal o de convenio de la línea. */
 export const lineEndpoint = (line: OrderDraftLine) =>
-  line.source === 'agreement' ? '/d365/sales/line/agreement' : '/d365/sales/line';
+  line.source === "agreement"
+    ? "/d365/sales/line/agreement"
+    : "/d365/sales/line";
 /** Normaliza la respuesta de creación del encabezado y extrae el número de pedido. */
 export const mapHeaderResponse = (raw: unknown): SalesHeaderResponse => {
   const list = Array.isArray(raw) ? raw : [];
@@ -125,9 +143,15 @@ export const mapExistingLine = (j: Json): ExistingSalesLine => ({
 export const mapExistingLines = (raw: unknown): ExistingSalesLine[] => {
   let value: unknown[] = [];
   if (Array.isArray(raw)) value = raw;
-  else if (raw && typeof raw === 'object' && Array.isArray((raw as Json)['@odata']))
-    value = (raw as Json)['@odata'] as unknown[];
-  return value.filter((v) => v && typeof v === 'object').map((v) => mapExistingLine(v as Json));
+  else if (
+    raw &&
+    typeof raw === "object" &&
+    Array.isArray((raw as Json)["@odata"])
+  )
+    value = (raw as Json)["@odata"] as unknown[];
+  return value
+    .filter((v) => v && typeof v === "object")
+    .map((v) => mapExistingLine(v as Json));
 };
 /** Determina si una línea local corresponde a una línea ya persistida. */
 export const sameLine = (line: OrderDraftLine, existing: ExistingSalesLine) =>
@@ -141,8 +165,9 @@ export const sameLine = (line: OrderDraftLine, existing: ExistingSalesLine) =>
   existing.orderedSalesQuantity === line.quantity &&
   existing.shippingSiteId === line.siteId &&
   existing.shippingWarehouseId === line.warehouseId &&
-  existing.csfaSuppItemGroupId === (line.promotion?.groupId ?? '') &&
-  ['yes', '1'].includes(existing.faBonification.toLowerCase()) === line.isBonification;
+  existing.csfaSuppItemGroupId === (line.promotion?.groupId ?? "") &&
+  ["yes", "1"].includes(existing.faBonification.toLowerCase()) ===
+    line.isBonification;
 /** Verifica si una línea del borrador ya existe en el pedido remoto. */
 export const isDraftLineAlreadyCreated = (
   line: OrderDraftLine,

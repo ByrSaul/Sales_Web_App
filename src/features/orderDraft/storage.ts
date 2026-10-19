@@ -1,5 +1,5 @@
-import type { OrderDraft } from './types';
-export const ORDER_DRAFT_STORAGE_KEY = 'sales4app.orderDraft.v1';
+import type { OrderDraft } from "./types";
+export const ORDER_DRAFT_STORAGE_KEY = "sales4app.orderDraft.v1";
 export const ORDER_DRAFT_SCHEMA_VERSION = 1;
 export const ORDER_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 type Envelope = {
@@ -9,7 +9,7 @@ type Envelope = {
   companyId: string;
   draft: OrderDraft;
 };
-const available = () => typeof localStorage !== 'undefined';
+const available = () => typeof localStorage !== "undefined";
 /** Persiste el borrador con versión de esquema y fecha de expiración. */
 export const saveDraft = (draft: OrderDraft) => {
   if (!available()) return;

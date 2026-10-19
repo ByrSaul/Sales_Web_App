@@ -1,18 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
-import { useSession } from '../../app/providers/SessionProvider';
-import { catalogService } from '../catalogs/catalogService';
-import { orderQueryService } from '../orders/orderQueryService';
-import type { OrderFilters } from '../orders/orderTypes';
+import { useQuery } from "@tanstack/react-query";
+import { useSession } from "../../app/providers/SessionProvider";
+import { catalogService } from "../catalogs/catalogService";
+import { orderQueryService } from "../orders/orderQueryService";
+import type { OrderFilters } from "../orders/orderTypes";
 
 const localDate = (date: Date) => {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 };
 
-const orderFilters = (from: string, to: string, status = '', perPage = 1): OrderFilters => ({
-  customer: '',
+const orderFilters = (
+  from: string,
+  to: string,
+  status = "",
+  perPage = 1,
+): OrderFilters => ({
+  customer: "",
   status,
-  creditControl: '',
+  creditControl: "",
   from,
   to,
   page: 1,
@@ -22,13 +27,13 @@ const orderFilters = (from: string, to: string, status = '', perPage = 1): Order
 /** Claves de caché para los indicadores y actividades del Dashboard. */
 export const dashboardKeys = {
   ordersToday: (company: string, vendor: string, today: string) =>
-    ['dashboard', 'orders-today', company, vendor, today] as const,
+    ["dashboard", "orders-today", company, vendor, today] as const,
   openOrders: (company: string, vendor: string) =>
-    ['dashboard', 'open-orders', company, vendor] as const,
+    ["dashboard", "open-orders", company, vendor] as const,
   recentOrders: (company: string, vendor: string, from: string, to: string) =>
-    ['dashboard', 'recent-orders', company, vendor, from, to] as const,
+    ["dashboard", "recent-orders", company, vendor, from, to] as const,
   customers: (company: string, vendor: string) =>
-    ['dashboard', 'assigned-customers', company, vendor] as const,
+    ["dashboard", "assigned-customers", company, vendor] as const,
 };
 
 /**
@@ -43,8 +48,8 @@ export const dashboardKeys = {
  */
 export const useDashboardData = () => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
-  const vendor = context.vendor?.id ?? '';
+  const company = context.company?.id ?? "";
+  const vendor = context.vendor?.id ?? "";
   const today = localDate(new Date());
   const recentStartDate = new Date();
   recentStartDate.setDate(recentStartDate.getDate() - 30);
@@ -55,21 +60,32 @@ export const useDashboardData = () => {
   return {
     today: useQuery({
       queryKey: dashboardKeys.ordersToday(company, vendor, today),
-      queryFn: ({ signal }) => orders.list(company, vendor, orderFilters(today, today), signal),
+      queryFn: ({ signal }) =>
+        orders.list(company, vendor, orderFilters(today, today), signal),
       enabled,
       staleTime: 30_000,
     }),
     open: useQuery({
       queryKey: dashboardKeys.openOrders(company, vendor),
       queryFn: ({ signal }) =>
-        orders.list(company, vendor, orderFilters('', '', 'Orden Abierta'), signal),
+        orders.list(
+          company,
+          vendor,
+          orderFilters("", "", "Orden Abierta"),
+          signal,
+        ),
       enabled,
       staleTime: 30_000,
     }),
     recent: useQuery({
       queryKey: dashboardKeys.recentOrders(company, vendor, recentFrom, today),
       queryFn: ({ signal }) =>
-        orders.list(company, vendor, orderFilters(recentFrom, today, '', 5), signal),
+        orders.list(
+          company,
+          vendor,
+          orderFilters(recentFrom, today, "", 5),
+          signal,
+        ),
       enabled,
       staleTime: 30_000,
     }),
@@ -79,7 +95,7 @@ export const useDashboardData = () => {
         catalogService(api).customers({
           company,
           salesGroup: vendor,
-          search: '',
+          search: "",
           page: 1,
           perPage: 1,
           signal,

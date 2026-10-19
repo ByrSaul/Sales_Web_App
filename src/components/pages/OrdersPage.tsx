@@ -1,26 +1,26 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { useSession } from '../../app/providers/SessionProvider';
-import { statusLabel } from '../../features/orders/orderMappers';
-import { useOrders } from '../../features/orders/orderQueries';
-import type { OrderFilters } from '../../features/orders/orderTypes';
-import { peekSubmission } from '../../features/orders/submissionStorage';
-import { Button, Card, EmptyState, Input, Select } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import { useSession } from "../../app/providers/SessionProvider";
+import { statusLabel } from "../../features/orders/orderMappers";
+import { useOrders } from "../../features/orders/orderQueries";
+import type { OrderFilters } from "../../features/orders/orderTypes";
+import { peekSubmission } from "../../features/orders/submissionStorage";
+import { Button, Card, EmptyState, Input, Select } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 const localToday = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60_000;
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 };
 const fromParams = (p: URLSearchParams): OrderFilters => ({
-  customer: p.get('customer') ?? '',
-  status: p.get('status') ?? '',
-  creditControl: p.get('credit') ?? '',
-  from: p.get('from') ?? localToday(),
-  to: p.get('to') ?? localToday(),
-  page: Math.max(1, Number(p.get('page')) || 1),
+  customer: p.get("customer") ?? "",
+  status: p.get("status") ?? "",
+  creditControl: p.get("credit") ?? "",
+  from: p.get("from") ?? localToday(),
+  to: p.get("to") ?? localToday(),
+  page: Math.max(1, Number(p.get("page")) || 1),
   perPage: 10,
 });
 /**
@@ -42,7 +42,7 @@ const OrdersPage = () => {
   const [params, setParams] = useSearchParams();
   const filters = fromParams(params);
   const [form, setForm] = useState(filters);
-  const hasAppliedFilters = params.get('searched') === '1';
+  const hasAppliedFilters = params.get("searched") === "1";
   const query = useOrders(filters, hasAppliedFilters);
   const recovery = peekSubmission(context.accountId);
   const apply = () => {
@@ -56,13 +56,13 @@ const OrdersPage = () => {
     }).forEach(([k, v]) => {
       if (v) next[k] = String(v);
     });
-    next.page = '1';
-    next.searched = '1';
+    next.page = "1";
+    next.searched = "1";
     setParams(next);
   };
   const page = (value: number) => {
     const next = new URLSearchParams(params);
-    next.set('page', String(value));
+    next.set("page", String(value));
     setParams(next);
   };
   return (
@@ -70,20 +70,23 @@ const OrdersPage = () => {
       <div className="flex justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Mis pedidos de venta</h1>
-          <p className="text-sm text-on-surface-variant">Información real de Dynamics 365.</p>
+          <p className="text-sm text-on-surface-variant">
+            Información real de Dynamics 365.
+          </p>
         </div>
-        <Button onClick={() => navigate('/crear-pedido')}>Crear pedido</Button>
+        <Button onClick={() => navigate("/crear-pedido")}>Crear pedido</Button>
       </div>
       {recovery &&
-        recovery.status !== 'completed' &&
+        recovery.status !== "completed" &&
         recovery.companyId === context.company?.id && (
           <Card className="p-3 bg-amber-50">
             <strong>Recuperación local pendiente</strong>
             <p className="text-xs">
               {recovery.salesOrderNumber
                 ? `Pedido ${recovery.salesOrderNumber}`
-                : 'Encabezado con resultado ambiguo'}{' '}
-              · estado local {recovery.status}. No representa el estado oficial de Dynamics.
+                : "Encabezado con resultado ambiguo"}{" "}
+              · estado local {recovery.status}. No representa el estado oficial
+              de Dynamics.
             </p>
             {recovery.salesOrderNumber && (
               <Button
@@ -91,7 +94,9 @@ const OrdersPage = () => {
                 variant="outline"
                 className="mt-2"
                 onClick={() =>
-                  navigate(`/pedidos/${encodeURIComponent(recovery.salesOrderNumber!)}`)
+                  navigate(
+                    `/pedidos/${encodeURIComponent(recovery.salesOrderNumber!)}`,
+                  )
                 }
               >
                 Consultar pedido
@@ -118,11 +123,11 @@ const OrdersPage = () => {
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value })}
             options={[
-              { value: '', label: 'Todos' },
-              { value: 'Orden Abierta', label: 'Orden abierta' },
-              { value: 'Entregado', label: 'Entregado' },
-              { value: 'Facturado', label: 'Facturado' },
-              { value: 'Cancelado', label: 'Cancelado' },
+              { value: "", label: "Todos" },
+              { value: "Orden Abierta", label: "Orden abierta" },
+              { value: "Entregado", label: "Entregado" },
+              { value: "Facturado", label: "Facturado" },
+              { value: "Cancelado", label: "Cancelado" },
             ]}
           />
           <Input
@@ -133,11 +138,13 @@ const OrdersPage = () => {
           <Select
             label="Control de crédito"
             value={form.creditControl}
-            onChange={(e) => setForm({ ...form, creditControl: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, creditControl: e.target.value })
+            }
             options={[
-              { value: '', label: 'Todos' },
-              { value: 'Si', label: 'En gestión' },
-              { value: 'No', label: 'Fuera de gestión' },
+              { value: "", label: "Todos" },
+              { value: "Si", label: "En gestión" },
+              { value: "No", label: "Fuera de gestión" },
             ]}
           />
         </div>
@@ -147,7 +154,15 @@ const OrdersPage = () => {
             variant="outline"
             onClick={() => {
               const today = localToday();
-              setForm({ customer: '', status: '', creditControl: '', from: today, to: today, page: 1, perPage: 10 });
+              setForm({
+                customer: "",
+                status: "",
+                creditControl: "",
+                from: today,
+                to: today,
+                page: 1,
+                perPage: 10,
+              });
               setParams({});
             }}
           >
@@ -156,12 +171,18 @@ const OrdersPage = () => {
         </div>
       </Card>
       {!hasAppliedFilters && (
-        <EmptyState title="Define los filtros y pulsa Buscar" subtitle="No se consultarán pedidos hasta iniciar la búsqueda." />
+        <EmptyState
+          title="Define los filtros y pulsa Buscar"
+          subtitle="No se consultarán pedidos hasta iniciar la búsqueda."
+        />
       )}
       {query.isLoading && <LoadingState message="Cargando pedidos..." />}
       {query.isError && (
-        <ErrorState message="No se pudo consultar el historial." onRetry={() => runUiAction(() => query.refetch())} />
-      )}{' '}
+        <ErrorState
+          message="No se pudo consultar el historial."
+          onRetry={() => runUiAction(() => query.refetch())}
+        />
+      )}{" "}
       {query.data && !query.data.items.length && (
         <EmptyState
           title="No se encontraron pedidos"
@@ -198,10 +219,10 @@ const OrdersPage = () => {
             </div>
             <div className="grid grid-cols-2 text-xs mt-3 gap-2">
               <p>
-                Creación: <strong>{order.createdDate || '—'}</strong>
+                Creación: <strong>{order.createdDate || "—"}</strong>
               </p>
               <p>
-                Entrega: <strong>{order.deliveryDate || '—'}</strong>
+                Entrega: <strong>{order.deliveryDate || "—"}</strong>
               </p>
               <p>
                 Grupo: <strong>{order.salesGroup}</strong>
@@ -223,7 +244,8 @@ const OrdersPage = () => {
             Anterior
           </Button>
           <span className="text-sm">
-            Página {query.data.pagination.currentPage} de {query.data.pagination.totalPages}
+            Página {query.data.pagination.currentPage} de{" "}
+            {query.data.pagination.totalPages}
           </span>
           <Button
             variant="outline"

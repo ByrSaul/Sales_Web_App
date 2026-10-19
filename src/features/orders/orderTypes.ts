@@ -1,6 +1,11 @@
-import type { Pagination } from '../catalogs/types';
+import type { Pagination } from "../catalogs/types";
 export type SalesOrderStatus =
-  'Orden Abierta' | 'Entregado' | 'Facturado' | 'Cancelado' | 'None' | string;
+  | "Orden Abierta"
+  | "Entregado"
+  | "Facturado"
+  | "Cancelado"
+  | "None"
+  | string;
 /** Filtros y paginación aceptados por la consulta de pedidos existentes. */
 export type OrderFilters = {
   customer: string;

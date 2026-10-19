@@ -1,4 +1,4 @@
-import type { OrderDraft, OrderDraftLine } from '../orderDraft/types';
+import type { OrderDraft, OrderDraftLine } from "../orderDraft/types";
 
 /** Contrato enviado a `POST /d365/sales` para crear el encabezado. */
 export type SalesHeaderRequest = {
@@ -45,7 +45,7 @@ export type SalesLineRequest = {
   ShippingSiteId: string;
   ShippingWarehouseId: string;
   CSFASuppItemGroupId?: string;
-  FABonification: '0' | '1';
+  FABonification: "0" | "1";
 };
 /** Contrato de línea que incorpora la referencia al convenio comercial. */
 export type AgreementLineRequest = SalesLineRequest & {
@@ -68,18 +68,23 @@ export type ExistingSalesLine = {
   faBonification: string;
 };
 export type SubmissionStatus =
-  | 'idle'
-  | 'validating'
-  | 'creating-header'
-  | 'header-created'
-  | 'uploading-attachments'
-  | 'creating-lines'
-  | 'recovering'
-  | 'awaiting-confirmation'
-  | 'partial-failure'
-  | 'completed'
-  | 'failed';
-export type SubmissionLineStatus = 'pending' | 'creating' | 'created' | 'failed' | 'unconfirmed';
+  | "idle"
+  | "validating"
+  | "creating-header"
+  | "header-created"
+  | "uploading-attachments"
+  | "creating-lines"
+  | "recovering"
+  | "awaiting-confirmation"
+  | "partial-failure"
+  | "completed"
+  | "failed";
+export type SubmissionLineStatus =
+  | "pending"
+  | "creating"
+  | "created"
+  | "failed"
+  | "unconfirmed";
 /**
  * Seguimiento local de la idempotencia de una creación (encabezado o línea).
  *
@@ -89,13 +94,13 @@ export type SubmissionLineStatus = 'pending' | 'creating' | 'created' | 'failed'
  * `rejected` es un 4xx sin aplicar la operación y `mismatch` una clave usada con otro body.
  */
 export type OperationTracking =
-  | 'not-sent'
-  | 'awaiting-confirmation'
-  | 'processing'
-  | 'completed'
-  | 'failed'
-  | 'rejected'
-  | 'mismatch';
+  | "not-sent"
+  | "awaiting-confirmation"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "rejected"
+  | "mismatch";
 export type SubmissionLine = {
   localId: string;
   /**
@@ -143,30 +148,53 @@ export type SubmissionAttachmentInput = {
   file: File;
   description: string;
 };
-export type SubmissionResult = { submission: OrderSubmission; completed: boolean };
+export type SubmissionResult = {
+  submission: OrderSubmission;
+  completed: boolean;
+};
 /**
  * Vista de solo lectura de `GET /d365/idempotency/{key}?dataAreaId=` (fa-sales4app-proxy,
  * `IdempotencyService.describe`). Se usa exclusivamente para decidir si una nueva solicitud con
  * otra clave es segura; la consulta de estado sigue siendo el POST original.
  */
 export type IdempotencyStatusView = {
-  status: 'Processing' | 'Completed' | 'Failed';
-  dynamicsEffect: 'CREATED' | 'NONE' | 'UNKNOWN';
+  status: "Processing" | "Completed" | "Failed";
+  dynamicsEffect: "CREATED" | "NONE" | "UNKNOWN";
   newRequestAllowed: boolean;
   salesOrderNumber: string | null;
   lineReference: string | null;
 };
 /** Puerto de infraestructura requerido por el ejecutor de envío de pedidos. */
 export interface OrderSubmissionGateway {
-  createHeader(request: SalesHeaderRequest, idempotencyKey: string): Promise<SalesHeaderResponse>;
-  createNormalLine(request: SalesLineRequest, idempotencyKey: string): Promise<ExistingSalesLine[]>;
+  createHeader(
+    request: SalesHeaderRequest,
+    idempotencyKey: string,
+  ): Promise<SalesHeaderResponse>;
+  createNormalLine(
+    request: SalesLineRequest,
+    idempotencyKey: string,
+  ): Promise<ExistingSalesLine[]>;
   createAgreementLine(
     request: AgreementLineRequest,
     idempotencyKey: string,
   ): Promise<ExistingSalesLine[]>;
-  getExistingLines(companyId: string, salesOrderNumber: string): Promise<ExistingSalesLine[]>;
-  uploadAttachment?(companyId: string, salesOrderNumber: string, file: File, description: string): Promise<void>;
-  listAttachments?(companyId: string, salesOrderNumber: string): Promise<import('../attachments/attachmentTypes').OrderAttachment[]>;
+  getExistingLines(
+    companyId: string,
+    salesOrderNumber: string,
+  ): Promise<ExistingSalesLine[]>;
+  uploadAttachment?(
+    companyId: string,
+    salesOrderNumber: string,
+    file: File,
+    description: string,
+  ): Promise<void>;
+  listAttachments?(
+    companyId: string,
+    salesOrderNumber: string,
+  ): Promise<import("../attachments/attachmentTypes").OrderAttachment[]>;
   /** `null` cuando el Backend confirma que la clave nunca se registró. */
-  getIdempotencyStatus?(companyId: string, idempotencyKey: string): Promise<IdempotencyStatusView | null>;
+  getIdempotencyStatus?(
+    companyId: string,
+    idempotencyKey: string,
+  ): Promise<IdempotencyStatusView | null>;
 }

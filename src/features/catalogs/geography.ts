@@ -7,11 +7,11 @@ export type GeographySelection = {
   zipCode: string;
 };
 export const emptyGeography: GeographySelection = {
-  countryId: '',
-  stateId: '',
-  countyId: '',
-  cityId: '',
-  zipCode: '',
+  countryId: "",
+  stateId: "",
+  countyId: "",
+  cityId: "",
+  zipCode: "",
 };
 /** Actualiza el país y limpia todos los niveles geográficos dependientes. */
 export const selectCountry = (
@@ -19,21 +19,30 @@ export const selectCountry = (
   countryId: string,
 ): GeographySelection => ({ ...emptyGeography, countryId });
 /** Actualiza el estado y limpia municipio, ciudad y código postal. */
-export const selectState = (value: GeographySelection, stateId: string): GeographySelection => ({
+export const selectState = (
+  value: GeographySelection,
+  stateId: string,
+): GeographySelection => ({
   ...value,
   stateId,
-  countyId: '',
-  cityId: '',
-  zipCode: '',
+  countyId: "",
+  cityId: "",
+  zipCode: "",
 });
-export const selectCounty = (value: GeographySelection, countyId: string): GeographySelection => ({
+export const selectCounty = (
+  value: GeographySelection,
+  countyId: string,
+): GeographySelection => ({
   ...value,
   countyId,
-  cityId: '',
-  zipCode: '',
+  cityId: "",
+  zipCode: "",
 });
-export const selectCity = (value: GeographySelection, cityId: string): GeographySelection => ({
+export const selectCity = (
+  value: GeographySelection,
+  cityId: string,
+): GeographySelection => ({
   ...value,
   cityId,
-  zipCode: '',
+  zipCode: "",
 });

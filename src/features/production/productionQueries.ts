@@ -1,11 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { useSession } from '../../app/providers/SessionProvider';
-import { productionService } from './productionService';
-import type { ProductionFilters } from './productionTypes';
+import { useQuery } from "@tanstack/react-query";
+import { useSession } from "../../app/providers/SessionProvider";
+import { productionService } from "./productionService";
+import type { ProductionFilters } from "./productionTypes";
 /** Construye la clave de caché para una consulta de producción. */
 export const productionKey = (c: string, v: string, f: ProductionFilters) =>
   [
-    'production',
+    "production",
     c,
     v,
     f.mode,
@@ -30,8 +30,8 @@ export const productionKey = (c: string, v: string, f: ProductionFilters) =>
  */
 export const useProduction = (f: ProductionFilters) => {
   const { api, context } = useSession();
-  const c = context.company?.id ?? '',
-    v = context.vendor?.id ?? '';
+  const c = context.company?.id ?? "",
+    v = context.vendor?.id ?? "";
   return useQuery({
     queryKey: productionKey(c, v, f),
     queryFn: ({ signal }) => productionService(api).list(c, v, f, signal),

@@ -1,4 +1,4 @@
-import { runUiAction } from '../../core/async/uiAction';
+import { runUiAction } from "../../core/async/uiAction";
 import { useEffect, useState } from "react";
 import { useSession } from "../../app/providers/SessionProvider";
 import { useDebouncedValue } from "../../core/hooks/useDebouncedValue";
@@ -160,7 +160,10 @@ export const VatSelector = ({ countryId, value, onChange }: Props) => {
           >
             Cancelar
           </Button>
-          <Button loading={create.isPending} onClick={() => runUiAction(() => submit())}>
+          <Button
+            loading={create.isPending}
+            onClick={() => runUiAction(() => submit())}
+          >
             Crear y seleccionar
           </Button>
         </div>

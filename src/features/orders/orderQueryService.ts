@@ -1,11 +1,11 @@
-import type { ApiClient } from '../../core/api/apiClient';
+import type { ApiClient } from "../../core/api/apiClient";
 import {
   mapCancel,
   mapConfirmation,
   mapOfficialOrderLines,
   mapOrders,
-} from './orderMappers';
-import type { OrderFilters, UpdateLineInput } from './orderTypes';
+} from "./orderMappers";
+import type { OrderFilters, UpdateLineInput } from "./orderTypes";
 /**
  * Servicio de consulta y mantenimiento de pedidos existentes.
  *
@@ -17,10 +17,15 @@ import type { OrderFilters, UpdateLineInput } from './orderTypes';
  * @returns Operaciones sobre pedidos y líneas persistidas.
  */
 export const orderQueryService = (api: ApiClient) => ({
-  async list(company: string, salesGroup: string, filters: OrderFilters, signal?: AbortSignal) {
+  async list(
+    company: string,
+    salesGroup: string,
+    filters: OrderFilters,
+    signal?: AbortSignal,
+  ) {
     return mapOrders(
       await api.post<unknown>(
-        '/sales',
+        "/sales",
         {
           company,
           ...(filters.customer ? { cust_id: filters.customer } : {}),
@@ -28,7 +33,9 @@ export const orderQueryService = (api: ApiClient) => ({
           ...(filters.from ? { from_date: filters.from } : {}),
           ...(filters.to ? { to_date: filters.to } : {}),
           ...(filters.status ? { sales_status: filters.status } : {}),
-          ...(filters.creditControl ? { credit_control: filters.creditControl } : {}),
+          ...(filters.creditControl
+            ? { credit_control: filters.creditControl }
+            : {}),
           pagination: { perpage: filters.perPage, page: filters.page },
         },
         { signal },
@@ -36,11 +43,19 @@ export const orderQueryService = (api: ApiClient) => ({
       filters.perPage,
     );
   },
-  async header(company: string, salesOrderNumber: string, signal?: AbortSignal) {
+  async header(
+    company: string,
+    salesOrderNumber: string,
+    signal?: AbortSignal,
+  ) {
     const result = mapOrders(
       await api.post<unknown>(
-        '/sales',
-        { company, sales_id: salesOrderNumber, pagination: { perpage: 1, page: 1 } },
+        "/sales",
+        {
+          company,
+          sales_id: salesOrderNumber,
+          pagination: { perpage: 1, page: 1 },
+        },
         { signal },
       ),
       1,
@@ -50,7 +65,7 @@ export const orderQueryService = (api: ApiClient) => ({
   async lines(company: string, salesOrderNumber: string, signal?: AbortSignal) {
     return mapOfficialOrderLines(
       await api.post<unknown>(
-        '/d365/sales/line/query',
+        "/d365/sales/line/query",
         {
           filters: {
             dataAreaId: [company],
@@ -72,7 +87,7 @@ export const orderQueryService = (api: ApiClient) => ({
   ) {
     const result = mapOfficialOrderLines(
       await api.post<unknown>(
-        '/d365/sales/line/query',
+        "/d365/sales/line/query",
         {
           filters: {
             dataAreaId: [company],
@@ -89,24 +104,32 @@ export const orderQueryService = (api: ApiClient) => ({
     const matches = result.filter(
       (line) =>
         line.dataAreaId.trim().toLowerCase() === company.trim().toLowerCase() &&
-        line.salesOrderNumber.trim().toLowerCase() === salesOrderNumber.trim().toLowerCase() &&
+        line.salesOrderNumber.trim().toLowerCase() ===
+          salesOrderNumber.trim().toLowerCase() &&
         line.lineNumber === lineNumber,
     );
-    if (!matches.length) throw new Error('No se encontrÃ³ la lÃ­nea seleccionada en Dynamics.');
+    if (!matches.length)
+      throw new Error("No se encontrÃ³ la lÃ­nea seleccionada en Dynamics.");
     if (matches.length !== 1)
-      throw new Error('Dynamics devolviÃ³ mÃ¡s de una coincidencia para la lÃ­nea seleccionada.');
+      throw new Error(
+        "Dynamics devolviÃ³ mÃ¡s de una coincidencia para la lÃ­nea seleccionada.",
+      );
     return matches[0];
   },
   async updateLine(input: UpdateLineInput) {
     return api.patch<unknown>(
-      '/d365/sales/line',
+      "/d365/sales/line",
       {
-        key: { dataAreaId: input.companyId, InventoryLotId: input.inventoryLotId },
-        payload:
-          input.payload ?? {
-            ...(input.quantity !== undefined ? { OrderedSalesQuantity: input.quantity } : {}),
-            ...(input.price !== undefined ? { SalesPrice: input.price } : {}),
-          },
+        key: {
+          dataAreaId: input.companyId,
+          InventoryLotId: input.inventoryLotId,
+        },
+        payload: input.payload ?? {
+          ...(input.quantity !== undefined
+            ? { OrderedSalesQuantity: input.quantity }
+            : {}),
+          ...(input.price !== undefined ? { SalesPrice: input.price } : {}),
+        },
       },
       { timeoutMs: 60_000 },
     );
@@ -114,7 +137,7 @@ export const orderQueryService = (api: ApiClient) => ({
   async cancelLine(companyId: string, inventoryLotId: string) {
     return mapCancel(
       await api.post<unknown>(
-        '/d365_services/post_cancle_sales_line',
+        "/d365_services/post_cancle_sales_line",
         { dataAreaId: companyId, InventoryLotId: inventoryLotId },
         { timeoutMs: 60_000, retryOnUnauthorized: false },
       ),
@@ -122,7 +145,7 @@ export const orderQueryService = (api: ApiClient) => ({
   },
   async deleteLine(companyId: string, inventoryLotId: string) {
     return api.delete<unknown>(
-      '/d365/sales/line',
+      "/d365/sales/line",
       { key: { dataAreaId: companyId, InventoryLotId: inventoryLotId } },
       { timeoutMs: 60_000, retryOnUnauthorized: false },
     );
@@ -130,7 +153,7 @@ export const orderQueryService = (api: ApiClient) => ({
   async confirm(companyId: string, salesOrderNumber: string) {
     return mapConfirmation(
       await api.post<unknown>(
-        '/d365_services/confirm_sales_order',
+        "/d365_services/confirm_sales_order",
         { DataAreaId: companyId, SalesId: salesOrderNumber },
         { timeoutMs: 60_000 },
       ),

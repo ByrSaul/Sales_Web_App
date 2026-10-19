@@ -8,7 +8,7 @@ import type {
   ProductVariant,
   PromotionGroup,
   SalesOrigin,
-} from '../catalogs/types';
+} from "../catalogs/types";
 
 /** Dimensiones de producto conservadas en una línea del borrador. */
 export type DraftDimensions = {
@@ -18,13 +18,16 @@ export type DraftDimensions = {
   styleId: string;
   versionId: string;
 };
-export type DraftAgreement = Pick<Agreement, 'recId' | 'number' | 'title' | 'currency'>;
+export type DraftAgreement = Pick<
+  Agreement,
+  "recId" | "number" | "title" | "currency"
+>;
 
 /** Línea local editable antes de su persistencia en D365. */
 export type OrderDraftLine = {
   localId: string;
   parentLineId: string | null;
-  source: 'normal' | 'agreement';
+  source: "normal" | "agreement";
   itemId: string;
   itemName: string;
   productType: string;
@@ -44,7 +47,10 @@ export type OrderDraftLine = {
   warehouseId: string;
   availablePhysical: number;
   isBonification: boolean;
-  promotion: Pick<PromotionGroup, 'groupId' | 'name' | 'forecastDiscount'> | null;
+  promotion: Pick<
+    PromotionGroup,
+    "groupId" | "name" | "forecastDiscount"
+  > | null;
   matchingAgreementLine: number | null;
   agreementRemainingQuantity: number | null;
 };

@@ -7,15 +7,15 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from 'react';
-import { useSession } from '../../app/providers/SessionProvider';
-import { clearDraftStorage } from '../orderDraft/storage';
-import { useOrderDraft } from '../orderDraft/OrderDraftProvider';
-import { hasUnresolvedOperation } from './operationTracking';
-import { orderSubmissionService } from './orderSubmissionService';
-import { SubmissionRunner } from './submissionRunner';
-import { clearSubmission, loadSubmission } from './submissionStorage';
-import type { OrderSubmission, SubmissionResult } from './types';
+} from "react";
+import { useSession } from "../../app/providers/SessionProvider";
+import { clearDraftStorage } from "../orderDraft/storage";
+import { useOrderDraft } from "../orderDraft/OrderDraftProvider";
+import { hasUnresolvedOperation } from "./operationTracking";
+import { orderSubmissionService } from "./orderSubmissionService";
+import { SubmissionRunner } from "./submissionRunner";
+import { clearSubmission, loadSubmission } from "./submissionStorage";
+import type { OrderSubmission, SubmissionResult } from "./types";
 type Value = {
   submission: OrderSubmission | null;
   /** Hay una solicitud HTTP de creación o verificación en curso en esta pestaña. */
@@ -32,12 +32,12 @@ type Value = {
 };
 const Context = createContext<Value | null>(null);
 const activeStatus = new Set([
-  'validating',
-  'creating-header',
-  'header-created',
-  'uploading-attachments',
-  'creating-lines',
-  'recovering',
+  "validating",
+  "creating-header",
+  "header-created",
+  "uploading-attachments",
+  "creating-lines",
+  "recovering",
 ]);
 /**
  * Proveedor que coordina y recupera el proceso persistente de envío de pedidos.
@@ -47,11 +47,15 @@ const activeStatus = new Set([
  * - Gateway de envío de pedidos.
  * - Almacenamiento de la ejecución.
  */
-export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) => {
+export const OrderSubmissionProvider = ({
+  children,
+}: {
+  children: ReactNode;
+}) => {
   const { api, context } = useSession();
   const { draft, attachments, clearAttachments, reset } = useOrderDraft();
   const [submission, setSubmission] = useState<OrderSubmission | null>(() =>
-    loadSubmission(context.accountId, context.company?.id ?? ''),
+    loadSubmission(context.accountId, context.company?.id ?? ""),
   );
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
@@ -65,8 +69,8 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
     const handler = (event: BeforeUnloadEvent) => {
       if (active) event.preventDefault();
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
   }, [active]);
   /** Ejecuta un comando a la vez: el doble clic nunca produce dos solicitudes. */
   const exclusive = useCallback(async (work: () => Promise<void>) => {
@@ -104,7 +108,10 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
       ),
     [attachments, draft, runner, settle],
   );
-  const submit = useCallback(() => exclusive(() => execute(null)), [exclusive, execute]);
+  const submit = useCallback(
+    () => exclusive(() => execute(null)),
+    [exclusive, execute],
+  );
   /**
    * Consulta en el Backend el estado de las creaciones sin resultado confirmado, con su mismo POST,
    * su misma `Idempotency-Key` y su mismo body. Nunca genera claves nuevas. Si todo quedó
@@ -147,12 +154,20 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
           }
           setSubmission(assessed.submission);
           // Si el Backend confirmó que el pedido existe, se continúa con sus líneas pendientes.
-          if (assessed.submission.salesOrderNumber) await execute(assessed.submission);
+          if (assessed.submission.salesOrderNumber)
+            await execute(assessed.submission);
           return;
         }
         await execute(await runner.prepareRetry(submission));
       }),
-    [context.accountId, context.company, exclusive, execute, runner, submission],
+    [
+      context.accountId,
+      context.company,
+      exclusive,
+      execute,
+      runner,
+      submission,
+    ],
   );
   const discardRecovery = useCallback(() => {
     clearSubmission(context.accountId, context.company!.id);
@@ -175,13 +190,23 @@ export const OrderSubmissionProvider = ({ children }: { children: ReactNode }) =
       discardRecovery,
       createAnother,
     }),
-    [submission, active, busy, unresolved, submit, verifyPending, retryPending, discardRecovery, createAnother],
+    [
+      submission,
+      active,
+      busy,
+      unresolved,
+      submit,
+      verifyPending,
+      retryPending,
+      discardRecovery,
+      createAnother,
+    ],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 };
 /** @returns Estado y comandos del envío de pedido en curso. */
 export const useOrderSubmission = () => {
   const value = useContext(Context);
-  if (!value) throw new Error('useOrderSubmission must be inside provider');
+  if (!value) throw new Error("useOrderSubmission must be inside provider");
   return value;
 };

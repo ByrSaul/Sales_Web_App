@@ -1,4 +1,4 @@
-import type { InventoryItem } from './types';
+import type { InventoryItem } from "./types";
 
 /** Identity of the backend's inventory aggregate, independent of quantities and list order. */
 export const inventoryIdentity = (item: InventoryItem): string =>

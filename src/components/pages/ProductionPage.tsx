@@ -1,14 +1,14 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useProduction } from '../../features/production/productionQueries';
+import { runUiAction } from "../../core/async/uiAction";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useProduction } from "../../features/production/productionQueries";
 import type {
   DailyProduction,
   ProductionFilters,
   SalesProduction,
-} from '../../features/production/productionTypes';
-import { Button, Card, EmptyState, Input, Select } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+} from "../../features/production/productionTypes";
+import { Button, Card, EmptyState, Input, Select } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de consulta de producción por pedido o consolidado diario. */
 const ProductionPage = () => {
   const renderProduction = () => {
@@ -24,7 +24,9 @@ const ProductionPage = () => {
       );
     }
     if (!q.data?.items.length) {
-      return <EmptyState title="No hay registros de producción para estos filtros" />;
+      return (
+        <EmptyState title="No hay registros de producción para estos filtros" />
+      );
     }
     return (
       <>
@@ -32,7 +34,7 @@ const ProductionPage = () => {
           <table className="w-full bg-white text-sm">
             <thead>
               <tr>
-                {f.mode === 'orders' ? (
+                {f.mode === "orders" ? (
                   <>
                     <th>Pedido</th>
                     <th>Producción</th>
@@ -58,7 +60,7 @@ const ProductionPage = () => {
             </thead>
             <tbody>
               {q.data.items.map((row) =>
-                f.mode === 'orders'
+                f.mode === "orders"
                   ? (() => {
                       const x = row as SalesProduction;
                       return (
@@ -154,14 +156,14 @@ const ProductionPage = () => {
 
   const [p, setP] = useSearchParams();
   const f: ProductionFilters = {
-    mode: p.get('mode') === 'daily' ? 'daily' : 'orders',
-    customer: p.get('customer') ?? '',
-    item: p.get('item') ?? '',
-    status: p.get('status') ?? '',
-    from: p.get('from') ?? '',
-    to: p.get('to') ?? '',
-    delivery: p.get('delivery') ?? '',
-    page: Math.max(1, Number(p.get('page') ?? 1)),
+    mode: p.get("mode") === "daily" ? "daily" : "orders",
+    customer: p.get("customer") ?? "",
+    item: p.get("item") ?? "",
+    status: p.get("status") ?? "",
+    from: p.get("from") ?? "",
+    to: p.get("to") ?? "",
+    delivery: p.get("delivery") ?? "",
+    page: Math.max(1, Number(p.get("page") ?? 1)),
   };
   const [form, setForm] = useState(f);
   const q = useProduction(f);
@@ -183,10 +185,15 @@ const ProductionPage = () => {
         <Select
           label="Vista"
           value={form.mode}
-          onChange={(e) => setForm({ ...form, mode: e.target.value as ProductionFilters['mode'] })}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              mode: e.target.value as ProductionFilters["mode"],
+            })
+          }
           options={[
-            { value: 'orders', label: 'Ligada a pedidos' },
-            { value: 'daily', label: 'Producción diaria' },
+            { value: "orders", label: "Ligada a pedidos" },
+            { value: "daily", label: "Producción diaria" },
           ]}
         />
         <Input
@@ -194,7 +201,7 @@ const ProductionPage = () => {
           value={form.item}
           onChange={(e) => setForm({ ...form, item: e.target.value })}
         />
-        {form.mode === 'orders' && (
+        {form.mode === "orders" && (
           <>
             <Input
               label="Cliente"
@@ -206,11 +213,11 @@ const ProductionPage = () => {
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
               options={[
-                { value: '', label: 'Todos' },
-                { value: 'Orden Abierta', label: 'Orden Abierta' },
-                { value: 'Entregado', label: 'Entregado' },
-                { value: 'Facturado', label: 'Facturado' },
-                { value: 'Cancelado', label: 'Cancelado' },
+                { value: "", label: "Todos" },
+                { value: "Orden Abierta", label: "Orden Abierta" },
+                { value: "Entregado", label: "Entregado" },
+                { value: "Facturado", label: "Facturado" },
+                { value: "Cancelado", label: "Cancelado" },
               ]}
             />
           </>
@@ -227,7 +234,7 @@ const ProductionPage = () => {
           value={form.to}
           onChange={(e) => setForm({ ...form, to: e.target.value })}
         />
-        {form.mode === 'orders' && (
+        {form.mode === "orders" && (
           <Input
             label="Fecha de despacho"
             type="date"

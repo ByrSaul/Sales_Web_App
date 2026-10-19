@@ -1,4 +1,3 @@
-
 import type { ApiClient } from "../../core/api/apiClient";
 import { mapAttachment, mapAttachmentList } from "./attachmentMappers";
 import { extensionOf } from "./attachmentValidation";
@@ -93,8 +92,7 @@ export const attachmentService = (api: ApiClient) => ({
     const suffix = `.${extension}`;
 
     const baseName =
-      extension &&
-      file.name.toLowerCase().endsWith(suffix.toLowerCase())
+      extension && file.name.toLowerCase().endsWith(suffix.toLowerCase())
         ? file.name.slice(0, -suffix.length)
         : file.name;
 
@@ -110,9 +108,7 @@ export const attachmentService = (api: ApiClient) => ({
       Attachment: await fileToBase64(file),
     };
 
-    const response = await api.post<
-      AttachmentDto | AttachmentDto[]
-    >(
+    const response = await api.post<AttachmentDto | AttachmentDto[]>(
       "/d365/sales_header_documents_atachments",
       request,
       {
@@ -149,10 +145,7 @@ const mime: Record<string, string> = {
  * @param extension Extensión informada.
  * @returns Nombre de archivo sanitizado.
  */
-export const safeDownloadName = (
-  name: string,
-  extension: string,
-): string => {
+export const safeDownloadName = (name: string, extension: string): string => {
   // Eliminar rutas Windows y Linux.
   const fileName = name.split(/[\\/]/).pop() ?? "";
 
@@ -162,9 +155,7 @@ export const safeDownloadName = (
       const code = character.codePointAt(0) ?? 0;
 
       return (
-        code > 31 &&
-        code !== 127 &&
-        !String.raw`<>:"/\\|?*`.includes(character)
+        code > 31 && code !== 127 && !String.raw`<>:"/\\|?*`.includes(character)
       );
     })
     .join("")
@@ -219,8 +210,7 @@ export const openAttachment = (
   );
 
   // Determinar tipo MIME.
-  const contentType =
-    mime[extension] ?? "application/octet-stream";
+  const contentType = mime[extension] ?? "application/octet-stream";
 
   // Crear archivo en memoria.
   const blob = new Blob([bytes], {
@@ -231,10 +221,7 @@ export const openAttachment = (
   const url = URL.createObjectURL(blob);
 
   // Generar nombre de descarga seguro.
-  const name = safeDownloadName(
-    attachment.fileName,
-    extension,
-  );
+  const name = safeDownloadName(attachment.fileName, extension);
 
   try {
     if (["pdf", "png", "jpg", "jpeg"].includes(extension)) {

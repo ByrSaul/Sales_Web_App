@@ -1,4 +1,4 @@
-export type ProductionMode = 'orders' | 'daily';
+export type ProductionMode = "orders" | "daily";
 /** Filtros compartidos por las vistas de producción disponibles. */
 export type ProductionFilters = {
   mode: ProductionMode;

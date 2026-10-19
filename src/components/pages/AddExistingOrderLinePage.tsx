@@ -2,11 +2,14 @@ import { useExistingOrderLinePrice } from "../../features/orders/useExistingOrde
 import { inventoryIdentity } from "../../features/catalogs/inventoryIdentity";
 import { OrderProductSearchResults } from "../orders/OrderProductSearchResults";
 import { PendingOrderLines } from "../orders/PendingOrderLines";
-import { usePendingOrderLines, type PendingOrderLine as PendingLine } from "../../features/orders/usePendingOrderLines";
-import { runUiAction } from '../../core/async/uiAction';
+import {
+  usePendingOrderLines,
+  type PendingOrderLine as PendingLine,
+} from "../../features/orders/usePendingOrderLines";
+import { runUiAction } from "../../core/async/uiAction";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
 import { useDebouncedValue } from "../../core/hooks/useDebouncedValue";
 import { useSession } from "../../app/providers/SessionProvider";
 import {
@@ -93,7 +96,8 @@ const AddExistingOrderLinePage = () => {
     agreements: false,
     documents: false,
   });
-  const { price, setPriceOverride, effectivePrice, displayedPrice } = useExistingOrderLinePrice(api, order, product, variant, editingPendingId);
+  const { price, setPriceOverride, effectivePrice, displayedPrice } =
+    useExistingOrderLinePrice(api, order, product, variant, editingPendingId);
   useEffect(() => {
     if (!forceRegisterVariant) return;
     setVariant(null);
@@ -151,18 +155,35 @@ const AddExistingOrderLinePage = () => {
         : null,
     [order, context.accountId, context.vendor, context.user],
   );
-  const { pendingLines, setPendingLines, submitting, submitPending, verifyPendingLines } = usePendingOrderLines({
-    api, accountId: context.accountId, companyId: order?.companyId ?? '', salesOrderNumber,
-    draft: shellDraft, paymentRequired,
-    verifyPayment: async () => hasValidPaymentAttachment((await attachments.refetch()).data ?? []),
+  const {
+    pendingLines,
+    setPendingLines,
+    submitting,
+    submitPending,
+    verifyPendingLines,
+  } = usePendingOrderLines({
+    api,
+    accountId: context.accountId,
+    companyId: order?.companyId ?? "",
+    salesOrderNumber,
+    draft: shellDraft,
+    paymentRequired,
+    verifyPayment: async () =>
+      hasValidPaymentAttachment((await attachments.refetch()).data ?? []),
     onMessage: setMessage,
-    onCompleted: () => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`),
+    onCompleted: () =>
+      navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`),
   });
   const generatedLines =
     shellDraft && selection ? buildDraftLines(shellDraft, selection) : [];
   const errors = generatedLines.length
     ? validateLineSelection(generatedLines)
-    : [{ key: 'selection-required', message: "Seleccione producto e inventario." }];
+    : [
+        {
+          key: "selection-required",
+          message: "Seleccione producto e inventario.",
+        },
+      ];
 
   const reset = () => {
     setProduct(null);
@@ -347,7 +368,11 @@ const AddExistingOrderLinePage = () => {
         </Button>
       </div>
       {message && (
-        <output aria-live="polite" aria-atomic="true" className="block p-3 bg-amber-50 border rounded text-sm">
+        <output
+          aria-live="polite"
+          aria-atomic="true"
+          className="block p-3 bg-amber-50 border rounded text-sm"
+        >
           {message}
         </output>
       )}
@@ -366,8 +391,20 @@ const AddExistingOrderLinePage = () => {
             }}
             icon="search"
           />
-          {!product && <OrderProductSearchResults products={products} search={search} debouncedSearch={debouncedSearch}
-            onSelect={(selected) => { setProduct(selected); setVariant(null); setStock(null); setPriceOverride(''); setSearch(`${selected.itemId} · ${selected.name}`); }} />}
+          {!product && (
+            <OrderProductSearchResults
+              products={products}
+              search={search}
+              debouncedSearch={debouncedSearch}
+              onSelect={(selected) => {
+                setProduct(selected);
+                setVariant(null);
+                setStock(null);
+                setPriceOverride("");
+                setSearch(`${selected.itemId} · ${selected.name}`);
+              }}
+            />
+          )}
           {product?.requiresVariant && (
             <div className="space-y-3">
               <Toggle
@@ -460,7 +497,10 @@ const AddExistingOrderLinePage = () => {
               {price.isError && (
                 <p className="text-xs text-error">
                   Error al consultar precio.{" "}
-                  <button className="underline" onClick={() => runUiAction(() => price.refetch())}>
+                  <button
+                    className="underline"
+                    onClick={() => runUiAction(() => price.refetch())}
+                  >
                     Reintentar
                   </button>
                 </p>
@@ -476,9 +516,7 @@ const AddExistingOrderLinePage = () => {
                 label={`Precio${price.data ? ` (${price.data.currency})` : ""}`}
                 type="number"
                 step="any"
-                value={
-                  displayedPrice()
-                }
+                value={displayedPrice()}
                 disabled={!pricePermission || !price.data}
                 onChange={(e) => setPriceOverride(e.target.value)}
               />
@@ -555,10 +593,21 @@ const AddExistingOrderLinePage = () => {
         </Card>
       </div>
       <PendingOrderLines
-        pendingLines={pendingLines} editingPendingId={editingPendingId} submitting={submitting}
-        submitPending={submitPending} verifyPendingLines={verifyPendingLines} beginPendingEdit={beginPendingEdit}
-        onRemove={(localId) => setPendingLines((current) => removeDraftLine(current, localId) as PendingLine[])}
-        onCancelEdit={() => { setEditingPendingId(null); reset(); }}
+        pendingLines={pendingLines}
+        editingPendingId={editingPendingId}
+        submitting={submitting}
+        submitPending={submitPending}
+        verifyPendingLines={verifyPendingLines}
+        beginPendingEdit={beginPendingEdit}
+        onRemove={(localId) =>
+          setPendingLines(
+            (current) => removeDraftLine(current, localId) as PendingLine[],
+          )
+        }
+        onCancelEdit={() => {
+          setEditingPendingId(null);
+          reset();
+        }}
       />
     </div>
   );

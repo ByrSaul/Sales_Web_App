@@ -1,5 +1,9 @@
-import type { Company, OperationalUser, Vendor } from '../../core/session/types';
-import type { NewLineSelection, OrderDraft, OrderDraftLine } from './types';
+import type {
+  Company,
+  OperationalUser,
+  Vendor,
+} from "../../core/session/types";
+import type { NewLineSelection, OrderDraft, OrderDraftLine } from "./types";
 
 const id = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
@@ -20,9 +24,9 @@ export const createOrderDraft = (
   currencyCode: company.defaultCurrency,
   deliveryMode: null,
   deliveryAddress: null,
-  requestedShippingDate: '',
-  customerReference: '',
-  observations: '',
+  requestedShippingDate: "",
+  customerReference: "",
+  observations: "",
   salesOrigin: null,
   agreement: null,
   taxExemptNumber: null,
@@ -35,7 +39,9 @@ export const createOrderDraft = (
 export const bonusQuantity = (quantity: number, discount: number) => {
   if (quantity <= 0 || discount <= 0) return 0;
   const result = (quantity * discount) / 100;
-  return result - Math.floor(result) >= 0.99 ? Math.ceil(result) : Math.floor(result);
+  return result - Math.floor(result) >= 0.99
+    ? Math.ceil(result)
+    : Math.floor(result);
 };
 
 const baseLine = (
@@ -48,18 +54,18 @@ const baseLine = (
   return {
     localId,
     parentLineId: null,
-    source: selection.matchingAgreementLine != null ? 'agreement' : 'normal',
+    source: selection.matchingAgreementLine != null ? "agreement" : "normal",
     itemId: selection.product.itemId,
     itemName: selection.product.name,
     productType: selection.product.productType,
     presentationCode: v?.displayProductNumber ?? null,
     presentationName: v?.name ?? null,
     dimensions: {
-      configId: v?.configId ?? '',
-      colorId: v?.colorId ?? '',
-      sizeId: v?.sizeId ?? '',
-      styleId: v?.styleId ?? '',
-      versionId: v?.versionId ?? '',
+      configId: v?.configId ?? "",
+      colorId: v?.colorId ?? "",
+      sizeId: v?.sizeId ?? "",
+      styleId: v?.styleId ?? "",
+      versionId: v?.versionId ?? "",
     },
     quantity: selection.quantity,
     currency: draft.currencyCode,
@@ -87,7 +93,8 @@ export const buildDraftLines = (
 ): OrderDraftLine[] => {
   const originalId = id();
   const original = baseLine(draft, selection, originalId);
-  if (selection.independentBonification) return [{ ...original, price: 0, isBonification: true }];
+  if (selection.independentBonification)
+    return [{ ...original, price: 0, isBonification: true }];
   if (!selection.promotion) return [original];
   const relation = id();
   const linkedOriginal = { ...original, parentLineId: relation };
@@ -95,7 +102,10 @@ export const buildDraftLines = (
     ...original,
     localId: id(),
     parentLineId: relation,
-    quantity: bonusQuantity(selection.quantity, selection.promotion.forecastDiscount),
+    quantity: bonusQuantity(
+      selection.quantity,
+      selection.promotion.forecastDiscount,
+    ),
     price: 0,
     priceUnit: 0,
     isBonification: true,
@@ -106,7 +116,7 @@ export const buildDraftLines = (
     },
     matchingAgreementLine: null,
     agreementRemainingQuantity: null,
-    source: 'normal',
+    source: "normal",
   };
   return [linkedOriginal, bonus];
 };
@@ -125,4 +135,7 @@ export const removeDraftLine = (lines: OrderDraftLine[], localId: string) => {
 };
 export const draftTotal = (draft: OrderDraft) =>
   draft.lines.reduce((sum, line) => sum + line.quantity * line.price, 0);
-export const touch = (draft: OrderDraft): OrderDraft => ({ ...draft, updatedAt: now() });
+export const touch = (draft: OrderDraft): OrderDraft => ({
+  ...draft,
+  updatedAt: now(),
+});

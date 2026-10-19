@@ -1,4 +1,4 @@
-export type ForecastView = 'all' | 'qty' | 'amount' | 'volume';
+export type ForecastView = "all" | "qty" | "amount" | "volume";
 /** Filtros, vista y paginación aplicados al pronóstico comercial. */
 export type ForecastFilters = {
   from: string;

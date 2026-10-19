@@ -22,7 +22,7 @@ export type StatCard = {
   trend?: string;
   trendUp?: boolean;
   icon: string;
-  variant: 'primary' | 'secondary';
+  variant: "primary" | "secondary";
 };
 
 export type ActivityItem = {
@@ -39,7 +39,7 @@ export type QuickAction = {
 };
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
-export type OrderStatus = 'FACTURADO' | 'PENDIENTE' | 'BORRADOR' | 'CANCELADO';
+export type OrderStatus = "FACTURADO" | "PENDIENTE" | "BORRADOR" | "CANCELADO";
 
 /** Representación de pedido utilizada por vistas heredadas del prototipo. */
 export type Order = {
@@ -95,7 +95,7 @@ export type OrderDetail = {
 };
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
-export type ClientStatus = 'ACTIVO' | 'BLOQUEADO';
+export type ClientStatus = "ACTIVO" | "BLOQUEADO";
 
 /** Representación resumida de cliente utilizada por vistas heredadas. */
 export type Client = {
@@ -151,11 +151,11 @@ export type InventoryDetail = {
   site: string;
   warehouse: string;
   available: number;
-  status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  status: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
 };
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────
-export type InvoiceStatus = 'Cancelado' | 'Vigente' | 'Vencida';
+export type InvoiceStatus = "Cancelado" | "Vigente" | "Vencida";
 
 export type Invoice = {
   id: string;
@@ -169,7 +169,7 @@ export type Invoice = {
   issueDate: string;
   dueDate: string;
   daysInfo: string;
-  daysVariant: 'ok' | 'warning' | 'danger';
+  daysVariant: "ok" | "warning" | "danger";
   currency: string;
 };
 
@@ -184,16 +184,16 @@ export type InvoiceFilters = {
 // ─── App types (already defined inline in pages, kept for reference) ───────────
 /** Unión de rutas conocidas por la navegación tipada del prototipo. */
 export type AppRoute =
-  | '/'
-  | '/pedidos'
-  | '/pedidos/detalle'
-  | '/clientes'
-  | '/inventario'
-  | '/facturas'
-  | '/facturas/busqueda'
-  | '/crear-pedido'
-  | '/crear-pedido/linea'
-  | '/estado-cuenta'
-  | '/empresas'
-  | '/vendedores'
-  | '/soporte';
+  | "/"
+  | "/pedidos"
+  | "/pedidos/detalle"
+  | "/clientes"
+  | "/inventario"
+  | "/facturas"
+  | "/facturas/busqueda"
+  | "/crear-pedido"
+  | "/crear-pedido/linea"
+  | "/estado-cuenta"
+  | "/empresas"
+  | "/vendedores"
+  | "/soporte";

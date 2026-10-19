@@ -1,28 +1,33 @@
-import { validateOrderDraft } from '../orderDraft/validation';
-import { hasValidLocalPaymentAttachment, hasValidPaymentAttachment, requiresPaymentAttachment, validateAttachment } from '../attachments/attachmentValidation';
-import type { OrderDraft } from '../orderDraft/types';
+import { validateOrderDraft } from "../orderDraft/validation";
+import {
+  hasValidLocalPaymentAttachment,
+  hasValidPaymentAttachment,
+  requiresPaymentAttachment,
+  validateAttachment,
+} from "../attachments/attachmentValidation";
+import type { OrderDraft } from "../orderDraft/types";
 import {
   classifyCreationError,
   creationOutcomeMessage,
   newIdempotencyKey,
   type CreationOutcome,
-} from './idempotency';
-import { isAmbiguousError, mutationErrorMessage } from './mutationOutcome';
+} from "./idempotency";
+import { isAmbiguousError, mutationErrorMessage } from "./mutationOutcome";
 import {
   assessNewRequest,
   hasUnresolvedOperation,
   isRetryableTracking,
   isUnresolvedTracking,
   trackingFromOutcome,
-} from './operationTracking';
+} from "./operationTracking";
 import {
   isDraftLineAlreadyCreated,
   mapAgreementLineRequest,
   mapHeaderRequest,
   mapNormalLineRequest,
   sameLine,
-} from './orderSubmissionMapper';
-import { saveSubmission } from './submissionStorage';
+} from "./orderSubmissionMapper";
+import { saveSubmission } from "./submissionStorage";
 import type {
   ExistingSalesLine,
   OrderSubmission,
@@ -30,7 +35,7 @@ import type {
   SubmissionAttachmentInput,
   SubmissionLine,
   SubmissionResult,
-} from './types';
+} from "./types";
 
 type Listener = (state: OrderSubmission) => void;
 const clone = <T>(value: T): T => structuredClone(value);
@@ -39,7 +44,7 @@ const friendly = mutationErrorMessage;
 
 /** Mensaje de una creación fallida: estado del Backend y, si existe, el detalle de la respuesta. */
 const outcomeError = (outcome: CreationOutcome, error: unknown) =>
-  outcome.kind === 'rejected'
+  outcome.kind === "rejected"
     ? `${creationOutcomeMessage(outcome)} ${friendly(error)}`
     : creationOutcomeMessage(outcome);
 
@@ -57,18 +62,18 @@ const initial = (draft: OrderDraft): OrderSubmission => {
     companyId: draft.dataAreaId,
     draftId: draft.id,
     salesOrderNumber: null,
-    status: 'idle',
+    status: "idle",
     headerAmbiguous: false,
     headerIdempotencyKey: newIdempotencyKey(),
-    headerTracking: 'not-sent',
+    headerTracking: "not-sent",
     createdAt: time,
     updatedAt: time,
     snapshot: clone(draft),
     lines: draft.lines.map((line) => ({
       localId: line.localId,
       idempotencyKey: newIdempotencyKey(),
-      tracking: 'not-sent',
-      status: 'pending',
+      tracking: "not-sent",
+      status: "pending",
       attempts: 0,
       error: null,
       backendLineNumber: null,
@@ -80,15 +85,15 @@ const initial = (draft: OrderDraft): OrderSubmission => {
 
 /** Estado global derivado del seguimiento de las líneas cuando el encabezado ya existe. */
 const linesStatus = (state: OrderSubmission) => {
-  const pending = state.lines.filter((line) => line.tracking !== 'completed');
-  if (!pending.length) return { status: 'completed' as const, error: null };
+  const pending = state.lines.filter((line) => line.tracking !== "completed");
+  if (!pending.length) return { status: "completed" as const, error: null };
   if (state.lines.some((line) => isUnresolvedTracking(line.tracking)))
     return {
-      status: 'awaiting-confirmation' as const,
+      status: "awaiting-confirmation" as const,
       error: `${pending.length} línea(s) continúan pendientes. Hay una línea sin resultado confirmado: consulte su estado antes de continuar.`,
     };
   return {
-    status: 'partial-failure' as const,
+    status: "partial-failure" as const,
     error: `${pending.length} línea(s) continúan pendientes.`,
   };
 };
@@ -100,7 +105,7 @@ const linesStatus = (state: OrderSubmission) => {
  */
 const canResumeAfterVerification = (state: OrderSubmission) =>
   Boolean(state.salesOrderNumber) &&
-  state.status !== 'completed' &&
+  state.status !== "completed" &&
   !state.attachmentError &&
   !hasUnresolvedOperation(state) &&
   !state.lines.some((line) => isRetryableTracking(line.tracking));
@@ -127,13 +132,16 @@ export class SubmissionRunner {
     private readonly listener: Listener = () => undefined,
   ) {}
   /** Actualiza la marca temporal, persiste opcionalmente y publica una copia del estado. */
-  private publish(state: OrderSubmission, persist = Boolean(state.salesOrderNumber)) {
+  private publish(
+    state: OrderSubmission,
+    persist = Boolean(state.salesOrderNumber),
+  ) {
     state.updatedAt = timestamp();
     if (persist) saveSubmission(state);
     this.listener(clone(state));
   }
   private async exclusive<T>(work: () => Promise<T>): Promise<T> {
-    if (this.running) throw new Error('Ya existe un envío activo.');
+    if (this.running) throw new Error("Ya existe un envío activo.");
     this.running = true;
     try {
       return await work();
@@ -167,11 +175,11 @@ export class SubmissionRunner {
   ): Promise<SubmissionResult> {
     const state = recovery ? clone(recovery) : initial(draft);
     if (recovery && hasUnresolvedOperation(state)) {
-      state.error = creationOutcomeMessage({ kind: 'unknown' });
+      state.error = creationOutcomeMessage({ kind: "unknown" });
       this.publish(state, true);
       return { submission: state, completed: false };
     }
-    state.status = 'validating';
+    state.status = "validating";
     this.publish(state, false);
     const validation = validateOrderDraft(state.snapshot);
     const attachmentValidation = attachments
@@ -183,23 +191,23 @@ export class SubmissionRunner {
       !hasValidLocalPaymentAttachment(
         attachments.map((item) => ({
           description: item.description,
-          extension: item.file.name.split('.').pop() ?? '',
+          extension: item.file.name.split(".").pop() ?? "",
         })),
       )
     )
       attachmentValidation.push(
-        'Debe agregar un comprobante de pago en formato JPG, JPEG o PNG con descripción “pago”.',
+        "Debe agregar un comprobante de pago en formato JPG, JPEG o PNG con descripción “pago”.",
       );
     if (attachmentValidation.length) {
       validation.push({
-        code: 'attachments_invalid',
-        field: 'attachments',
-        message: attachmentValidation.join(' '),
+        code: "attachments_invalid",
+        field: "attachments",
+        message: attachmentValidation.join(" "),
       });
     }
     if (validation.length) {
-      state.status = 'failed';
-      state.error = validation.map((e) => e.message).join(' ');
+      state.status = "failed";
+      state.error = validation.map((e) => e.message).join(" ");
       this.publish(state, Boolean(state.salesOrderNumber));
       return { submission: state, completed: false };
     }
@@ -209,7 +217,7 @@ export class SubmissionRunner {
     }
     if (!(await this.uploadAttachments(state, attachments)))
       return { submission: state, completed: false };
-    state.status = 'creating-lines';
+    state.status = "creating-lines";
     state.error = null;
     this.publish(state, true);
     await this.createLines(state);
@@ -217,17 +225,17 @@ export class SubmissionRunner {
     state.status = summary.status;
     state.error = summary.error;
     this.publish(state, true);
-    return { submission: state, completed: summary.status === 'completed' };
+    return { submission: state, completed: summary.status === "completed" };
   }
 
   /** Primera ejecución del encabezado con su clave persistida. Devuelve `true` si quedó creado. */
   private async createHeader(state: OrderSubmission): Promise<boolean> {
-    if (state.headerTracking !== 'not-sent') {
+    if (state.headerTracking !== "not-sent") {
       // Solo una clave nueva (tras `Failed`/rechazo confirmado) puede enviarse.
-      state.status = 'failed';
+      state.status = "failed";
       state.error = isRetryableTracking(state.headerTracking)
-        ? 'El encabezado anterior falló. Use “Reintentar encabezado” para enviarlo como una operación nueva.'
-        : creationOutcomeMessage({ kind: 'unknown' });
+        ? "El encabezado anterior falló. Use “Reintentar encabezado” para enviarlo como una operación nueva."
+        : creationOutcomeMessage({ kind: "unknown" });
       this.publish(state, true);
       return false;
     }
@@ -236,7 +244,7 @@ export class SubmissionRunner {
       request = mapHeaderRequest(state.snapshot);
     } catch (error) {
       // El request todavía no existe: Dynamics no recibió ningún POST y el resultado es seguro.
-      state.status = 'failed';
+      state.status = "failed";
       state.headerAmbiguous = false;
       state.error = friendly(error);
       this.publish(state, false);
@@ -244,20 +252,24 @@ export class SubmissionRunner {
     }
     if (!state.headerIdempotencyKey) {
       // Recuperación anterior a la Idempotency-Key: reenviar podría duplicar el pedido.
-      state.status = 'failed';
+      state.status = "failed";
       state.headerAmbiguous = true;
-      state.headerTracking = 'awaiting-confirmation';
-      state.error = 'La recuperación no tiene clave de idempotencia; verifique el pedido en Dynamics.';
+      state.headerTracking = "awaiting-confirmation";
+      state.error =
+        "La recuperación no tiene clave de idempotencia; verifique el pedido en Dynamics.";
       this.publish(state, true);
       return false;
     }
-    state.status = 'creating-header';
+    state.status = "creating-header";
     // La clave y el seguimiento se persisten antes del POST: si la página se cierra con la
     // solicitud en curso, la recuperación conserva la misma operación y no la reenvía sola.
-    state.headerTracking = 'awaiting-confirmation';
+    state.headerTracking = "awaiting-confirmation";
     this.publish(state, true);
     try {
-      const header = await this.gateway.createHeader(request, state.headerIdempotencyKey);
+      const header = await this.gateway.createHeader(
+        request,
+        state.headerIdempotencyKey,
+      );
       this.markHeaderCreated(state, header.salesOrderNumber);
       return true;
     } catch (error) {
@@ -268,16 +280,16 @@ export class SubmissionRunner {
 
   private markHeaderCreated(state: OrderSubmission, salesOrderNumber: string) {
     state.salesOrderNumber = salesOrderNumber;
-    state.status = 'header-created';
+    state.status = "header-created";
     state.headerAmbiguous = false;
-    state.headerTracking = 'completed';
+    state.headerTracking = "completed";
     state.error = null;
     this.publish(state, true);
   }
 
   private applyHeaderFailure(state: OrderSubmission, error: unknown) {
     const outcome = classifyCreationError(error);
-    state.status = 'failed';
+    state.status = "failed";
     state.headerTracking = trackingFromOutcome(outcome);
     state.headerAmbiguous = isUnresolvedTracking(state.headerTracking);
     state.error = outcomeError(outcome, error);
@@ -303,12 +315,13 @@ export class SubmissionRunner {
     state: OrderSubmission,
     attachment: SubmissionAttachmentInput,
   ): Promise<boolean> {
-    state.status = 'uploading-attachments';
+    state.status = "uploading-attachments";
     state.attachmentError = null;
     state.attachmentRetryAllowed = false;
     this.publish(state, true);
     try {
-      if (!this.gateway.uploadAttachment) throw new Error('El gateway no permite subir adjuntos.');
+      if (!this.gateway.uploadAttachment)
+        throw new Error("El gateway no permite subir adjuntos.");
       await this.gateway.uploadAttachment(
         state.companyId,
         state.salesOrderNumber!,
@@ -324,7 +337,7 @@ export class SubmissionRunner {
         this.publish(state, true);
         return true;
       }
-      state.status = 'partial-failure';
+      state.status = "partial-failure";
       state.attachmentRetryAllowed = !isAmbiguousError(error);
       state.attachmentError = `${friendly(error)} No fue posible confirmar el adjunto; no se crearon líneas ni se reenvió el archivo.`;
       state.error = state.attachmentError;
@@ -338,13 +351,17 @@ export class SubmissionRunner {
     state: OrderSubmission,
     attachment: SubmissionAttachmentInput,
   ): Promise<boolean> {
-    const extension = attachment.file.name.split('.').pop()?.toLowerCase() ?? '';
+    const extension =
+      attachment.file.name.split(".").pop()?.toLowerCase() ?? "";
     const baseName = attachment.file.name.slice(0, -(extension.length + 1));
 
     try {
       if (!this.gateway.listAttachments)
-        throw new Error('El gateway no permite verificar adjuntos.');
-      const existing = await this.gateway.listAttachments(state.companyId, state.salesOrderNumber!);
+        throw new Error("El gateway no permite verificar adjuntos.");
+      const existing = await this.gateway.listAttachments(
+        state.companyId,
+        state.salesOrderNumber!,
+      );
       return existing.some(
         (item) =>
           [item.fileName, `${item.fileName}.${item.fileType}`].some(
@@ -360,22 +377,26 @@ export class SubmissionRunner {
     return false;
   }
 
-  private async verifyPaymentAttachment(state: OrderSubmission): Promise<boolean> {
+  private async verifyPaymentAttachment(
+    state: OrderSubmission,
+  ): Promise<boolean> {
     if (!requiresPaymentAttachment(state.snapshot.customer?.account)) {
       state.attachmentError = null;
       return true;
     }
     try {
       if (!this.gateway.listAttachments)
-        throw new Error('El gateway no permite verificar adjuntos.');
+        throw new Error("El gateway no permite verificar adjuntos.");
       const persisted = await this.gateway.listAttachments(
         state.companyId,
         state.salesOrderNumber!,
       );
       if (!hasValidPaymentAttachment(persisted))
-        throw new Error('Dynamics todavía no devuelve un comprobante de pago válido.');
+        throw new Error(
+          "Dynamics todavía no devuelve un comprobante de pago válido.",
+        );
     } catch (error) {
-      state.status = 'partial-failure';
+      state.status = "partial-failure";
       state.attachmentRetryAllowed = false;
       state.attachmentError = `${friendly(error)} El pedido fue creado, pero las líneas no serán enviadas hasta confirmar el comprobante de pago.`;
       state.error = state.attachmentError;
@@ -387,11 +408,18 @@ export class SubmissionRunner {
     return true;
   }
 
-  private createLineRequest(state: OrderSubmission, operational: SubmissionLine) {
+  private createLineRequest(
+    state: OrderSubmission,
+    operational: SubmissionLine,
+  ) {
     const line = operational.draftLine;
-    return line.source === 'agreement'
+    return line.source === "agreement"
       ? this.gateway.createAgreementLine(
-          mapAgreementLineRequest(state.snapshot, line, state.salesOrderNumber!),
+          mapAgreementLineRequest(
+            state.snapshot,
+            line,
+            state.salesOrderNumber!,
+          ),
           operational.idempotencyKey,
         )
       : this.gateway.createNormalLine(
@@ -400,18 +428,30 @@ export class SubmissionRunner {
         );
   }
 
-  private markLineCreated(state: OrderSubmission, operational: SubmissionLine, response: ExistingSalesLine[] | null) {
-    operational.status = 'created';
-    operational.tracking = 'completed';
+  private markLineCreated(
+    state: OrderSubmission,
+    operational: SubmissionLine,
+    response: ExistingSalesLine[] | null,
+  ) {
+    operational.status = "created";
+    operational.tracking = "completed";
     operational.error = null;
-    if (response) operational.backendLineNumber = response[0]?.lineNumber ?? operational.backendLineNumber;
+    if (response)
+      operational.backendLineNumber =
+        response[0]?.lineNumber ?? operational.backendLineNumber;
     this.publish(state, true);
   }
 
-  private applyLineFailure(state: OrderSubmission, operational: SubmissionLine, error: unknown) {
+  private applyLineFailure(
+    state: OrderSubmission,
+    operational: SubmissionLine,
+    error: unknown,
+  ) {
     const outcome = classifyCreationError(error);
     operational.tracking = trackingFromOutcome(outcome);
-    operational.status = isUnresolvedTracking(operational.tracking) ? 'unconfirmed' : 'failed';
+    operational.status = isUnresolvedTracking(operational.tracking)
+      ? "unconfirmed"
+      : "failed";
     operational.error = outcomeError(outcome, error);
     this.publish(state, true);
   }
@@ -422,15 +462,19 @@ export class SubmissionRunner {
    */
   private async createLines(state: OrderSubmission) {
     for (const operational of state.lines) {
-      if (operational.tracking === 'completed') continue;
-      if (operational.tracking !== 'not-sent') break;
-      operational.status = 'creating';
-      operational.tracking = 'awaiting-confirmation';
+      if (operational.tracking === "completed") continue;
+      if (operational.tracking !== "not-sent") break;
+      operational.status = "creating";
+      operational.tracking = "awaiting-confirmation";
       operational.error = null;
       operational.attempts += 1;
       this.publish(state, true);
       try {
-        this.markLineCreated(state, operational, await this.createLineRequest(state, operational));
+        this.markLineCreated(
+          state,
+          operational,
+          await this.createLineRequest(state, operational),
+        );
       } catch (error) {
         this.applyLineFailure(state, operational, error);
         break;
@@ -471,8 +515,11 @@ export class SubmissionRunner {
   private async verify(recovery: OrderSubmission): Promise<SubmissionResult> {
     const state = clone(recovery);
     if (!state.salesOrderNumber) {
-      if (state.headerIdempotencyKey && isUnresolvedTracking(state.headerTracking)) {
-        state.status = 'recovering';
+      if (
+        state.headerIdempotencyKey &&
+        isUnresolvedTracking(state.headerTracking)
+      ) {
+        state.status = "recovering";
         this.publish(state, true);
         try {
           const header = await this.gateway.createHeader(
@@ -481,12 +528,13 @@ export class SubmissionRunner {
           );
           // Completed: se recupera el número de pedido sin recrear el encabezado.
           this.markHeaderCreated(state, header.salesOrderNumber);
-          state.status = 'partial-failure';
-          state.error = 'El encabezado está confirmado; quedan operaciones pendientes.';
+          state.status = "partial-failure";
+          state.error =
+            "El encabezado está confirmado; quedan operaciones pendientes.";
           this.publish(state, true);
         } catch (error) {
           const outcome = classifyCreationError(error);
-          state.status = 'failed';
+          state.status = "failed";
           state.headerTracking = trackingFromOutcome(outcome);
           state.headerAmbiguous = isUnresolvedTracking(state.headerTracking);
           state.error = outcomeError(outcome, error);
@@ -497,14 +545,18 @@ export class SubmissionRunner {
     }
     for (const operational of state.lines) {
       if (!isUnresolvedTracking(operational.tracking)) continue;
-      state.status = 'recovering';
+      state.status = "recovering";
       this.publish(state, true);
-      if ((await this.lineExists(state, operational)) === 'exists') {
+      if ((await this.lineExists(state, operational)) === "exists") {
         this.markLineCreated(state, operational, null);
         continue;
       }
       try {
-        this.markLineCreated(state, operational, await this.createLineRequest(state, operational));
+        this.markLineCreated(
+          state,
+          operational,
+          await this.createLineRequest(state, operational),
+        );
       } catch (error) {
         this.applyLineFailure(state, operational, error);
       }
@@ -513,7 +565,7 @@ export class SubmissionRunner {
     state.status = summary.status;
     state.error = summary.error;
     this.publish(state, true);
-    return { submission: state, completed: summary.status === 'completed' };
+    return { submission: state, completed: summary.status === "completed" };
   }
 
   /**
@@ -524,7 +576,9 @@ export class SubmissionRunner {
    * - Sin evidencia suficiente: la creación queda bloqueada con la explicación en `error`.
    * Nunca genera claves: la nueva solicitud parte de un envío nuevo creado por el llamador.
    */
-  assessHeaderRetry(recovery: OrderSubmission): Promise<{ submission: OrderSubmission; safe: boolean }> {
+  assessHeaderRetry(
+    recovery: OrderSubmission,
+  ): Promise<{ submission: OrderSubmission; safe: boolean }> {
     return this.exclusive(async () => {
       const state = clone(recovery);
       if (
@@ -533,19 +587,24 @@ export class SubmissionRunner {
         !isRetryableTracking(state.headerTracking)
       )
         return { submission: state, safe: false };
-      const evidence = await assessNewRequest(this.gateway, state.companyId, state.headerIdempotencyKey);
-      if (evidence.decision === 'safe') return { submission: state, safe: true };
-      if (evidence.decision === 'created' && evidence.salesOrderNumber) {
+      const evidence = await assessNewRequest(
+        this.gateway,
+        state.companyId,
+        state.headerIdempotencyKey,
+      );
+      if (evidence.decision === "safe")
+        return { submission: state, safe: true };
+      if (evidence.decision === "created" && evidence.salesOrderNumber) {
         // El pedido existe en Dynamics (Completed o Failed parcial): se recupera su número.
         this.markHeaderCreated(state, evidence.salesOrderNumber);
-        state.status = 'partial-failure';
+        state.status = "partial-failure";
         state.error = `El Backend confirma que el pedido ${evidence.salesOrderNumber} ya existe; no se creará otro.`;
         this.publish(state, true);
         return { submission: state, safe: false };
       }
       state.error =
-        evidence.decision === 'created'
-          ? 'El Backend confirma que el encabezado tuvo efectos en Dynamics, pero no informa el número de pedido. La nueva creación permanece bloqueada; requiere revisión manual.'
+        evidence.decision === "created"
+          ? "El Backend confirma que el encabezado tuvo efectos en Dynamics, pero no informa el número de pedido. La nueva creación permanece bloqueada; requiere revisión manual."
           : evidence.reason;
       this.publish(state, true);
       return { submission: state, safe: false };
@@ -562,32 +621,38 @@ export class SubmissionRunner {
   prepareRetry(recovery: OrderSubmission): Promise<OrderSubmission> {
     return this.exclusive(async () => {
       const state = clone(recovery);
-      if (hasUnresolvedOperation(state) || !state.salesOrderNumber) return state;
+      if (hasUnresolvedOperation(state) || !state.salesOrderNumber)
+        return state;
       for (const operational of state.lines) {
         if (!isRetryableTracking(operational.tracking)) continue;
-        const evidence = await assessNewRequest(this.gateway, state.companyId, operational.idempotencyKey);
-        if (evidence.decision === 'created') {
+        const evidence = await assessNewRequest(
+          this.gateway,
+          state.companyId,
+          operational.idempotencyKey,
+        );
+        if (evidence.decision === "created") {
           this.markLineCreated(state, operational, null);
           continue;
         }
-        if (evidence.decision === 'blocked') {
+        if (evidence.decision === "blocked") {
           operational.error = evidence.reason;
           this.publish(state, true);
           continue;
         }
         const presence = await this.lineExists(state, operational);
-        if (presence === 'exists') {
+        if (presence === "exists") {
           this.markLineCreated(state, operational, null);
           continue;
         }
-        if (presence === 'unknown') {
-          operational.error = `${operational.error ?? ''} No fue posible comprobar si la línea existe; no se habilita un nuevo intento.`.trim();
+        if (presence === "unknown") {
+          operational.error =
+            `${operational.error ?? ""} No fue posible comprobar si la línea existe; no se habilita un nuevo intento.`.trim();
           this.publish(state, true);
           continue;
         }
         operational.idempotencyKey = newIdempotencyKey();
-        operational.tracking = 'not-sent';
-        operational.status = 'pending';
+        operational.tracking = "not-sent";
+        operational.status = "pending";
         operational.error = null;
         this.publish(state, true);
       }
@@ -599,7 +664,7 @@ export class SubmissionRunner {
   private async lineExists(
     state: OrderSubmission,
     operational: SubmissionLine,
-  ): Promise<'exists' | 'missing' | 'unknown'> {
+  ): Promise<"exists" | "missing" | "unknown"> {
     const line = operational.draftLine;
     try {
       const existing = await this.gateway.getExistingLines(
@@ -608,7 +673,7 @@ export class SubmissionRunner {
       );
       const confirmedSimilar = state.lines.filter(
         (x) =>
-          x.tracking === 'completed' &&
+          x.tracking === "completed" &&
           x.localId !== line.localId &&
           sameLine(line, {
             lineNumber: 0,
@@ -622,13 +687,15 @@ export class SubmissionRunner {
             orderedSalesQuantity: x.draftLine.quantity,
             shippingSiteId: x.draftLine.siteId,
             shippingWarehouseId: x.draftLine.warehouseId,
-            csfaSuppItemGroupId: x.draftLine.promotion?.groupId ?? '',
-            faBonification: x.draftLine.isBonification ? 'Yes' : 'No',
+            csfaSuppItemGroupId: x.draftLine.promotion?.groupId ?? "",
+            faBonification: x.draftLine.isBonification ? "Yes" : "No",
           }),
       ).length;
-      return isDraftLineAlreadyCreated(line, existing, confirmedSimilar) ? 'exists' : 'missing';
+      return isDraftLineAlreadyCreated(line, existing, confirmedSimilar)
+        ? "exists"
+        : "missing";
     } catch {
-      return 'unknown';
+      return "unknown";
     }
   }
 }

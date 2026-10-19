@@ -1,6 +1,6 @@
-import type { ExistingOrder } from '../../orders/orderTypes';
-import { statusLabel } from '../../orders/orderMappers';
-import { Card, Icon } from '../../../components/ui';
+import type { ExistingOrder } from "../../orders/orderTypes";
+import { statusLabel } from "../../orders/orderMappers";
+import { Card, Icon } from "../../../components/ui";
 
 type Props = {
   orders: ExistingOrder[];
@@ -11,7 +11,7 @@ type Props = {
 };
 
 const amount = (order: ExistingOrder) =>
-  `${order.currencyCode || '—'} ${new Intl.NumberFormat(undefined, {
+  `${order.currencyCode || "—"} ${new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(order.salesAmount)}`;
@@ -38,7 +38,9 @@ export const RecentActivityCard = ({
     {loading && <p className="text-sm text-on-surface-variant">Cargando...</p>}
     {error && <p className="text-sm text-on-surface-variant">No disponible</p>}
     {!loading && !error && orders.length === 0 && (
-      <p className="text-sm text-on-surface-variant">No hay pedidos recientes.</p>
+      <p className="text-sm text-on-surface-variant">
+        No hay pedidos recientes.
+      </p>
     )}
     <div className="divide-y divide-outline-variant/30">
       {orders.slice(0, 3).map((order) => (
@@ -52,13 +54,16 @@ export const RecentActivityCard = ({
             <Icon name="shopping_cart" size={16} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">Pedido {order.salesOrderNumber}</p>
-            <p className="truncate text-xs text-on-surface-variant">
-              {order.customerAccount} · {order.customerName || 'Cliente sin nombre'}
+            <p className="truncate text-sm font-semibold">
+              Pedido {order.salesOrderNumber}
             </p>
             <p className="truncate text-xs text-on-surface-variant">
-              {statusLabel(order.status)} · {order.createdDate || 'Fecha no disponible'} ·{' '}
-              {amount(order)}
+              {order.customerAccount} ·{" "}
+              {order.customerName || "Cliente sin nombre"}
+            </p>
+            <p className="truncate text-xs text-on-surface-variant">
+              {statusLabel(order.status)} ·{" "}
+              {order.createdDate || "Fecha no disponible"} · {amount(order)}
             </p>
           </div>
           <Icon

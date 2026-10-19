@@ -65,9 +65,12 @@ export const OrderDraftProvider = ({ children }: { children: ReactNode }) => {
   );
   const addLines = useCallback(
     (selection: NewLineSelection) =>
-      setDraft((current) =>
-        touch({ ...current, lines: [...current.lines, ...buildDraftLines(current, selection)] }),
-      ),
+      setDraft((current) => {
+        if (selection.matchingAgreementLine != null && current.lines.some(
+          line => line.matchingAgreementLine === selection.matchingAgreementLine,
+        )) return current;
+        return touch({ ...current, lines: [...current.lines, ...buildDraftLines(current, selection)] });
+      }),
     [],
   );
   const updateLine = useCallback(

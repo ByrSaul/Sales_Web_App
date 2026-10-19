@@ -1,4 +1,4 @@
-import { Card, Icon } from '../../../components/ui';
+import { Card, Icon } from "../../../components/ui";
 
 type Props = {
   value?: number;
@@ -8,10 +8,17 @@ type Props = {
 };
 
 /** Tarjeta destacada para el indicador prioritario del Dashboard. */
-export const DashboardHighlightCard = ({ value, loading, error, onOpen }: Props) => {
+export const DashboardHighlightCard = ({
+  value,
+  loading,
+  error,
+  onOpen,
+}: Props) => {
   const renderHighlightValue = () => {
     if (loading) {
-      return <div className="h-7 w-20 animate-pulse rounded bg-surface-container" />;
+      return (
+        <div className="h-7 w-20 animate-pulse rounded bg-surface-container" />
+      );
     }
     if (error || value === undefined) {
       return <p className="text-sm text-on-surface-variant">No disponible</p>;

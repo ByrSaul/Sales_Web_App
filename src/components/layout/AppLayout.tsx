@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import Sidebar from './Sidebar';
-import TopBar from './TopBar';
-import { User } from '../../types';
-import { Icon } from '../ui';
+import React, { useState } from "react";
+import Sidebar from "./Sidebar";
+import TopBar from "./TopBar";
+import { User } from "../../types";
+import { Icon } from "../ui";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -18,10 +18,10 @@ interface AppLayoutProps {
 }
 
 const BOTTOM_NAV = [
-  { label: 'Pedidos', icon: 'receipt_long', href: '/pedidos' },
-  { label: 'Clientes', icon: 'group', href: '/clientes' },
-  { label: 'Inventario', icon: 'inventory_2', href: '/inventario' },
-  { label: 'Facturas', icon: 'description', href: '/facturas' },
+  { label: "Pedidos", icon: "receipt_long", href: "/pedidos" },
+  { label: "Clientes", icon: "group", href: "/clientes" },
+  { label: "Inventario", icon: "inventory_2", href: "/inventario" },
+  { label: "Facturas", icon: "description", href: "/facturas" },
 ];
 
 /**
@@ -77,13 +77,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             <button
               key={item.href}
               onClick={() => onNavigate(item.href)}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-2 transition-colors ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2 transition-colors ${isActive ? "text-primary" : "text-on-surface-variant"}`}
             >
               <Icon
                 name={item.icon}
                 size={20}
                 fill={isActive}
-                className={isActive ? 'text-primary' : ''}
+                className={isActive ? "text-primary" : ""}
               />
               <span className="text-[10px] font-medium">{item.label}</span>
             </button>

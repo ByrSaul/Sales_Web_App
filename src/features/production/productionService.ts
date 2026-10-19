@@ -1,13 +1,13 @@
-import type { ApiClient } from '../../core/api/apiClient';
+import type { ApiClient } from "../../core/api/apiClient";
 import type {
   DailyProduction,
   Pagination,
   ProductionFilters,
   SalesProduction,
-} from './productionTypes';
+} from "./productionTypes";
 type J = Record<string, unknown>;
-const s = (v: unknown) => (v == null ? '' : String(v)),
-  n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
+const s = (v: unknown) => (v == null ? "" : String(v)),
+  n = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 const pagination = (j: J): Pagination => ({
   currentPage: n(j.CurrentPage ?? j.current_page) || 1,
   perPage: n(j.PerPage ?? j.perpage) || 20,
@@ -63,27 +63,34 @@ export const mapDailyProduction = (j: J): DailyProduction => ({
  * @returns Operación paginada de consulta de producción.
  */
 export const productionService = (api: ApiClient) => ({
-  list: async (company: string, vendor: string, f: ProductionFilters, signal?: AbortSignal) => {
+  list: async (
+    company: string,
+    vendor: string,
+    f: ProductionFilters,
+    signal?: AbortSignal,
+  ) => {
     const body = {
       company,
       cust_id: f.customer,
       item_id: f.item,
       sales_group: vendor,
-      from_date: f.from || '1990-01-01',
-      to_date: f.to || '1990-01-01',
-      sales_status: f.status || 'None',
-      deliverydate: f.delivery || '1990-01-01',
+      from_date: f.from || "1990-01-01",
+      to_date: f.to || "1990-01-01",
+      sales_status: f.status || "None",
+      deliverydate: f.delivery || "1990-01-01",
       pagination: { perpage: 20, page: f.page },
     };
     const value = await api.post<J>(
-      f.mode === 'daily' ? '/production/daily' : '/production',
+      f.mode === "daily" ? "/production/daily" : "/production",
       body,
       { signal },
     );
     return {
       items: Array.isArray(value.production)
         ? value.production.map((x) =>
-            f.mode === 'daily' ? mapDailyProduction(x as J) : mapSalesProduction(x as J),
+            f.mode === "daily"
+              ? mapDailyProduction(x as J)
+              : mapSalesProduction(x as J),
           )
         : [],
       pagination: pagination((value.pagination ?? {}) as J),

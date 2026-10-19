@@ -18,6 +18,7 @@ import { buildDraftLines } from '../../features/orderDraft/domain';
 import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
 import { validateLineSelection } from '../../features/orderDraft/selectionValidation';
 import { canEditPrice } from '../../features/orders/orderRules';
+import { agreementLineSelection, validateAgreementSelection } from '../../features/orderDraft/agreementPackage';
 import { Button, Card, Input, Select, Toggle } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 
@@ -56,6 +57,7 @@ const AddOrderLinePage = () => {
   const [independent, setIndependent] = useState(false);
   const [agreementLine, setAgreementLine] = useState('');
   const [priceOverride, setPriceOverride] = useState('');
+  useEffect(() => { setAgreementLine(''); }, [draft.customer?.account, draft.agreement?.recId]);
   const forceRegisterVariant = draft.forceRegisterVariant ?? false;
   const deliveryCountryRegionId = draft.deliveryAddress?.countryId ?? '';
   const debouncedSearch = useDebouncedValue(search, 1000);
@@ -89,6 +91,9 @@ const AddOrderLinePage = () => {
       ),
     enabled: Boolean(draft.customer && draft.agreement),
   });
+  const selectedAgreement = agreementLines.data?.find(
+    (x) => String(x.matchingLine) === agreementLine,
+  );
   const price = useQuery({
     queryKey: catalogKeys.price(
       draft.dataAreaId,
@@ -110,7 +115,7 @@ const AddOrderLinePage = () => {
         versionId: variant?.versionId,
         signal,
       }),
-    enabled: Boolean(draft.customer && product && (!product.requiresVariant || variant)),
+    enabled: Boolean(!selectedAgreement && draft.customer && product && (!product.requiresVariant || variant)),
   });
   // A new product/variant/customer/currency invalidates any manual price override and the previous DebugMessage.
   useEffect(() => {
@@ -127,12 +132,10 @@ const AddOrderLinePage = () => {
     ? { ...price.data, price: priceOverride !== '' ? Number(priceOverride) || 0 : price.data.price }
     : null;
   const promotion = refs.promotions.data?.find((x) => x.groupId === promotionId) ?? null;
-  const selectedAgreement = agreementLines.data?.find(
-    (x) => String(x.matchingLine) === agreementLine,
-  );
   const selection = useMemo(
-    () =>
-      product && stock
+    () => {
+      if (selectedAgreement) return agreementLineSelection(selectedAgreement, Number(quantity));
+      return product && stock
         ? {
             product,
             variant,
@@ -143,15 +146,17 @@ const AddOrderLinePage = () => {
             price: independent ? null : effectivePrice,
             independentBonification: independent,
             promotion: independent ? null : promotion,
-            matchingAgreementLine: selectedAgreement?.matchingLine ?? null,
-            agreementRemainingQuantity: selectedAgreement?.lineQuantity ?? null,
+            matchingAgreementLine: null,
+            agreementRemainingQuantity: null,
           }
-        : null,
+        : null;
+    },
     [product, stock, variant, quantity, independent, effectivePrice, promotion, selectedAgreement],
   );
-  const errors = selection
+  const errors: { key: string; message: string }[] = selection
     ? validateLineSelection(buildDraftLines(draft, selection))
     : [{ key: 'selection-required', message: 'Seleccione producto e inventario.' }];
+  errors.push(...validateAgreementSelection(draft, selectedAgreement));
   const reset = () => {
     setProduct(null);
     setVariant(null);
@@ -194,6 +199,7 @@ const AddOrderLinePage = () => {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
+              setAgreementLine('');
               setProduct(null);
               setVariant(null);
               setStock(null);
@@ -218,6 +224,7 @@ const AddOrderLinePage = () => {
                   className="block w-full min-w-0 max-w-full break-words border-b p-2 text-left text-sm hover:bg-surface-container"
                   onClick={() => {
                     setProduct(p);
+                    setAgreementLine('');
                     setVariant(null);
                     setStock(null);
                     setPriceOverride('');
@@ -262,6 +269,7 @@ const AddOrderLinePage = () => {
                 value={variant?.displayProductNumber ?? ''}
                 disabled={forceRegisterVariant && !deliveryCountryRegionId}
                 onChange={(e) => {
+                  setAgreementLine('');
                   setVariant(
                     variants.data?.items.find((v) => v.displayProductNumber === e.target.value) ??
                       null,
@@ -292,6 +300,7 @@ const AddOrderLinePage = () => {
           />
           <Toggle
               label="Bonificación independiente"
+              disabled={Boolean(selectedAgreement)}
               checked={independent}
               onChange={(v) => {
                 setIndependent(v);
@@ -301,6 +310,7 @@ const AddOrderLinePage = () => {
           {!independent && (
               <Select
               label="Promoción vinculada (opcional)"
+              disabled={Boolean(selectedAgreement)}
               value={promotionId}
               onChange={(e) => setPromotionId(e.target.value)}
               options={[
@@ -328,7 +338,8 @@ const AddOrderLinePage = () => {
               ]}
             />
           )}
-          {independent ? (
+          {selectedAgreement && <p className="text-sm">Precio del paquete: {selectedAgreement.currency} {selectedAgreement.price}. Sitio: {selectedAgreement.siteId}; almacén: {selectedAgreement.warehouseId}.</p>}
+          {!selectedAgreement && (independent ? (
             <div className="p-3 bg-surface-container rounded text-sm">
               Precio: 0 (bonificación independiente)
             </div>
@@ -368,7 +379,7 @@ const AddOrderLinePage = () => {
                 <p className="text-xs text-on-surface-variant">PriceUnit {price.data.priceUnit}</p>
               )}
             </div>
-          )}
+          ))}
         </Card>
         <Card className="p-4 space-y-3">
           <h2 className="font-bold">Inventario, sitio y almacén</h2>
@@ -386,6 +397,7 @@ const AddOrderLinePage = () => {
             {inventory.data?.items.map((item) => (
               <button
                 key={inventoryIdentity(item)}
+                disabled={Boolean(selectedAgreement)}
                 onClick={() => setStock(item)}
                 className={`w-full min-w-0 max-w-full break-words text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}
               >
@@ -413,7 +425,7 @@ const AddOrderLinePage = () => {
           )}
           <Button
             fullWidth
-            disabled={!selection || errors.length > 0 || price.isLoading}
+            disabled={!selection || errors.length > 0 || (price.isLoading && !selectedAgreement)}
             onClick={submit}
           >
             Agregar línea

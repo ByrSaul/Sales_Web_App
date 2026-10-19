@@ -138,6 +138,10 @@ export type Agreement = {
 };
 /** Línea de producto y condiciones perteneciente a un convenio comercial. */
 export type AgreementLine = {
+  companyId?: string;
+  customerAccount?: string;
+  agreementNumber?: string;
+  debugMessage?: string;
   lineNumber: number;
   matchingLine: number;
   itemId: string;

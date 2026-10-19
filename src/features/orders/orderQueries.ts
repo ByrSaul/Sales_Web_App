@@ -1,39 +1,47 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSession } from '../../app/providers/SessionProvider';
-import { orderQueryService } from './orderQueryService';
-import { orderSubmissionService } from './orderSubmissionService';
-import type { SalesLineRequest } from './types';
-import type { OrderFilters, UpdateLineInput } from './orderTypes';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useSession } from "../../app/providers/SessionProvider";
+import { orderQueryService } from "./orderQueryService";
+import { orderSubmissionService } from "./orderSubmissionService";
+import type { SalesLineRequest } from "./types";
+import type { OrderFilters, UpdateLineInput } from "./orderTypes";
 
 // Thrown when the main line was created but its linked bonus line failed — the two are
 // sequential POSTs against an already-open order, never a single atomic operation.
 /** Error de dominio que identifica el fallo específico de una línea bonificada. */
 export class BonusLineFailure extends Error {
   constructor(public readonly cause: unknown) {
-    super('La línea principal se creó, pero la bonificación falló.');
-    this.name = 'BonusLineFailure';
+    super("La línea principal se creó, pero la bonificación falló.");
+    this.name = "BonusLineFailure";
   }
 }
 /** Claves de caché para pedidos, detalles y líneas persistidas. */
 export const orderKeys = {
-  all: (company: string) => ['orders', company] as const,
+  all: (company: string) => ["orders", company] as const,
   list: (company: string, vendor: string, filters: OrderFilters) =>
-    ['orders', company, 'list', vendor, filters] as const,
-  detail: (company: string, order: string) => ['orders', company, 'detail', order] as const,
-  lines: (company: string, order: string) => ['order-lines', company, order] as const,
+    ["orders", company, "list", vendor, filters] as const,
+  detail: (company: string, order: string) =>
+    ["orders", company, "detail", order] as const,
+  lines: (company: string, order: string) =>
+    ["order-lines", company, order] as const,
   officialLines: (company: string, order: string) =>
-    ['orders', company, 'official-line', order] as const,
+    ["orders", company, "official-line", order] as const,
   officialLine: (company: string, order: string, lineNumber: number) =>
     [...orderKeys.officialLines(company, order), lineNumber] as const,
 };
 /** Consulta el listado paginado de pedidos conforme a los filtros activos. */
 export const useOrders = (filters: OrderFilters, enabled = true) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '',
-    vendor = context.vendor?.id ?? '';
+  const company = context.company?.id ?? "",
+    vendor = context.vendor?.id ?? "";
   return useQuery({
     queryKey: orderKeys.list(company, vendor, filters),
-    queryFn: ({ signal }) => orderQueryService(api).list(company, vendor, filters, signal),
+    queryFn: ({ signal }) =>
+      orderQueryService(api).list(company, vendor, filters, signal),
     enabled: Boolean(enabled && company && vendor),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -42,16 +50,18 @@ export const useOrders = (filters: OrderFilters, enabled = true) => {
 /** Consulta el encabezado y las líneas de un pedido existente. */
 export const useOrderDetail = (salesOrderNumber: string) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   const header = useQuery({
     queryKey: orderKeys.detail(company, salesOrderNumber),
-    queryFn: ({ signal }) => orderQueryService(api).header(company, salesOrderNumber, signal),
+    queryFn: ({ signal }) =>
+      orderQueryService(api).header(company, salesOrderNumber, signal),
     enabled: Boolean(company && salesOrderNumber),
     staleTime: 15_000,
   });
   const lines = useQuery({
     queryKey: orderKeys.lines(company, salesOrderNumber),
-    queryFn: ({ signal }) => orderQueryService(api).lines(company, salesOrderNumber, signal),
+    queryFn: ({ signal }) =>
+      orderQueryService(api).lines(company, salesOrderNumber, signal),
     enabled: Boolean(company && salesOrderNumber),
     staleTime: 15_000,
   });
@@ -61,13 +71,18 @@ export const useOrderDetail = (salesOrderNumber: string) => {
 export const useOfficialOrderLine = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const qc = useQueryClient();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   return useMutation({
     mutationFn: (lineNumber: number) =>
       qc.fetchQuery({
         queryKey: orderKeys.officialLine(company, salesOrderNumber, lineNumber),
         queryFn: ({ signal }) =>
-          orderQueryService(api).officialLine(company, salesOrderNumber, lineNumber, signal),
+          orderQueryService(api).officialLine(
+            company,
+            salesOrderNumber,
+            lineNumber,
+            signal,
+          ),
         staleTime: 0,
       }),
     retry: false,
@@ -82,35 +97,49 @@ export const useOfficialOrderLine = (salesOrderNumber: string) => {
 export const useOrderMutations = (salesOrderNumber: string) => {
   const { api, context } = useSession();
   const qc = useQueryClient();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   const invalidate = async () => {
     await Promise.all([
-      qc.invalidateQueries({ queryKey: orderKeys.detail(company, salesOrderNumber) }),
-      qc.invalidateQueries({ queryKey: orderKeys.lines(company, salesOrderNumber) }),
-      qc.invalidateQueries({ queryKey: orderKeys.officialLines(company, salesOrderNumber) }),
+      qc.invalidateQueries({
+        queryKey: orderKeys.detail(company, salesOrderNumber),
+      }),
+      qc.invalidateQueries({
+        queryKey: orderKeys.lines(company, salesOrderNumber),
+      }),
+      qc.invalidateQueries({
+        queryKey: orderKeys.officialLines(company, salesOrderNumber),
+      }),
       qc.invalidateQueries({ queryKey: orderKeys.all(company) }),
     ]);
   };
   return {
     update: useMutation({
-      mutationFn: (input: UpdateLineInput) => orderQueryService(api).updateLine(input),
+      mutationFn: (input: UpdateLineInput) =>
+        orderQueryService(api).updateLine(input),
       retry: false,
       onSettled: invalidate,
     }),
     cancel: useMutation({
       mutationFn: (input: { companyId: string; inventoryLotId: string }) =>
-        orderQueryService(api).cancelLine(input.companyId, input.inventoryLotId),
+        orderQueryService(api).cancelLine(
+          input.companyId,
+          input.inventoryLotId,
+        ),
       retry: false,
       onSuccess: (result) => (result.success ? invalidate() : undefined),
     }),
     delete: useMutation({
       mutationFn: (input: { companyId: string; inventoryLotId: string }) =>
-        orderQueryService(api).deleteLine(input.companyId, input.inventoryLotId),
+        orderQueryService(api).deleteLine(
+          input.companyId,
+          input.inventoryLotId,
+        ),
       retry: false,
       onSuccess: invalidate,
     }),
     confirm: useMutation({
-      mutationFn: () => orderQueryService(api).confirm(company, salesOrderNumber),
+      mutationFn: () =>
+        orderQueryService(api).confirm(company, salesOrderNumber),
       retry: false,
       onSettled: invalidate,
     }),
@@ -124,12 +153,20 @@ export const useOrderMutations = (salesOrderNumber: string) => {
         bonusIdempotencyKey?: string;
       }) => {
         const gateway = orderSubmissionService(api);
-        const main = await gateway.createNormalLine(input.main, input.mainIdempotencyKey);
+        const main = await gateway.createNormalLine(
+          input.main,
+          input.mainIdempotencyKey,
+        );
         if (!input.bonus) return { main, bonus: null };
         if (!input.bonusIdempotencyKey)
-          throw new BonusLineFailure(new Error('La bonificación no tiene Idempotency-Key.'));
+          throw new BonusLineFailure(
+            new Error("La bonificación no tiene Idempotency-Key."),
+          );
         try {
-          const bonus = await gateway.createNormalLine(input.bonus, input.bonusIdempotencyKey);
+          const bonus = await gateway.createNormalLine(
+            input.bonus,
+            input.bonusIdempotencyKey,
+          );
           return { main, bonus };
         } catch (bonusError) {
           throw new BonusLineFailure(bonusError);

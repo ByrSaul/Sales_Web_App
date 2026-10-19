@@ -1,37 +1,47 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { useReportService, useStatement } from '../../features/billing/billingQueries';
-import { openPdfReport } from '../../features/billing/billingService';
-import { userErrorMessage } from '../../core/api/errors';
-import { Button, Card, EmptyState } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import { useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import {
+  useReportService,
+  useStatement,
+} from "../../features/billing/billingQueries";
+import { openPdfReport } from "../../features/billing/billingService";
+import { userErrorMessage } from "../../core/api/errors";
+import { Button, Card, EmptyState } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de detalle de un documento financiero del cliente. */
 const FinancialDocumentPage = () => {
-  const { id = '' } = useParams();
+  const { id = "" } = useParams();
   const [p] = useSearchParams();
   const nav = useNavigate();
-  const account = p.get('customer') ?? '',
-    multi = p.get('multiCompany') === 'true',
-    bucket = p.get('bucket');
+  const account = p.get("customer") ?? "",
+    multi = p.get("multiCompany") === "true",
+    bucket = p.get("bucket");
   const q = useStatement(account, multi);
   const service = useReportService();
   const lock = useRef(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   if (q.isLoading) return <LoadingState />;
-  if (q.isError) return <ErrorState message="No se pudo recuperar el documento." />;
-  const doc = q.data?.documents.find((x) => x.voucher === id || x.internalInvoice === id);
+  if (q.isError)
+    return <ErrorState message="No se pudo recuperar el documento." />;
+  const doc = q.data?.documents.find(
+    (x) => x.voucher === id || x.internalInvoice === id,
+  );
   if (!doc) return <EmptyState title="Documento no encontrado" />;
-  const pdf = async (mode: 'open' | 'download') => {
+  const pdf = async (mode: "open" | "download") => {
     if (lock.current || !doc.internalInvoice) return;
     lock.current = true;
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const r = await service.pdf(doc.companyId, doc.internalInvoice);
-      openPdfReport(r.fileName || `Factura_${doc.internalInvoice}.pdf`, r.base64, mode);
+      openPdfReport(
+        r.fileName || `Factura_${doc.internalInvoice}.pdf`,
+        r.base64,
+        mode,
+      );
     } catch (e) {
       setError(userErrorMessage(e));
     } finally {
@@ -57,7 +67,7 @@ const FinancialDocumentPage = () => {
         <p>
           Factura externa
           <br />
-          <strong>{doc.externalInvoice || '—'}</strong>
+          <strong>{doc.externalInvoice || "—"}</strong>
         </p>
         <p>
           Empresa
@@ -103,13 +113,17 @@ const FinancialDocumentPage = () => {
         </p>
       )}
       <div className="flex gap-2">
-        <Button loading={loading} disabled={!doc.internalInvoice} onClick={() => runUiAction(() => pdf('open'))}>
+        <Button
+          loading={loading}
+          disabled={!doc.internalInvoice}
+          onClick={() => runUiAction(() => pdf("open"))}
+        >
           Abrir PDF
         </Button>
         <Button
           variant="outline"
           disabled={loading || !doc.internalInvoice}
-          onClick={() => runUiAction(() => pdf('download'))}
+          onClick={() => runUiAction(() => pdf("download"))}
         >
           Descargar PDF
         </Button>

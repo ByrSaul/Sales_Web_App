@@ -1,12 +1,12 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useEffect, useRef, useState } from 'react';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { useAuth } from '../../app/providers/AuthProvider';
-import { useSession } from '../../app/providers/SessionProvider';
-import { userErrorMessage } from '../../core/api/errors';
-import { useSendSupport } from '../../features/support/supportMutation';
-import { validateSupport } from '../../features/support/supportService';
-import { Button, Card } from '../ui';
+import { runUiAction } from "../../core/async/uiAction";
+import { useEffect, useRef, useState } from "react";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import { useAuth } from "../../app/providers/AuthProvider";
+import { useSession } from "../../app/providers/SessionProvider";
+import { userErrorMessage } from "../../core/api/errors";
+import { useSendSupport } from "../../features/support/supportMutation";
+import { validateSupport } from "../../features/support/supportService";
+import { Button, Card } from "../ui";
 /**
  * Formulario de contacto con soporte técnico usando la identidad autenticada.
  *
@@ -20,46 +20,62 @@ const SupportPage = () => {
     nav = useNavigate(),
     mutation = useSendSupport();
   const supportUserEmail =
-    auth.account?.username?.trim() || context.user?.networkAlias.trim() || '';
-  const [body, setBody] = useState(''),
+    auth.account?.username?.trim() || context.user?.networkAlias.trim() || "";
+  const [body, setBody] = useState(""),
     [files, setFiles] = useState<{ localId: string; file: File }[]>([]),
-    [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle'),
-    [message, setMessage] = useState('');
+    [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
+      "idle",
+    ),
+    [message, setMessage] = useState("");
   const lock = useRef(false);
   const dirty = Boolean(body.trim() || files.length);
   useEffect(() => {
     if (!dirty) return;
     const fn = (e: BeforeUnloadEvent) => e.preventDefault();
-    addEventListener('beforeunload', fn);
-    return () => removeEventListener('beforeunload', fn);
+    addEventListener("beforeunload", fn);
+    return () => removeEventListener("beforeunload", fn);
   }, [dirty]);
   const leave = () => {
-    if (!dirty || window.confirm('Hay contenido sin enviar. ¿Desea salir y descartarlo?'))
-      nav('/home');
+    if (
+      !dirty ||
+      window.confirm("Hay contenido sin enviar. ¿Desea salir y descartarlo?")
+    )
+      nav("/home");
   };
   const send = async () => {
     if (lock.current) return;
-    const error = validateSupport(body, files.map((entry) => entry.file));
+    const error = validateSupport(
+      body,
+      files.map((entry) => entry.file),
+    );
     if (error) {
-      setStatus('error');
+      setStatus("error");
       setMessage(error);
       return;
     }
-    if (!window.confirm('¿Desea enviar este mensaje al soporte técnico?')) return;
+    if (!window.confirm("¿Desea enviar este mensaje al soporte técnico?"))
+      return;
     lock.current = true;
-    setStatus('sending');
-    setMessage('');
+    setStatus("sending");
+    setMessage("");
     try {
-      const r = await mutation.mutateAsync({ email: supportUserEmail, body, files: files.map((entry) => entry.file) });
-      if (!r.success) throw new Error(r.errorMessage || 'Dynamics no confirmó el envío.');
-      setBody('');
+      const r = await mutation.mutateAsync({
+        email: supportUserEmail,
+        body,
+        files: files.map((entry) => entry.file),
+      });
+      if (!r.success)
+        throw new Error(r.errorMessage || "Dynamics no confirmó el envío.");
+      setBody("");
       setFiles([]);
-      setStatus('success');
-      setMessage(r.message || 'Mensaje enviado exitosamente al soporte técnico.');
-    } catch (e) {
-      setStatus('error');
+      setStatus("success");
       setMessage(
-        `${userErrorMessage(e)}${String(e).toLowerCase().includes('timeout') ? ' No fue posible verificar si el mensaje fue enviado. Evita reenviarlo inmediatamente.' : ''}`,
+        r.message || "Mensaje enviado exitosamente al soporte técnico.",
+      );
+    } catch (e) {
+      setStatus("error");
+      setMessage(
+        `${userErrorMessage(e)}${String(e).toLowerCase().includes("timeout") ? " No fue posible verificar si el mensaje fue enviado. Evita reenviarlo inmediatamente." : ""}`,
       );
     } finally {
       lock.current = false;
@@ -76,7 +92,7 @@ const SupportPage = () => {
           Asunto: <strong>Sales4App</strong>
         </p>
         <p>
-          Usuario: <strong>{supportUserEmail || 'No disponible'}</strong>
+          Usuario: <strong>{supportUserEmail || "No disponible"}</strong>
         </p>
       </Card>
       <Card className="p-4 space-y-4">
@@ -86,10 +102,10 @@ const SupportPage = () => {
             aria-label="Mensaje"
             rows={8}
             value={body}
-            disabled={status === 'sending'}
+            disabled={status === "sending"}
             onChange={(e) => {
               setBody(e.target.value);
-              setStatus('idle');
+              setStatus("idle");
             }}
             className="mt-1 w-full border rounded-lg p-3"
             placeholder="Describe tu problema o consulta..."
@@ -103,37 +119,61 @@ const SupportPage = () => {
             type="file"
             accept="image/*"
             multiple
-            disabled={status === 'sending'}
+            disabled={status === "sending"}
             onChange={(e) =>
-              setFiles((current) => [...current, ...Array.from(e.target.files ?? [], (file) => ({ localId: crypto.randomUUID(), file }))])
+              setFiles((current) => [
+                ...current,
+                ...Array.from(e.target.files ?? [], (file) => ({
+                  localId: crypto.randomUUID(),
+                  file,
+                })),
+              ])
             }
           />
         </label>
         {files.map(({ localId, file: f }) => (
-          <div key={localId} className="flex justify-between text-sm border-t pt-2">
+          <div
+            key={localId}
+            className="flex justify-between text-sm border-t pt-2"
+          >
             <span>
               {f.name} · {(f.size / 1024).toFixed(1)} KB
             </span>
             <Button
               size="sm"
               variant="danger"
-              disabled={status === 'sending'}
-              onClick={() => setFiles((x) => x.filter((entry) => entry.localId !== localId))}
+              disabled={status === "sending"}
+              onClick={() =>
+                setFiles((x) => x.filter((entry) => entry.localId !== localId))
+              }
             >
               Eliminar
             </Button>
           </div>
         ))}
         {message && (
-          <output aria-live="polite" aria-atomic="true" className={'block ' + (status === 'success' ? 'text-primary' : 'text-error')}>
+          <output
+            aria-live="polite"
+            aria-atomic="true"
+            className={
+              "block " + (status === "success" ? "text-primary" : "text-error")
+            }
+          >
             {message}
           </output>
         )}
         <div className="flex gap-2">
-          <Button loading={status === 'sending'} onClick={() => runUiAction(() => send())}>
+          <Button
+            loading={status === "sending"}
+            onClick={() => runUiAction(() => send())}
+          >
             Enviar al soporte técnico
           </Button>
-          <Button variant="outline" disabled={status === 'sending'} onClick={leave}>
+          <Button
+            variant="outline"
+            disabled={status === "sending"}
+            onClick={leave}
+          >
             Cancelar
           </Button>
         </div>

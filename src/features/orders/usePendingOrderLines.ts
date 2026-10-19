@@ -1,33 +1,40 @@
-import { useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import type { ApiClient } from '../../core/api/apiClient';
-import type { OrderDraft, OrderDraftLine } from '../orderDraft/types';
-import { assessNewRequest } from './operationTracking';
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ApiClient } from "../../core/api/apiClient";
+import type { OrderDraft, OrderDraftLine } from "../orderDraft/types";
+import { assessNewRequest } from "./operationTracking";
 import {
   canRetryWithNewKey,
   classifyCreationError,
   creationOutcomeMessage,
   newIdempotencyKey,
-} from './idempotency';
-import { mutationErrorMessage } from './mutationOutcome';
-import { orderKeys } from './orderQueries';
-import { mapAgreementLineRequest, mapNormalLineRequest } from './orderSubmissionMapper';
-import { orderSubmissionService } from './orderSubmissionService';
-import type { OrderSubmissionGateway } from './types';
+} from "./idempotency";
+import { mutationErrorMessage } from "./mutationOutcome";
+import { orderKeys } from "./orderQueries";
+import {
+  mapAgreementLineRequest,
+  mapNormalLineRequest,
+} from "./orderSubmissionMapper";
+import { orderSubmissionService } from "./orderSubmissionService";
+import type { OrderSubmissionGateway } from "./types";
 
 export type PendingOrderLine = OrderDraftLine & {
-  submissionStatus: 'pending' | 'submitting' | 'failed' | 'ambiguous';
+  submissionStatus: "pending" | "submitting" | "failed" | "ambiguous";
   submissionError: string | null;
   idempotencyKey: string;
 };
-type Mode = 'send' | 'verify';
-type LineOutcome = 'created' | 'skip' | 'stop';
+type Mode = "send" | "verify";
+type LineOutcome = "created" | "skip" | "stop";
 type Commit = () => void;
 
-const applyLineFailure = (line: PendingOrderLine, error: unknown, commit: Commit) => {
+const applyLineFailure = (
+  line: PendingOrderLine,
+  error: unknown,
+  commit: Commit,
+) => {
   const outcome = classifyCreationError(error);
   const retryable = canRetryWithNewKey(outcome);
-  line.submissionStatus = retryable ? 'failed' : 'ambiguous';
+  line.submissionStatus = retryable ? "failed" : "ambiguous";
   line.submissionError = creationOutcomeMessage(outcome);
   if (retryable) line.submissionError += ` ${mutationErrorMessage(error)}`;
   commit();
@@ -36,12 +43,14 @@ const applyLineFailure = (line: PendingOrderLine, error: unknown, commit: Commit
 const restorePendingLines = (raw: string | null): PendingOrderLine[] => {
   if (!raw) return [];
   return (JSON.parse(raw) as PendingOrderLine[]).map((line) => {
-    const withKey = line.idempotencyKey ? line : { ...line, idempotencyKey: newIdempotencyKey() };
-    if (withKey.submissionStatus !== 'submitting') return withKey;
+    const withKey = line.idempotencyKey
+      ? line
+      : { ...line, idempotencyKey: newIdempotencyKey() };
+    if (withKey.submissionStatus !== "submitting") return withKey;
     return {
       ...withKey,
-      submissionStatus: 'ambiguous',
-      submissionError: creationOutcomeMessage({ kind: 'unknown' }),
+      submissionStatus: "ambiguous",
+      submissionError: creationOutcomeMessage({ kind: "unknown" }),
     };
   });
 };
@@ -52,16 +61,20 @@ const prepareLine = async (
   gateway: OrderSubmissionGateway,
   companyId: string,
   commit: Commit,
-): Promise<'ready' | 'created' | 'blocked'> => {
-  const evidence = await assessNewRequest(gateway, companyId, line.idempotencyKey);
-  if (evidence.decision === 'created') return 'created';
-  if (evidence.decision === 'blocked') {
+): Promise<"ready" | "created" | "blocked"> => {
+  const evidence = await assessNewRequest(
+    gateway,
+    companyId,
+    line.idempotencyKey,
+  );
+  if (evidence.decision === "created") return "created";
+  if (evidence.decision === "blocked") {
     line.submissionError = evidence.reason;
     commit();
-    return 'blocked';
+    return "blocked";
   }
   line.idempotencyKey = newIdempotencyKey();
-  return 'ready';
+  return "ready";
 };
 
 /** Performs at most one POST with the caller's payload/key; any uncertain result stops sending. */
@@ -74,20 +87,25 @@ const processLine = async (
   commit: Commit,
 ): Promise<LineOutcome> => {
   const eligible =
-    mode === 'verify'
-      ? line.submissionStatus === 'ambiguous'
-      : line.submissionStatus !== 'ambiguous';
-  if (!eligible) return mode === 'send' ? 'stop' : 'skip';
-  if (mode === 'send' && line.submissionStatus === 'failed') {
-    const preparation = await prepareLine(line, gateway, draft.dataAreaId, commit);
-    if (preparation === 'created') return 'created';
-    if (preparation === 'blocked') return 'stop';
+    mode === "verify"
+      ? line.submissionStatus === "ambiguous"
+      : line.submissionStatus !== "ambiguous";
+  if (!eligible) return mode === "send" ? "stop" : "skip";
+  if (mode === "send" && line.submissionStatus === "failed") {
+    const preparation = await prepareLine(
+      line,
+      gateway,
+      draft.dataAreaId,
+      commit,
+    );
+    if (preparation === "created") return "created";
+    if (preparation === "blocked") return "stop";
   }
-  line.submissionStatus = 'submitting';
+  line.submissionStatus = "submitting";
   line.submissionError = null;
   commit();
   try {
-    if (line.source === 'agreement')
+    if (line.source === "agreement")
       await gateway.createAgreementLine(
         mapAgreementLineRequest(draft, line, salesOrderNumber),
         line.idempotencyKey,
@@ -97,10 +115,10 @@ const processLine = async (
         mapNormalLineRequest(draft, line, salesOrderNumber),
         line.idempotencyKey,
       );
-    return 'created';
+    return "created";
   } catch (error) {
     applyLineFailure(line, error, commit);
-    return mode === 'send' ? 'stop' : 'skip';
+    return mode === "send" ? "stop" : "skip";
   }
 };
 
@@ -147,15 +165,21 @@ export const usePendingOrderLines = ({
   useEffect(() => {
     if (!pendingLines.length) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, [pendingLines.length]);
 
   const refreshOrder = () =>
     Promise.all([
-      client.invalidateQueries({ queryKey: orderKeys.detail(companyId, salesOrderNumber) }),
-      client.invalidateQueries({ queryKey: orderKeys.lines(companyId, salesOrderNumber) }),
-      client.invalidateQueries({ queryKey: orderKeys.officialLines(companyId, salesOrderNumber) }),
+      client.invalidateQueries({
+        queryKey: orderKeys.detail(companyId, salesOrderNumber),
+      }),
+      client.invalidateQueries({
+        queryKey: orderKeys.lines(companyId, salesOrderNumber),
+      }),
+      client.invalidateQueries({
+        queryKey: orderKeys.officialLines(companyId, salesOrderNumber),
+      }),
       client.invalidateQueries({ queryKey: orderKeys.all(companyId) }),
     ]);
 
@@ -164,9 +188,9 @@ export const usePendingOrderLines = ({
     mode: Mode,
     source: PendingOrderLine[],
   ): Promise<PendingOrderLine[] | null> => {
-    if (mode === 'send' && paymentRequired && !(await verifyPayment())) {
+    if (mode === "send" && paymentRequired && !(await verifyPayment())) {
       onMessage(
-        'Debe adjuntar un comprobante de pago en formato imagen antes de enviar líneas. No se realizó ningún POST de línea.',
+        "Debe adjuntar un comprobante de pago en formato imagen antes de enviar líneas. No se realizó ningún POST de línea.",
       );
       return null;
     }
@@ -188,8 +212,8 @@ export const usePendingOrderLines = ({
         gateway,
         commit,
       );
-      if (outcome === 'created') created.add(line.localId);
-      if (outcome === 'stop') break;
+      if (outcome === "created") created.add(line.localId);
+      if (outcome === "stop") break;
     }
     const remaining = working.filter((line) => !created.has(line.localId));
     working.splice(0, working.length, ...remaining);
@@ -209,16 +233,16 @@ export const usePendingOrderLines = ({
 
   const execute = async (mode: Mode) => {
     if (!draft || submitting || inFlight.current) return;
-    if (mode === 'send' && !pendingLines.length) return;
+    if (mode === "send" && !pendingLines.length) return;
     inFlight.current = true;
     try {
       const remaining = await sendLines(draft, mode, pendingLines);
       if (
-        mode === 'verify' &&
+        mode === "verify" &&
         remaining?.length &&
-        remaining.every((line) => line.submissionStatus === 'pending')
+        remaining.every((line) => line.submissionStatus === "pending")
       )
-        await sendLines(draft, 'send', remaining);
+        await sendLines(draft, "send", remaining);
     } catch (error) {
       // Payment, persistence and cache failures must not leave the UI locked or start another POST.
       onMessage(mutationErrorMessage(error));
@@ -231,7 +255,7 @@ export const usePendingOrderLines = ({
     pendingLines,
     setPendingLines,
     submitting,
-    submitPending: () => execute('send'),
-    verifyPendingLines: () => execute('verify'),
+    submitPending: () => execute("send"),
+    verifyPendingLines: () => execute("verify"),
   };
 };

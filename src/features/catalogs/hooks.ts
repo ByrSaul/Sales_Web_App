@@ -1,8 +1,12 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useSession } from '../../app/providers/SessionProvider';
-import { catalogService } from './catalogService';
-import { catalogKeys } from './queryKeys';
-import type { Product } from './types';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
+import { useSession } from "../../app/providers/SessionProvider";
+import { catalogService } from "./catalogService";
+import { catalogKeys } from "./queryKeys";
+import type { Product } from "./types";
 
 /**
  * Consulta los clientes asignados al vendedor activo.
@@ -16,8 +20,8 @@ import type { Product } from './types';
  */
 export const useCustomers = (search: string, page: number) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '',
-    vendor = context.vendor?.id ?? '';
+  const company = context.company?.id ?? "",
+    vendor = context.vendor?.id ?? "";
   return useQuery({
     queryKey: catalogKeys.customers(company, vendor, search, page),
     queryFn: ({ signal }) =>
@@ -36,10 +40,11 @@ export const useCustomers = (search: string, page: number) => {
 /** Consulta las direcciones registradas para una cuenta de cliente. */
 export const useCustomerAddresses = (account: string) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   return useQuery({
     queryKey: catalogKeys.addresses(company, account),
-    queryFn: ({ signal }) => catalogService(api).customerAddresses(company, account, { signal }),
+    queryFn: ({ signal }) =>
+      catalogService(api).customerAddresses(company, account, { signal }),
     enabled: Boolean(company && account),
     staleTime: 5 * 60 * 1000,
     refetchOnMount: false,
@@ -48,11 +53,17 @@ export const useCustomerAddresses = (account: string) => {
 /** Consulta productos paginados por código o descripción. */
 export const useProducts = (search: string, page: number) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   return useQuery({
     queryKey: catalogKeys.products(company, search, page),
     queryFn: ({ signal }) =>
-      catalogService(api).products({ company, search, page, perPage: 10, signal }),
+      catalogService(api).products({
+        company,
+        search,
+        page,
+        perPage: 10,
+        signal,
+      }),
     enabled: Boolean(company && search.trim().length >= 1),
     placeholderData: keepPreviousData,
   });
@@ -60,8 +71,8 @@ export const useProducts = (search: string, page: number) => {
 /** Proporciona búsqueda infinita de clientes para selectores operativos. */
 export const useInfiniteCustomers = (search: string) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
-  const vendor = context.vendor?.id ?? '';
+  const company = context.company?.id ?? "";
+  const vendor = context.vendor?.id ?? "";
   const normalizedSearch = search.trim();
   const query = useInfiniteQuery({
     queryKey: catalogKeys.infiniteCustomers(company, vendor, normalizedSearch),
@@ -93,8 +104,8 @@ export const useInfiniteCustomers = (search: string) => {
 /** Resuelve una cuenta exacta de cliente dentro del contexto operativo actual. */
 export const useCustomerByAccount = (account: string) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '',
-    vendor = context.vendor?.id ?? '';
+  const company = context.company?.id ?? "",
+    vendor = context.vendor?.id ?? "";
   return useQuery({
     queryKey: catalogKeys.customer(company, vendor, account),
     queryFn: async ({ signal }) => {
@@ -106,7 +117,9 @@ export const useCustomerByAccount = (account: string) => {
         perPage: 25,
         signal,
       });
-      return result.items.find((customer) => customer.account === account) ?? null;
+      return (
+        result.items.find((customer) => customer.account === account) ?? null
+      );
     },
     enabled: Boolean(company && vendor && account),
   });
@@ -114,7 +127,7 @@ export const useCustomerByAccount = (account: string) => {
 /** Proporciona búsqueda infinita de productos y permite forzar la consulta al registro. */
 export const useInfiniteProducts = (search: string, forceRegistry = false) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   const query = useInfiniteQuery({
     queryKey: catalogKeys.infiniteProducts(company, search, forceRegistry),
     queryFn: ({ pageParam, signal }) =>
@@ -131,10 +144,14 @@ export const useInfiniteProducts = (search: string, forceRegistry = false) => {
       last.pagination.currentPage < last.pagination.totalPages
         ? last.pagination.currentPage + 1
         : undefined,
-      enabled: Boolean(company),
+    enabled: Boolean(company),
   });
   const items = Array.from(
-    new Map(query.data?.pages.flatMap((page) => page.items).map((item) => [item.itemId, item])).values(),
+    new Map(
+      query.data?.pages
+        .flatMap((page) => page.items)
+        .map((item) => [item.itemId, item]),
+    ).values(),
   );
   return { ...query, items };
 };
@@ -144,13 +161,13 @@ export const useVariants = (
   options: { forceRegistry?: boolean; regionId?: string } = {},
 ) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   return useQuery({
     queryKey: catalogKeys.variants(
       company,
-      product?.itemId ?? '',
+      product?.itemId ?? "",
       options.forceRegistry ?? false,
-      options.regionId ?? '',
+      options.regionId ?? "",
     ),
     queryFn: ({ signal }) =>
       catalogService(api).variants({
@@ -162,18 +179,28 @@ export const useVariants = (
       }),
     enabled: Boolean(
       company &&
-        product?.requiresVariant &&
-        (!options.forceRegistry || options.regionId),
+      product?.requiresVariant &&
+      (!options.forceRegistry || options.regionId),
     ),
   });
 };
 /** Consulta existencias por producto, variante y página. */
-export const useInventory = (product: Product | null, variantNumber: string, page: number) => {
+export const useInventory = (
+  product: Product | null,
+  variantNumber: string,
+  page: number,
+) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '',
-    vendor = context.vendor?.id ?? '';
+  const company = context.company?.id ?? "",
+    vendor = context.vendor?.id ?? "";
   return useQuery({
-    queryKey: catalogKeys.inventory(company, vendor, product?.itemId ?? '', variantNumber, page),
+    queryKey: catalogKeys.inventory(
+      company,
+      vendor,
+      product?.itemId ?? "",
+      variantNumber,
+      page,
+    ),
     queryFn: ({ signal }) =>
       product?.requiresVariant
         ? catalogService(api).variantInventory({
@@ -191,7 +218,12 @@ export const useInventory = (product: Product | null, variantNumber: string, pag
             page,
             signal,
           }),
-    enabled: Boolean(company && vendor && product && (!product.requiresVariant || variantNumber)),
+    enabled: Boolean(
+      company &&
+      vendor &&
+      product &&
+      (!product.requiresVariant || variantNumber),
+    ),
     placeholderData: keepPreviousData,
   });
 };
@@ -220,7 +252,11 @@ export const useInfiniteInventoryLocations = (
     enabled: Boolean(enabled && company && salesGroup),
   });
   const items = Array.from(
-    new Map(query.data?.pages.flatMap((page) => page.items).map((item) => [item.id, item])).values(),
+    new Map(
+      query.data?.pages
+        .flatMap((page) => page.items)
+        .map((item) => [item.id, item]),
+    ).values(),
   );
   return { ...query, items };
 };
@@ -230,8 +266,8 @@ export const useInfiniteInventoryLocations = (
  * @returns Consultas de entrega, origen, promociones, acuerdos y documentos.
  */
 export const useReferenceCatalogs = (
-  customerAccount = '',
-  countryId = '',
+  customerAccount = "",
+  countryId = "",
   enabled: {
     delivery?: boolean;
     origins?: boolean;
@@ -241,31 +277,38 @@ export const useReferenceCatalogs = (
   } = {},
 ) => {
   const { api, context } = useSession();
-  const company = context.company?.id ?? '';
+  const company = context.company?.id ?? "";
   return {
     delivery: useQuery({
-      queryKey: catalogKeys.catalog('delivery', company),
-      queryFn: ({ signal }) => catalogService(api).deliveryModes(company, { signal }),
+      queryKey: catalogKeys.catalog("delivery", company),
+      queryFn: ({ signal }) =>
+        catalogService(api).deliveryModes(company, { signal }),
       enabled: Boolean(company && enabled.delivery !== false),
     }),
     origins: useQuery({
-      queryKey: catalogKeys.catalog('origins', company),
-      queryFn: ({ signal }) => catalogService(api).salesOrigins(company, { signal }),
+      queryKey: catalogKeys.catalog("origins", company),
+      queryFn: ({ signal }) =>
+        catalogService(api).salesOrigins(company, { signal }),
       enabled: Boolean(company && enabled.origins !== false),
     }),
     promotions: useQuery({
-      queryKey: catalogKeys.catalog('promotions', company),
-      queryFn: ({ signal }) => catalogService(api).promotions(company, { signal }),
+      queryKey: catalogKeys.catalog("promotions", company),
+      queryFn: ({ signal }) =>
+        catalogService(api).promotions(company, { signal }),
       enabled: Boolean(company && enabled.promotions !== false),
     }),
     agreements: useQuery({
-      queryKey: catalogKeys.catalog('agreements', company, customerAccount),
-      queryFn: ({ signal }) => catalogService(api).agreements(company, customerAccount, { signal }),
-      enabled: Boolean(company && customerAccount && enabled.agreements !== false),
+      queryKey: catalogKeys.catalog("agreements", company, customerAccount),
+      queryFn: ({ signal }) =>
+        catalogService(api).agreements(company, customerAccount, { signal }),
+      enabled: Boolean(
+        company && customerAccount && enabled.agreements !== false,
+      ),
     }),
     documents: useQuery({
-      queryKey: catalogKeys.catalog('documents', company, countryId),
-      queryFn: ({ signal }) => catalogService(api).documentTypes(company, countryId, { signal }),
+      queryKey: catalogKeys.catalog("documents", company, countryId),
+      queryFn: ({ signal }) =>
+        catalogService(api).documentTypes(company, countryId, { signal }),
       enabled: Boolean(company && countryId && enabled.documents !== false),
     }),
   };

@@ -1,4 +1,4 @@
-import { Icon } from '../../../components/ui';
+import { Icon } from "../../../components/ui";
 
 export type DashboardQuickAction = {
   icon: string;

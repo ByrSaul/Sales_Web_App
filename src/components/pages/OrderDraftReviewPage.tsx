@@ -1,42 +1,46 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { draftTotal } from '../../features/orderDraft/domain';
-import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
-import { validateOrderDraft } from '../../features/orderDraft/validation';
-import { useOrderSubmission } from '../../features/orders/OrderSubmissionProvider';
-import { Button, Card } from '../ui';
-import { DraftAttachments } from '../orders/DraftAttachments';
-import { validateAttachment } from '../../features/attachments/attachmentValidation';
-import type { OperationTracking, OrderSubmission, SubmissionStatus } from '../../features/orders/types';
+import { runUiAction } from "../../core/async/uiAction";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import { draftTotal } from "../../features/orderDraft/domain";
+import { useOrderDraft } from "../../features/orderDraft/OrderDraftProvider";
+import { validateOrderDraft } from "../../features/orderDraft/validation";
+import { useOrderSubmission } from "../../features/orders/OrderSubmissionProvider";
+import { Button, Card } from "../ui";
+import { DraftAttachments } from "../orders/DraftAttachments";
+import { validateAttachment } from "../../features/attachments/attachmentValidation";
+import type {
+  OperationTracking,
+  OrderSubmission,
+  SubmissionStatus,
+} from "../../features/orders/types";
 
 const labels = {
-  pending: 'Pendiente',
-  creating: 'Creando…',
-  created: 'Creada',
-  failed: 'Fallida',
-  unconfirmed: 'Esperando confirmación',
+  pending: "Pendiente",
+  creating: "Creando…",
+  created: "Creada",
+  failed: "Fallida",
+  unconfirmed: "Esperando confirmación",
 } as const;
 const trackingLabels: Record<OperationTracking, string> = {
-  'not-sent': 'Sin enviar',
-  'awaiting-confirmation': 'Resultado sin confirmar · reintento bloqueado',
-  processing: 'En procesamiento según el Backend · reintento bloqueado',
-  completed: 'Confirmada por el Backend',
-  failed: 'Fallida según el Backend · reintento permitido',
-  rejected: 'Rechazada por el Backend · reintento permitido',
-  mismatch: 'Clave usada con otros datos · reintento bloqueado',
+  "not-sent": "Sin enviar",
+  "awaiting-confirmation": "Resultado sin confirmar · reintento bloqueado",
+  processing: "En procesamiento según el Backend · reintento bloqueado",
+  completed: "Confirmada por el Backend",
+  failed: "Fallida según el Backend · reintento permitido",
+  rejected: "Rechazada por el Backend · reintento permitido",
+  mismatch: "Clave usada con otros datos · reintento bloqueado",
 };
 const statusLabels: Record<SubmissionStatus, string> = {
-  idle: 'Preparando',
-  validating: 'Validando',
-  'creating-header': 'Creando encabezado',
-  'header-created': 'Encabezado creado',
-  'uploading-attachments': 'Subiendo adjuntos',
-  'creating-lines': 'Creando líneas',
-  recovering: 'Consultando estado en el Backend',
-  'awaiting-confirmation': 'Esperando confirmación',
-  'partial-failure': 'Pedido creado parcialmente',
-  completed: 'Operación completada',
-  failed: 'Operación fallida',
+  idle: "Preparando",
+  validating: "Validando",
+  "creating-header": "Creando encabezado",
+  "header-created": "Encabezado creado",
+  "uploading-attachments": "Subiendo adjuntos",
+  "creating-lines": "Creando líneas",
+  recovering: "Consultando estado en el Backend",
+  "awaiting-confirmation": "Esperando confirmación",
+  "partial-failure": "Pedido creado parcialmente",
+  completed: "Operación completada",
+  failed: "Operación fallida",
 };
 /**
  * Pantalla de revisión, validación y envío del borrador de pedido.
@@ -52,14 +56,15 @@ const OrderDraftReviewPage = () => {
       return (
         <>
           <p className="text-xs font-bold mt-1">
-            El Backend no ha confirmado que el encabezado se pueda reintentar. No se habilita un
-            pedido nuevo para evitar duplicados.
+            El Backend no ha confirmado que el encabezado se pueda reintentar.
+            No se habilita un pedido nuevo para evitar duplicados.
             {submission.headerIdempotencyKey &&
-              ' La consulta reenvía la misma operación con su misma clave: si el pedido ya existe, el Backend devuelve ese pedido en lugar de crear otro.'}
+              " La consulta reenvía la misma operación con su misma clave: si el pedido ya existe, el Backend devuelve ese pedido en lugar de crear otro."}
           </p>
           <div className="flex flex-wrap gap-2 mt-2">
-            {submission.headerIdempotencyKey && verifyButton('Consultar estado del encabezado')}
-            <Button variant="outline" onClick={() => navigate('/pedidos')}>
+            {submission.headerIdempotencyKey &&
+              verifyButton("Consultar estado del encabezado")}
+            <Button variant="outline" onClick={() => navigate("/pedidos")}>
               Ir a Mis pedidos
             </Button>
             <Button
@@ -68,7 +73,7 @@ const OrderDraftReviewPage = () => {
               onClick={() => {
                 if (
                   window.confirm(
-                    'El resultado del encabezado aún no está confirmado. Descartar esta recuperación no elimina ningún pedido que pueda existir en Dynamics y deja de darle seguimiento. Verifique Mis pedidos antes de crear otro. ¿Continuar?',
+                    "El resultado del encabezado aún no está confirmado. Descartar esta recuperación no elimina ningún pedido que pueda existir en Dynamics y deja de darle seguimiento. Verifique Mis pedidos antes de crear otro. ¿Continuar?",
                   )
                 )
                   flow.discardRecovery();
@@ -80,13 +85,20 @@ const OrderDraftReviewPage = () => {
         </>
       );
     }
-    if (submission.headerTracking === 'not-sent') {
+    if (submission.headerTracking === "not-sent") {
       return (
         <div className="flex flex-wrap gap-2 mt-2">
-          <Button disabled={flow.busy} onClick={() => runUiAction(() => create())}>
+          <Button
+            disabled={flow.busy}
+            onClick={() => runUiAction(() => create())}
+          >
             Reintentar encabezado
           </Button>
-          <Button variant="outline" disabled={flow.busy} onClick={() => flow.discardRecovery()}>
+          <Button
+            variant="outline"
+            disabled={flow.busy}
+            onClick={() => flow.discardRecovery()}
+          >
             Volver al borrador
           </Button>
         </div>
@@ -95,9 +107,10 @@ const OrderDraftReviewPage = () => {
     return (
       <>
         <p className="text-xs font-bold mt-1">
-          Un nuevo pedido solo se crea si el Backend confirma que el intento anterior no produjo
-          efectos en Dynamics. Si confirma que el pedido existe, se recupera su número. Sin esa
-          evidencia, la nueva creación permanece bloqueada.
+          Un nuevo pedido solo se crea si el Backend confirma que el intento
+          anterior no produjo efectos en Dynamics. Si confirma que el pedido
+          existe, se recupera su número. Sin esa evidencia, la nueva creación
+          permanece bloqueada.
         </p>
         <div className="flex flex-wrap gap-2 mt-2">
           <Button
@@ -107,7 +120,7 @@ const OrderDraftReviewPage = () => {
           >
             Reintentar encabezado
           </Button>
-          <Button variant="outline" onClick={() => navigate('/pedidos')}>
+          <Button variant="outline" onClick={() => navigate("/pedidos")}>
             Ir a Mis pedidos
           </Button>
           <Button
@@ -116,7 +129,7 @@ const OrderDraftReviewPage = () => {
             onClick={() => {
               if (
                 window.confirm(
-                  'Esto NO comprueba si el pedido existe en Dynamics: solo abandona el seguimiento local de esta operación bajo su responsabilidad. Verifique Mis pedidos antes de crear otro. ¿Continuar?',
+                  "Esto NO comprueba si el pedido existe en Dynamics: solo abandona el seguimiento local de esta operación bajo su responsabilidad. Verifique Mis pedidos antes de crear otro. ¿Continuar?",
                 )
               )
                 flow.discardRecovery();
@@ -130,10 +143,18 @@ const OrderDraftReviewPage = () => {
   };
 
   const navigate = useNavigate();
-  const { draft: editableDraft, attachments, updateLine, removeLine, reset } = useOrderDraft();
+  const {
+    draft: editableDraft,
+    attachments,
+    updateLine,
+    removeLine,
+    reset,
+  } = useOrderDraft();
   const flow = useOrderSubmission();
   const submission = flow.submission;
-  const draft = submission?.salesOrderNumber ? submission.snapshot : editableDraft;
+  const draft = submission?.salesOrderNumber
+    ? submission.snapshot
+    : editableDraft;
   const errors = validateOrderDraft(draft);
   const attachmentErrors = attachments
     .map((item) => validateAttachment(item.file, item.description))
@@ -146,7 +167,12 @@ const OrderDraftReviewPage = () => {
     Boolean(submission?.headerAmbiguous);
   const create = async () => {
     if (flow.busy || flow.unresolved) return;
-    if (!window.confirm('Se creará un pedido real en Dynamics 365. ¿Desea continuar?')) return;
+    if (
+      !window.confirm(
+        "Se creará un pedido real en Dynamics 365. ¿Desea continuar?",
+      )
+    )
+      return;
     await flow.submit();
   };
   /**
@@ -157,40 +183,54 @@ const OrderDraftReviewPage = () => {
     if (flow.busy || flow.unresolved) return;
     if (
       !window.confirm(
-        'Se comprobará en el Backend que el intento anterior no creó nada en Dynamics. Solo si se confirma, se creará un nuevo pedido real. ¿Continuar?',
+        "Se comprobará en el Backend que el intento anterior no creó nada en Dynamics. Solo si se confirma, se creará un nuevo pedido real. ¿Continuar?",
       )
     )
       return;
     await flow.retryPending();
   };
   const verifyButton = (label: string) => (
-    <Button disabled={flow.busy} loading={flow.busy} onClick={() => runUiAction(() => flow.verifyPending())}>
+    <Button
+      disabled={flow.busy}
+      loading={flow.busy}
+      onClick={() => runUiAction(() => flow.verifyPending())}
+    >
       {label}
     </Button>
   );
-  if (submission?.status === 'completed')
+  if (submission?.status === "completed")
     return (
       <div className="space-y-4">
         <Card className="p-6 bg-primary/5">
           <h1 className="text-xl font-bold">Pedido creado correctamente</h1>
-          <p className="text-3xl font-black text-primary mt-2">{submission.salesOrderNumber}</p>
+          <p className="text-3xl font-black text-primary mt-2">
+            {submission.salesOrderNumber}
+          </p>
           <p className="text-sm mt-2">
-            {submission.lines.length} de {submission.lines.length} líneas creadas.
+            {submission.lines.length} de {submission.lines.length} líneas
+            creadas.
           </p>
           <p className="text-xs mt-2">
-            El detalle consultará Dynamics; no utiliza este snapshot como fuente oficial.
+            El detalle consultará Dynamics; no utiliza este snapshot como fuente
+            oficial.
           </p>
         </Card>
         <div className="flex flex-wrap gap-2">
           <Button
-            onClick={() => navigate(`/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}`)}
+            onClick={() =>
+              navigate(
+                `/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}`,
+              )
+            }
           >
             Ver detalle real
           </Button>
           <Button
             variant="outline"
             onClick={() =>
-              navigate(`/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}/adjuntos`)
+              navigate(
+                `/pedidos/${encodeURIComponent(submission.salesOrderNumber!)}/adjuntos`,
+              )
             }
           >
             Agregar adjuntos
@@ -199,12 +239,12 @@ const OrderDraftReviewPage = () => {
             variant="outline"
             onClick={() => {
               flow.createAnother();
-              navigate('/crear-pedido');
+              navigate("/crear-pedido");
             }}
           >
             Crear otro pedido
           </Button>
-          <Button variant="outline" onClick={() => navigate('/home')}>
+          <Button variant="outline" onClick={() => navigate("/home")}>
             Volver al inicio
           </Button>
         </div>
@@ -215,7 +255,8 @@ const OrderDraftReviewPage = () => {
       <div>
         <h1 className="text-xl font-bold">Revisión y creación</h1>
         <p className="text-xs text-on-surface-variant">
-          El envío crea el encabezado, sube los adjuntos y después crea cada línea secuencialmente.
+          El envío crea el encabezado, sube los adjuntos y después crea cada
+          línea secuencialmente.
         </p>
       </div>
       {submission && (
@@ -225,21 +266,29 @@ const OrderDraftReviewPage = () => {
               <h2 className="font-bold">
                 {submission.salesOrderNumber
                   ? `Pedido ${submission.salesOrderNumber}`
-                  : 'Creación del encabezado'}
+                  : "Creación del encabezado"}
               </h2>
-              <p className="text-xs">Estado: {statusLabels[submission.status]}</p>
+              <p className="text-xs">
+                Estado: {statusLabels[submission.status]}
+              </p>
               {!submission.salesOrderNumber && (
-                <p className="text-xs">Encabezado: {trackingLabels[submission.headerTracking]}</p>
+                <p className="text-xs">
+                  Encabezado: {trackingLabels[submission.headerTracking]}
+                </p>
               )}
-              {submission.status === 'uploading-attachments' && (
-                <p className="text-xs font-semibold text-primary">Subiendo adjuntos...</p>
+              {submission.status === "uploading-attachments" && (
+                <p className="text-xs font-semibold text-primary">
+                  Subiendo adjuntos...
+                </p>
               )}
               {submission.attachmentError && (
-                <p className="text-xs text-error">{submission.attachmentError}</p>
+                <p className="text-xs text-error">
+                  {submission.attachmentError}
+                </p>
               )}
             </div>
             <strong>
-              {submission.lines.filter((x) => x.status === 'created').length} /{' '}
+              {submission.lines.filter((x) => x.status === "created").length} /{" "}
               {submission.lines.length}
             </strong>
           </div>
@@ -247,7 +296,7 @@ const OrderDraftReviewPage = () => {
             <div
               className="h-full bg-primary"
               style={{
-                width: `${submission.lines.length ? (submission.lines.filter((x) => x.status === 'created').length / submission.lines.length) * 100 : 0}%`,
+                width: `${submission.lines.length ? (submission.lines.filter((x) => x.status === "created").length / submission.lines.length) * 100 : 0}%`,
               }}
             />
           </div>
@@ -261,7 +310,7 @@ const OrderDraftReviewPage = () => {
                   {line.draftLine.itemId} · {line.draftLine.itemName}
                   <small className="block text-on-surface-variant">
                     {trackingLabels[line.tracking]} · Envíos: {line.attempts}
-                    {line.error ? ` · ${line.error}` : ''}
+                    {line.error ? ` · ${line.error}` : ""}
                   </small>
                 </span>
                 <strong>{labels[line.status]}</strong>
@@ -269,52 +318,64 @@ const OrderDraftReviewPage = () => {
             ))}
           </ul>
           {submission.salesOrderNumber && flow.unresolved && (
-            <output aria-live="polite" aria-atomic="true" className="block bg-amber-50 p-3 rounded">
+            <output
+              aria-live="polite"
+              aria-atomic="true"
+              className="block bg-amber-50 p-3 rounded"
+            >
               <strong>Esperando confirmación del Backend</strong>
               <p className="text-xs">
-                El servidor continúa procesando la operación o todavía no ha confirmado su resultado.
-                No vuelva a enviarla hasta verificar su estado. Las líneas posteriores no se crearán
-                hasta resolver esta.
+                El servidor continúa procesando la operación o todavía no ha
+                confirmado su resultado. No vuelva a enviarla hasta verificar su
+                estado. Las líneas posteriores no se crearán hasta resolver
+                esta.
               </p>
               <p className="text-xs mt-1">
-                La consulta reenvía la misma operación con su misma clave: el Backend devuelve el
-                resultado registrado y no crea duplicados. Si se confirma, el envío continúa con las
-                líneas pendientes.
+                La consulta reenvía la misma operación con su misma clave: el
+                Backend devuelve el resultado registrado y no crea duplicados.
+                Si se confirma, el envío continúa con las líneas pendientes.
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
-                {verifyButton('Consultar estado')}
-                <Button variant="outline" onClick={() => navigate('/pedidos')}>
+                {verifyButton("Consultar estado")}
+                <Button variant="outline" onClick={() => navigate("/pedidos")}>
                   Ir a Mis pedidos
                 </Button>
               </div>
             </output>
           )}
-          {submission.status === 'partial-failure' && !flow.unresolved && (
+          {submission.status === "partial-failure" && !flow.unresolved && (
             <div className="bg-amber-50 p-3 rounded">
               <strong>Pedido creado parcialmente</strong>
               <p className="text-xs">
                 {submission.attachmentError
-                  ? 'El encabezado existe, pero un adjunto quedó ambiguo. No se crearán líneas ni se reenviará el archivo automáticamente.'
-                  : 'Las líneas fallidas se comprobarán en Dynamics antes de enviarse como operaciones nuevas.'}
+                  ? "El encabezado existe, pero un adjunto quedó ambiguo. No se crearán líneas ni se reenviará el archivo automáticamente."
+                  : "Las líneas fallidas se comprobarán en Dynamics antes de enviarse como operaciones nuevas."}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 {!submission.attachmentError && (
-                  <Button disabled={flow.busy} onClick={() => runUiAction(() => flow.retryPending())}>
+                  <Button
+                    disabled={flow.busy}
+                    onClick={() => runUiAction(() => flow.retryPending())}
+                  >
                     Reintentar líneas pendientes
                   </Button>
                 )}
-                {submission.attachmentError && submission.attachmentRetryAllowed && (
-                  <Button disabled={flow.busy} onClick={() => runUiAction(() => flow.retryPending())}>
-                    Reintentar carga del comprobante
-                  </Button>
-                )}
+                {submission.attachmentError &&
+                  submission.attachmentRetryAllowed && (
+                    <Button
+                      disabled={flow.busy}
+                      onClick={() => runUiAction(() => flow.retryPending())}
+                    >
+                      Reintentar carga del comprobante
+                    </Button>
+                  )}
                 <Button
                   variant="danger"
                   disabled={flow.busy}
                   onClick={() => {
                     if (
                       window.confirm(
-                        'Esto solo dejará de intentar completar el pedido. No elimina el pedido existente en Dynamics. ¿Descartar recuperación?',
+                        "Esto solo dejará de intentar completar el pedido. No elimina el pedido existente en Dynamics. ¿Descartar recuperación?",
                       )
                     )
                       flow.discardRecovery();
@@ -325,7 +386,7 @@ const OrderDraftReviewPage = () => {
               </div>
             </div>
           )}
-          {submission.status === 'failed' && (
+          {submission.status === "failed" && (
             <div className="bg-red-50 p-3 rounded text-error">
               <strong>No fue posible completar el encabezado</strong>
               <p className="text-xs">{submission.error}</p>
@@ -371,7 +432,7 @@ const OrderDraftReviewPage = () => {
         <p>
           <small>Acuerdo</small>
           <br />
-          <strong>{draft.agreement?.number ?? 'Sin acuerdo'}</strong>
+          <strong>{draft.agreement?.number ?? "Sin acuerdo"}</strong>
         </p>
       </Card>
       <DraftAttachments readOnly />
@@ -398,7 +459,7 @@ const OrderDraftReviewPage = () => {
                     <small>{line.itemName}</small>
                   </td>
                   <td className="p-2 text-xs">
-                    {line.presentationCode ?? 'Simple'}
+                    {line.presentationCode ?? "Simple"}
                     <br />
                     {line.siteId}/{line.warehouseId}
                   </td>
@@ -409,18 +470,25 @@ const OrderDraftReviewPage = () => {
                       min="0"
                       step="any"
                       value={line.quantity}
-                      disabled={locked || (line.isBonification && line.parentLineId != null)}
+                      disabled={
+                        locked ||
+                        (line.isBonification && line.parentLineId != null)
+                      }
                       onChange={(e) =>
-                        updateLine(line.localId, { quantity: Number(e.target.value) })
+                        updateLine(line.localId, {
+                          quantity: Number(e.target.value),
+                        })
                       }
                       className="w-20 border rounded p-1"
                     />
                   </td>
                   <td className="text-center">{line.price.toFixed(2)}</td>
-                  <td className="text-center">{(line.quantity * line.price).toFixed(2)}</td>
+                  <td className="text-center">
+                    {(line.quantity * line.price).toFixed(2)}
+                  </td>
                   <td className="text-center text-xs">
                     {line.isBonification
-                      ? `Bonus ${line.promotion?.groupId ?? 'independiente'}`
+                      ? `Bonus ${line.promotion?.groupId ?? "independiente"}`
                       : line.source}
                   </td>
                   <td className="p-2">
@@ -447,10 +515,14 @@ const OrderDraftReviewPage = () => {
       </Card>
       {errors.length ? (
         <Card className="p-4 border-error">
-          <h2 className="font-bold text-error">El borrador aún no está listo</h2>
+          <h2 className="font-bold text-error">
+            El borrador aún no está listo
+          </h2>
           <ul className="list-disc pl-5 text-sm text-error">
             {errors.map((e) => (
-              <li key={JSON.stringify([e.code, e.field, e.lineId, e.message])}>{e.message}</li>
+              <li key={JSON.stringify([e.code, e.field, e.lineId, e.message])}>
+                {e.message}
+              </li>
             ))}
           </ul>
         </Card>
@@ -459,16 +531,25 @@ const OrderDraftReviewPage = () => {
           <Card className="p-4 bg-primary/5">
             <strong>Borrador listo</strong>
             <p className="text-xs">
-              La validación se ejecutará nuevamente inmediatamente antes del primer POST.
+              La validación se ejecutará nuevamente inmediatamente antes del
+              primer POST.
             </p>
           </Card>
         )
       )}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={locked} onClick={() => navigate('/crear-pedido')}>
+        <Button
+          variant="outline"
+          disabled={locked}
+          onClick={() => navigate("/crear-pedido")}
+        >
           Editar encabezado
         </Button>
-        <Button variant="outline" disabled={locked} onClick={() => navigate('/crear-pedido/linea')}>
+        <Button
+          variant="outline"
+          disabled={locked}
+          onClick={() => navigate("/crear-pedido/linea")}
+        >
           Editar líneas
         </Button>
         {!submission && (
@@ -476,15 +557,18 @@ const OrderDraftReviewPage = () => {
             <Button
               variant="danger"
               onClick={() => {
-                if (window.confirm('¿Descartar este borrador local?')) {
+                if (window.confirm("¿Descartar este borrador local?")) {
                   reset();
-                  navigate('/crear-pedido');
+                  navigate("/crear-pedido");
                 }
               }}
             >
               Descartar
             </Button>
-            <Button disabled={Boolean(errors.length || attachmentErrors.length)} onClick={() => runUiAction(() => create())}>
+            <Button
+              disabled={Boolean(errors.length || attachmentErrors.length)}
+              onClick={() => runUiAction(() => create())}
+            >
               Crear pedido real
             </Button>
           </>

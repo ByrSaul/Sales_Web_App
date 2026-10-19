@@ -1,5 +1,5 @@
-import AgricultureIcon from '@mui/icons-material/Agriculture';
-import { Card } from '../../../components/ui';
+import AgricultureIcon from "@mui/icons-material/Agriculture";
+import { Card } from "../../../components/ui";
 
 type Props = {
   userName: string;
@@ -19,7 +19,7 @@ export const DashboardHero = ({ userName, onNewOrder, onOrders }: Props) => (
     </span>
     <div className="relative">
       <div className="mb-2 flex items-center gap-2">
-        <AgricultureIcon sx={{ color: 'white', fontSize: 20 }} />
+        <AgricultureIcon sx={{ color: "white", fontSize: 20 }} />
         <p className="text-xs font-bold uppercase tracking-widest text-white/60">
           Plataforma Sales4App
         </p>
@@ -28,9 +28,9 @@ export const DashboardHero = ({ userName, onNewOrder, onOrders }: Props) => (
         Bienvenido, {userName}
       </h1>
       <p className="mb-5 max-w-lg text-sm text-white/75">
-        Tu herramienta de gestión agrícola. Resumen general de las operaciones de hoy.
+        Tu herramienta de gestión agrícola. Resumen general de las operaciones
+        de hoy.
       </p>
-      
     </div>
   </Card>
 );

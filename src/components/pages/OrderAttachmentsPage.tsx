@@ -1,16 +1,19 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useEffect, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { userErrorMessage } from '../../core/api/errors';
-import { openAttachment } from '../../features/attachments/attachmentService';
+import { runUiAction } from "../../core/async/uiAction";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import { userErrorMessage } from "../../core/api/errors";
+import { openAttachment } from "../../features/attachments/attachmentService";
 import {
   useAttachmentUploader,
   useOrderAttachments,
-} from '../../features/attachments/attachmentQueries';
-import type { PendingAttachment } from '../../features/attachments/attachmentTypes';
-import { extensionOf, validateAttachment } from '../../features/attachments/attachmentValidation';
-import { Button, Card, EmptyState, Input } from '../ui';
+} from "../../features/attachments/attachmentQueries";
+import type { PendingAttachment } from "../../features/attachments/attachmentTypes";
+import {
+  extensionOf,
+  validateAttachment,
+} from "../../features/attachments/attachmentValidation";
+import { Button, Card, EmptyState, Input } from "../ui";
 
 let attachmentIdCounter = 0;
 
@@ -27,7 +30,7 @@ const newId = (): string => {
  * - Queries y servicio de adjuntos.
  */
 const OrderAttachmentsPage = () => {
-  const { salesOrderNumber = '' } = useParams();
+  const { salesOrderNumber = "" } = useParams();
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const existing = useOrderAttachments(salesOrderNumber);
@@ -36,19 +39,21 @@ const OrderAttachmentsPage = () => {
   const locks = useRef(new Set<string>());
   const uploading = pending.some(
     (item) =>
-      item.status === 'encoding' ||
-      item.status === 'uploading' ||
-      item.status === 'verifying',
+      item.status === "encoding" ||
+      item.status === "uploading" ||
+      item.status === "verifying",
   );
   useEffect(() => {
     if (!uploading) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, [uploading]);
   const patchItem = (id: string, change: Partial<PendingAttachment>) =>
     setPending((current) =>
-      current.map((item) => (item.localId === id ? { ...item, ...change } : item)),
+      current.map((item) =>
+        item.localId === id ? { ...item, ...change } : item,
+      ),
     );
   const select = (file: File) =>
     setPending((current) => [
@@ -58,25 +63,32 @@ const OrderAttachmentsPage = () => {
         file,
         fileName: file.name,
         extension: extensionOf(file.name),
-        description: '',
-        status: 'pending',
-        error: '',
+        description: "",
+        status: "pending",
+        error: "",
         attempts: 0,
       },
     ]);
-  const confirmPersisted = async (item: PendingAttachment): Promise<boolean> => {
+  const confirmPersisted = async (
+    item: PendingAttachment,
+  ): Promise<boolean> => {
     try {
       const confirmation = await existing.refetch();
       if (confirmation.isError) return false;
       const baseName = item.fileName.slice(0, -(item.extension.length + 1));
-      return confirmation.data?.some(
-        (attachment) =>
-          [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
-            (name) =>
-              name.toLowerCase() === item.fileName.toLowerCase() ||
-              name.toLowerCase() === baseName.toLowerCase(),
-          ) && attachment.description.trim() === item.description.trim(),
-      ) ?? false;
+      return (
+        confirmation.data?.some(
+          (attachment) =>
+            [
+              attachment.fileName,
+              `${attachment.fileName}.${attachment.fileType}`,
+            ].some(
+              (name) =>
+                name.toLowerCase() === item.fileName.toLowerCase() ||
+                name.toLowerCase() === baseName.toLowerCase(),
+            ) && attachment.description.trim() === item.description.trim(),
+        ) ?? false
+      );
     } catch {
       // Una consulta fallida no demuestra que el upload no tuvo efectos.
       return false;
@@ -85,14 +97,17 @@ const OrderAttachmentsPage = () => {
   const verifyPending = async (item: PendingAttachment) => {
     if (locks.current.has(item.localId)) return;
     locks.current.add(item.localId);
-    patchItem(item.localId, { status: 'verifying' });
+    patchItem(item.localId, { status: "verifying" });
     try {
       if (await confirmPersisted(item))
-        setPending((current) => current.filter((value) => value.localId !== item.localId));
+        setPending((current) =>
+          current.filter((value) => value.localId !== item.localId),
+        );
       else
         patchItem(item.localId, {
-          status: 'ambiguous',
-          error: 'Dynamics todavía no permite confirmar si el archivo fue persistido. No se reenviará automáticamente.',
+          status: "ambiguous",
+          error:
+            "Dynamics todavía no permite confirmar si el archivo fue persistido. No se reenviará automáticamente.",
         });
     } finally {
       locks.current.delete(item.localId);
@@ -101,32 +116,44 @@ const OrderAttachmentsPage = () => {
   const send = async (id: string) => {
     if (locks.current.has(id)) return;
     const item = pending.find((value) => value.localId === id);
-    if (!item || (item.status !== 'pending' && item.status !== 'failed')) return;
+    if (!item || (item.status !== "pending" && item.status !== "failed"))
+      return;
     const validation = validateAttachment(item.file, item.description);
     if (validation) {
-      patchItem(id, { status: 'failed', error: validation });
+      patchItem(id, { status: "failed", error: validation });
       return;
     }
     locks.current.add(id);
-    patchItem(id, { status: 'encoding', error: '', attempts: item.attempts + 1 });
+    patchItem(id, {
+      status: "encoding",
+      error: "",
+      attempts: item.attempts + 1,
+    });
     try {
-      patchItem(id, { status: 'uploading' });
+      patchItem(id, { status: "uploading" });
       await uploader.upload(item.file, item.description);
       await uploader.refresh();
       const persisted = await confirmPersisted(item);
-      if (persisted) setPending((current) => current.filter((value) => value.localId !== id));
+      if (persisted)
+        setPending((current) =>
+          current.filter((value) => value.localId !== id),
+        );
       else
         patchItem(id, {
-          status: 'ambiguous',
-          error: 'El upload respondió correctamente, pero el documento todavía no aparece en la consulta. No se reenviará automáticamente.',
+          status: "ambiguous",
+          error:
+            "El upload respondió correctamente, pero el documento todavía no aparece en la consulta. No se reenviará automáticamente.",
         });
     } catch (error) {
-      patchItem(id, { status: 'verifying', error: userErrorMessage(error) });
+      patchItem(id, { status: "verifying", error: userErrorMessage(error) });
       const persisted = await confirmPersisted(item);
-      if (persisted) setPending((current) => current.filter((value) => value.localId !== id));
+      if (persisted)
+        setPending((current) =>
+          current.filter((value) => value.localId !== id),
+        );
       else
         patchItem(id, {
-          status: 'ambiguous',
+          status: "ambiguous",
           error: `${userErrorMessage(error)} No fue posible confirmar el resultado al consultar Dynamics. No se reenviará automáticamente.`,
         });
     } finally {
@@ -135,9 +162,9 @@ const OrderAttachmentsPage = () => {
   };
   const sendPending = async () => {
     for (const item of pending)
-      if (item.status === 'pending') await send(item.localId);
+      if (item.status === "pending") await send(item.localId);
   };
-  const back = `/pedidos/${encodeURIComponent(salesOrderNumber)}${search.toString() ? `?${search}` : ''}`;
+  const back = `/pedidos/${encodeURIComponent(salesOrderNumber)}${search.toString() ? `?${search}` : ""}`;
   return (
     <div className="space-y-4">
       <button className="text-sm text-primary" onClick={() => navigate(back)}>
@@ -146,15 +173,17 @@ const OrderAttachmentsPage = () => {
       <div>
         <h1 className="text-xl font-bold">Adjuntos · {salesOrderNumber}</h1>
         <p className="text-xs text-on-surface-variant">
-          Los archivos locales pendientes se muestran separados de los documentos almacenados en
-          Dynamics.
+          Los archivos locales pendientes se muestran separados de los
+          documentos almacenados en Dynamics.
         </p>
       </div>
       <Card className="p-4 space-y-3">
         <div className="flex flex-wrap justify-between gap-2">
           <div>
             <h2 className="font-bold">Archivos pendientes</h2>
-            <p className="text-xs">PDF, JPG, JPEG o PNG · máximo 5 MB · descripción obligatoria.</p>
+            <p className="text-xs">
+              PDF, JPG, JPEG o PNG · máximo 5 MB · descripción obligatoria.
+            </p>
           </div>
           <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white">
             Agregar archivo
@@ -167,18 +196,24 @@ const OrderAttachmentsPage = () => {
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) select(file);
-                event.target.value = '';
+                event.target.value = "";
               }}
             />
           </label>
         </div>
-        {!pending.length && <EmptyState title="No hay archivos seleccionados" />}
+        {!pending.length && (
+          <EmptyState title="No hay archivos seleccionados" />
+        )}
         {pending.map((item) => (
-          <div key={item.localId} className="grid gap-2 border-t pt-3 md:grid-cols-[1fr_2fr_auto]">
+          <div
+            key={item.localId}
+            className="grid gap-2 border-t pt-3 md:grid-cols-[1fr_2fr_auto]"
+          >
             <div>
               <strong className="text-sm">{item.fileName}</strong>
               <small className="block">
-                {(item.file.size / 1024).toFixed(1)} KB · Intentos: {item.attempts}
+                {(item.file.size / 1024).toFixed(1)} KB · Intentos:{" "}
+                {item.attempts}
               </small>
             </div>
             <Input
@@ -186,17 +221,17 @@ const OrderAttachmentsPage = () => {
               maxLength={100}
               value={item.description}
               disabled={
-                item.status === 'encoding' ||
-                item.status === 'uploading' ||
-                item.status === 'verifying' ||
-                item.status === 'ambiguous' ||
-                item.status === 'success'
+                item.status === "encoding" ||
+                item.status === "uploading" ||
+                item.status === "verifying" ||
+                item.status === "ambiguous" ||
+                item.status === "success"
               }
               onChange={(event) =>
                 patchItem(item.localId, {
                   description: event.target.value,
-                  status: item.status === 'failed' ? 'pending' : item.status,
-                  error: '',
+                  status: item.status === "failed" ? "pending" : item.status,
+                  error: "",
                 })
               }
               placeholder="Descripción"
@@ -205,22 +240,25 @@ const OrderAttachmentsPage = () => {
               <output aria-live="polite" aria-atomic="true" className="text-xs">
                 {
                   {
-                    pending: 'Pendiente',
-                    encoding: 'Preparando archivo',
-                    uploading: 'Enviando',
-                    verifying: 'Verificando resultado',
-                    ambiguous: 'Resultado ambiguo',
-                    success: 'Confirmado',
-                    failed: 'Falló',
+                    pending: "Pendiente",
+                    encoding: "Preparando archivo",
+                    uploading: "Enviando",
+                    verifying: "Verificando resultado",
+                    ambiguous: "Resultado ambiguo",
+                    success: "Confirmado",
+                    failed: "Falló",
                   }[item.status]
                 }
               </output>
-              {item.status === 'failed' && (
-                <Button size="sm" onClick={() => runUiAction(() => send(item.localId))}>
+              {item.status === "failed" && (
+                <Button
+                  size="sm"
+                  onClick={() => runUiAction(() => send(item.localId))}
+                >
                   Reintentar
                 </Button>
               )}
-              {item.status === 'ambiguous' && (
+              {item.status === "ambiguous" && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -229,7 +267,7 @@ const OrderAttachmentsPage = () => {
                   Verificar nuevamente
                 </Button>
               )}
-              {item.status === 'pending' && (
+              {item.status === "pending" && (
                 <Button
                   size="sm"
                   variant="danger"
@@ -243,12 +281,16 @@ const OrderAttachmentsPage = () => {
                 </Button>
               )}
             </div>
-            {item.error && <p className="text-xs text-error md:col-span-3">{item.error}</p>}
+            {item.error && (
+              <p className="text-xs text-error md:col-span-3">{item.error}</p>
+            )}
           </div>
         ))}
         {!!pending.length && (
           <Button
-            disabled={uploading || !pending.some((item) => item.status === 'pending')}
+            disabled={
+              uploading || !pending.some((item) => item.status === "pending")
+            }
             onClick={() => runUiAction(() => sendPending())}
           >
             Subir pendientes
@@ -258,17 +300,24 @@ const OrderAttachmentsPage = () => {
       <Card className="p-4 space-y-3">
         <h2 className="font-bold">Adjuntos existentes</h2>
         {existing.isLoading && (
-          <p className="text-xs text-on-surface-variant">Consultando adjuntos...</p>
+          <p className="text-xs text-on-surface-variant">
+            Consultando adjuntos...
+          </p>
         )}
         {existing.isError && (
           <p className="text-sm text-error">
-            No fue posible consultar los adjuntos.{' '}
-            <button className="underline" onClick={() => runUiAction(() => existing.refetch())}>
+            No fue posible consultar los adjuntos.{" "}
+            <button
+              className="underline"
+              onClick={() => runUiAction(() => existing.refetch())}
+            >
               Reintentar consulta
             </button>
           </p>
         )}
-        {existing.data?.length === 0 && <EmptyState title="Este pedido no tiene adjuntos" />}
+        {existing.data?.length === 0 && (
+          <EmptyState title="Este pedido no tiene adjuntos" />
+        )}
         <div className="max-h-80 space-y-2 overflow-y-auto">
           {existing.data?.map((item) => (
             <div
@@ -279,7 +328,9 @@ const OrderAttachmentsPage = () => {
                 <strong>
                   {item.fileName}.{item.fileType}
                 </strong>
-                <small className="block">{item.description || 'Sin descripción'}</small>
+                <small className="block">
+                  {item.description || "Sin descripción"}
+                </small>
               </div>
               <Button
                 size="sm"
@@ -296,8 +347,9 @@ const OrderAttachmentsPage = () => {
       <Card className="p-3 bg-amber-50">
         <strong>RIESGO — upload sin idempotency key</strong>
         <p className="text-xs">
-          El endpoint no acepta hash, correlación ni clave externa. No hay reintento automático;
-          tras timeout debe verificarse el listado antes de reenviar.
+          El endpoint no acepta hash, correlación ni clave externa. No hay
+          reintento automático; tras timeout debe verificarse el listado antes
+          de reenviar.
         </p>
       </Card>
     </div>

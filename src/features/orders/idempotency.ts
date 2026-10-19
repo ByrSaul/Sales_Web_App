@@ -1,4 +1,4 @@
-import { ApiError } from '../../core/api/errors';
+import { ApiError } from "../../core/api/errors";
 
 /**
  * Contrato de idempotencia de `fa-sales4app-proxy` para las creaciones en Dynamics 365
@@ -16,7 +16,7 @@ import { ApiError } from '../../core/api/errors';
  *   mismo body. Una clave registrada nunca vuelve a ejecutar la operación (replay o 409), por lo
  *   que la consulta puede repetirse sin crear duplicados. Una consulta nunca genera claves nuevas.
  */
-export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+export const IDEMPOTENCY_HEADER = "Idempotency-Key";
 
 /**
  * Genera la clave de una operación lógica nueva.
@@ -42,16 +42,18 @@ export const idempotencyHeaders = (key: string): Record<string, string> => ({
  * - `unknown`: timeout, error de red, respuesta inválida o 5xx sin estado reconocible.
  */
 export type CreationOutcome =
-  | { kind: 'processing' }
-  | { kind: 'failed' }
-  | { kind: 'mismatch' }
-  | { kind: 'rejected'; status: number }
-  | { kind: 'unknown' };
+  | { kind: "processing" }
+  | { kind: "failed" }
+  | { kind: "mismatch" }
+  | { kind: "rejected"; status: number }
+  | { kind: "unknown" };
 
 const backendDetail = (error: ApiError): string => {
-  const body = error.details as { detail?: unknown; message?: unknown } | undefined;
+  const body = error.details as
+    | { detail?: unknown; message?: unknown }
+    | undefined;
   const value = body?.detail ?? body?.message;
-  return typeof value === 'string' ? value.trim() : '';
+  return typeof value === "string" ? value.trim() : "";
 };
 
 // Textos exactos que emite `IdempotencyService.begin_request` para cada estado del registro.
@@ -61,27 +63,30 @@ const MISMATCH_DETAIL = /petici[oó]n diferente/i;
 
 /** Clasifica el error de una creación idempotente sin suponer resultados que el Backend no confirmó. */
 export const classifyCreationError = (error: unknown): CreationOutcome => {
-  if (!(error instanceof ApiError) || error.status === undefined) return { kind: 'unknown' };
+  if (!(error instanceof ApiError) || error.status === undefined)
+    return { kind: "unknown" };
   const detail = backendDetail(error);
   const conflict =
-    error.kind === 'backend' &&
+    error.kind === "backend" &&
     (error.status === 409 || (error.status === 500 && /^409\b/.test(detail)));
   if (conflict) {
-    if (PROCESSING_DETAIL.test(detail)) return { kind: 'processing' };
-    if (FAILED_DETAIL.test(detail)) return { kind: 'failed' };
-    if (MISMATCH_DETAIL.test(detail)) return { kind: 'mismatch' };
-    return { kind: 'unknown' };
+    if (PROCESSING_DETAIL.test(detail)) return { kind: "processing" };
+    if (FAILED_DETAIL.test(detail)) return { kind: "failed" };
+    if (MISMATCH_DETAIL.test(detail)) return { kind: "mismatch" };
+    return { kind: "unknown" };
   }
   const { status } = error;
   if (
-    (error.kind === 'backend' || error.kind === 'forbidden' || error.kind === 'authentication') &&
+    (error.kind === "backend" ||
+      error.kind === "forbidden" ||
+      error.kind === "authentication") &&
     status >= 400 &&
     status < 500 &&
     status !== 408 &&
     status !== 429
   )
-    return { kind: 'rejected', status };
-  return { kind: 'unknown' };
+    return { kind: "rejected", status };
+  return { kind: "unknown" };
 };
 
 /**
@@ -90,20 +95,20 @@ export const classifyCreationError = (error: unknown): CreationOutcome => {
  * claves usadas con otro body nunca habilitan un nuevo intento.
  */
 export const canRetryWithNewKey = (outcome: CreationOutcome): boolean =>
-  outcome.kind === 'failed' || outcome.kind === 'rejected';
+  outcome.kind === "failed" || outcome.kind === "rejected";
 
 /** Mensajes al usuario para cada resultado; no afirman nada que el Backend no haya confirmado. */
 export const creationOutcomeMessage = (outcome: CreationOutcome): string => {
   switch (outcome.kind) {
-    case 'processing':
-      return 'El Backend confirma que la operación sigue en procesamiento (Processing). No la reenvíe; consulte su estado más tarde.';
-    case 'failed':
-      return 'El Backend confirmó que la operación falló (Failed). Puede reintentarse como una operación nueva.';
-    case 'mismatch':
-      return 'El Backend indica que la clave de idempotencia ya se usó con datos distintos. La operación queda bloqueada; verifique el pedido en Dynamics.';
-    case 'rejected':
+    case "processing":
+      return "El Backend confirma que la operación sigue en procesamiento (Processing). No la reenvíe; consulte su estado más tarde.";
+    case "failed":
+      return "El Backend confirmó que la operación falló (Failed). Puede reintentarse como una operación nueva.";
+    case "mismatch":
+      return "El Backend indica que la clave de idempotencia ya se usó con datos distintos. La operación queda bloqueada; verifique el pedido en Dynamics.";
+    case "rejected":
       return `El Backend rechazó la operación (${outcome.status}) sin aplicarla.`;
     default:
-      return 'El servidor continúa procesando la operación o todavía no ha confirmado su resultado. No vuelva a enviarla hasta verificar su estado.';
+      return "El servidor continúa procesando la operación o todavía no ha confirmado su resultado. No vuelva a enviarla hasta verificar su estado.";
   }
 };

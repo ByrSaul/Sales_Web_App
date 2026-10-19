@@ -144,6 +144,10 @@ export const agreement = (j: Json): Agreement => ({
   recId: n(j.recid),
 });
 export const agreementLine = (j: Json): AgreementLine => ({
+  companyId: s(j.customerdataareaid),
+  customerAccount: s(j.custaccount),
+  agreementNumber: s(j.salesnumbersequence),
+  debugMessage: s(j.debugmessage),
   lineNumber: n(j.linenumber),
   matchingLine: n(j.matchingagreementline),
   itemId: s(j.itemid),

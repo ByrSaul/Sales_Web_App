@@ -64,7 +64,10 @@ const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
-        <button aria-label="Notificaciones" className="relative hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg hover:bg-surface-container sm:flex">
+        <button
+          aria-label="Notificaciones"
+          className="relative hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg hover:bg-surface-container sm:flex"
+        >
           <Icon
             name="notifications"
             size={18}

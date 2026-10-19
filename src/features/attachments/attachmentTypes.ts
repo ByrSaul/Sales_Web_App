@@ -1,11 +1,11 @@
 export type AttachmentStatus =
-  | 'pending'
-  | 'encoding'
-  | 'uploading'
-  | 'verifying'
-  | 'ambiguous'
-  | 'success'
-  | 'failed';
+  | "pending"
+  | "encoding"
+  | "uploading"
+  | "verifying"
+  | "ambiguous"
+  | "success"
+  | "failed";
 
 /** Adjunto ya persistido y asociado a un pedido de venta. */
 export type OrderAttachment = {
@@ -37,7 +37,7 @@ export type AttachmentUploadRequest = {
   AttachmentDescription: string;
   SalesOrderNumber: string;
   FileType: string;
-  DocumentAttachmentTypeCode: 'Imagen' | 'Archivo';
+  DocumentAttachmentTypeCode: "Imagen" | "Archivo";
   FileName: string;
   Attachment: string;
 };

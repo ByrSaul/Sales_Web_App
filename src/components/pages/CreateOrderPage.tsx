@@ -1,6 +1,5 @@
 import { runUiAction } from '../../core/async/uiAction';
 import { useEffect, useState } from 'react';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useSession } from '../../app/providers/SessionProvider';
 import {
@@ -10,6 +9,7 @@ import {
 import type { Customer } from '../../features/catalogs/types';
 import { isFullyBlockedCustomer } from '../../features/catalogs/customerRules';
 import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
+import { OrderLinesContinue } from '../orders/OrderLinesContinue';
 import { Button, Card, Input, Select } from '../ui';
 import { NewAddressForm } from '../orders/NewAddressForm';
 import { VatSelector } from '../orders/VatSelector';
@@ -33,7 +33,6 @@ const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' 
  * - Catálogos comerciales y adjuntos.
  */
 const CreateOrderPage = () => {
-  const navigate = useNavigate();
   const { context } = useSession();
   const { draft, attachments, update } = useOrderDraft();
   const [search, setSearch] = useState('');
@@ -297,6 +296,8 @@ const CreateOrderPage = () => {
                 agreement: a
                   ? { recId: a.recId, number: a.number, title: a.title, currency: a.currency }
                   : null,
+                lines: [],
+                currencyCode: a && currencies.includes(a.currency) ? a.currency : draft.currencyCode,
               });
             }}
             options={[
@@ -348,9 +349,7 @@ const CreateOrderPage = () => {
           {missingMessages.map((message) => <li key={message}>{message}</li>)}
         </ul>
       )}
-      <Button size="lg" fullWidth disabled={!ready} onClick={() => navigate('/crear-pedido/linea')}>
-        Continuar a líneas
-      </Button>
+      <OrderLinesContinue draft={draft} ready={ready} update={update} />
     </div>
   );
 };

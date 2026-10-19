@@ -1,10 +1,10 @@
-import type { ApiClient } from '../../core/api/apiClient';
-import type { ForecastFilters, ForecastRow } from './forecastTypes';
+import type { ApiClient } from "../../core/api/apiClient";
+import type { ForecastFilters, ForecastRow } from "./forecastTypes";
 type J = Record<string, unknown>;
-const s = (v: unknown) => (v == null ? '' : String(v));
+const s = (v: unknown) => (v == null ? "" : String(v));
 const maybe = (v: unknown): number | null => {
   if (v == null) return null;
-  if (typeof v === 'number') return v;
+  if (typeof v === "number") return v;
   return Number(v) || 0;
 };
 /** Convierte una fila sin tipar del API en una fila de pronóstico de dominio. */
@@ -34,14 +34,19 @@ export const mapForecast = (j: J): ForecastRow => ({
  * @returns Operación paginada de consulta de pronóstico.
  */
 export const forecastService = (api: ApiClient) => ({
-  list: async (company: string, vendor: string, f: ForecastFilters, signal?: AbortSignal) => {
+  list: async (
+    company: string,
+    vendor: string,
+    f: ForecastFilters,
+    signal?: AbortSignal,
+  ) => {
     const value = await api.post<J>(
-      '/forecastSales',
+      "/forecastSales",
       {
         company,
         salesgroup: vendor,
-        from_date: f.from || '1990-01-01',
-        to_date: f.to || '1990-01-01',
+        from_date: f.from || "1990-01-01",
+        to_date: f.to || "1990-01-01",
         itemid: f.item,
         variant: f.variant,
         customerid: f.customer,

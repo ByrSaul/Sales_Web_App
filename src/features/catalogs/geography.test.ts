@@ -1,37 +1,44 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 import {
   selectCountry,
   selectState,
   selectCounty,
   selectCity,
   type GeographySelection,
-} from './geography';
+} from "./geography";
 const full: GeographySelection = {
-  countryId: 'GT',
-  stateId: 'GUA',
-  countyId: '1',
-  cityId: 'city',
-  zipCode: '01001',
+  countryId: "GT",
+  stateId: "GUA",
+  countyId: "1",
+  cityId: "city",
+  zipCode: "01001",
 };
-describe('geography cascade', () => {
-  it('clears all descendants when country changes', () =>
-    expect(selectCountry(full, 'SV')).toEqual({
-      countryId: 'SV',
-      stateId: '',
-      countyId: '',
-      cityId: '',
-      zipCode: '',
+describe("geography cascade", () => {
+  it("clears all descendants when country changes", () =>
+    expect(selectCountry(full, "SV")).toEqual({
+      countryId: "SV",
+      stateId: "",
+      countyId: "",
+      cityId: "",
+      zipCode: "",
     }));
-  it('clears county, city and zip when state changes', () =>
-    expect(selectState(full, 'PET')).toMatchObject({
-      countryId: 'GT',
-      stateId: 'PET',
-      countyId: '',
-      cityId: '',
-      zipCode: '',
+  it("clears county, city and zip when state changes", () =>
+    expect(selectState(full, "PET")).toMatchObject({
+      countryId: "GT",
+      stateId: "PET",
+      countyId: "",
+      cityId: "",
+      zipCode: "",
     }));
-  it('clears city and zip when county changes', () =>
-    expect(selectCounty(full, '2')).toMatchObject({ countyId: '2', cityId: '', zipCode: '' }));
-  it('clears zip when city changes', () =>
-    expect(selectCity(full, 'new')).toMatchObject({ cityId: 'new', zipCode: '' }));
+  it("clears city and zip when county changes", () =>
+    expect(selectCounty(full, "2")).toMatchObject({
+      countyId: "2",
+      cityId: "",
+      zipCode: "",
+    }));
+  it("clears zip when city changes", () =>
+    expect(selectCity(full, "new")).toMatchObject({
+      cityId: "new",
+      zipCode: "",
+    }));
 });

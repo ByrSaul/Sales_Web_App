@@ -1,9 +1,9 @@
-import { runUiAction } from '../../core/async/uiAction';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
-import { useCustomerAddresses } from '../../features/catalogs/hooks';
-import { Button, Card, EmptyState } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useSafeNavigate as useNavigate } from "../../core/hooks/useSafeNavigate";
+import { useCustomerAddresses } from "../../features/catalogs/hooks";
+import { Button, Card, EmptyState } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de consulta de las direcciones pertenecientes a un cliente. */
 const CustomerAddressesPage = () => {
   const renderAddresses = () => {
@@ -36,13 +36,16 @@ const CustomerAddressesPage = () => {
     );
   };
 
-  const { customerAccount = '' } = useParams();
+  const { customerAccount = "" } = useParams();
   const [p] = useSearchParams();
   const nav = useNavigate();
   const q = useCustomerAddresses(customerAccount);
   return (
     <div className="space-y-4">
-      <Button variant="outline" onClick={() => nav(`/clientes${p.toString() ? `?${p}` : ''}`)}>
+      <Button
+        variant="outline"
+        onClick={() => nav(`/clientes${p.toString() ? `?${p}` : ""}`)}
+      >
         Volver a clientes
       </Button>
       <div className="flex justify-between">
@@ -53,7 +56,7 @@ const CustomerAddressesPage = () => {
         <Button
           onClick={() =>
             nav(
-              `/clientes/${encodeURIComponent(customerAccount)}/direcciones/nueva${p.toString() ? `?${p}` : ''}`,
+              `/clientes/${encodeURIComponent(customerAccount)}/direcciones/nueva${p.toString() ? `?${p}` : ""}`,
             )
           }
         >

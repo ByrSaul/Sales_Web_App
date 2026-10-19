@@ -1,11 +1,15 @@
 import { inventoryIdentity } from "../../features/catalogs/inventoryIdentity";
-import { runUiAction } from '../../core/async/uiAction';
-import React, { useState } from 'react';
-import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
-import { useInfiniteProducts, useInventory, useVariants } from '../../features/catalogs/hooks';
-import type { Product } from '../../features/catalogs/types';
-import { Badge, Button, Card, EmptyState, Input, Select } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
+import { runUiAction } from "../../core/async/uiAction";
+import React, { useState } from "react";
+import { useDebouncedValue } from "../../core/hooks/useDebouncedValue";
+import {
+  useInfiniteProducts,
+  useInventory,
+  useVariants,
+} from "../../features/catalogs/hooks";
+import type { Product } from "../../features/catalogs/types";
+import { Badge, Button, Card, EmptyState, Input, Select } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de consulta de existencias por producto, variante y ubicación. */
 const InventoryPage: React.FC = () => {
   const renderInventory = () => {
@@ -13,7 +17,11 @@ const InventoryPage: React.FC = () => {
       return (
         <EmptyState
           icon="inventory_2"
-          title={product?.requiresVariant ? 'Selecciona una variante' : 'Selecciona un producto'}
+          title={
+            product?.requiresVariant
+              ? "Selecciona una variante"
+              : "Selecciona un producto"
+          }
           subtitle="La disponibilidad se consultará en Dynamics."
         />
       );
@@ -51,16 +59,22 @@ const InventoryPage: React.FC = () => {
                 <tr key={inventoryIdentity(x)} className="border-t">
                   <td className="p-3">
                     <strong>{x.displayProductNumber || x.itemId}</strong>
-                    <span className="block text-xs text-on-surface-variant">{x.productName}</span>
+                    <span className="block text-xs text-on-surface-variant">
+                      {x.productName}
+                    </span>
                   </td>
-                  <td className="p-3">{x.siteId || 'N/A'}</td>
-                  <td className="p-3">{x.warehouseId || 'N/A'}</td>
+                  <td className="p-3">{x.siteId || "N/A"}</td>
+                  <td className="p-3">{x.warehouseId || "N/A"}</td>
                   <td className="p-3 text-right">{x.physical}</td>
-                  <td className="p-3 text-right font-semibold">{x.totalAvailable}</td>
+                  <td className="p-3 text-right font-semibold">
+                    {x.totalAvailable}
+                  </td>
                   <td className="p-3">
                     <Badge
-                      label={x.totalAvailable > 0 ? 'DISPONIBLE' : 'SIN EXISTENCIA'}
-                      variant={x.totalAvailable > 0 ? 'success' : 'blocked'}
+                      label={
+                        x.totalAvailable > 0 ? "DISPONIBLE" : "SIN EXISTENCIA"
+                      }
+                      variant={x.totalAvailable > 0 ? "success" : "blocked"}
                     />
                   </td>
                 </tr>
@@ -69,7 +83,11 @@ const InventoryPage: React.FC = () => {
           </table>
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" disabled={page <= 1} onClick={() => setPage((x) => x - 1)}>
+          <Button
+            variant="outline"
+            disabled={page <= 1}
+            onClick={() => setPage((x) => x - 1)}
+          >
             Anterior
           </Button>
           <Button
@@ -84,24 +102,26 @@ const InventoryPage: React.FC = () => {
     );
   };
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const debounced = useDebouncedValue(search);
   const [product, setProduct] = useState<Product | null>(null);
-  const [variant, setVariant] = useState('');
+  const [variant, setVariant] = useState("");
   const [page, setPage] = useState(1);
   const products = useInfiniteProducts(debounced, true);
   const variants = useVariants(product);
   const stock = useInventory(product, variant, page);
   const selectProduct = (id: string) => {
     setProduct(products.items.find((x) => x.itemId === id) ?? null);
-    setVariant('');
+    setVariant("");
     setPage(1);
   };
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold">Consulta de inventario</h1>
-        <p className="text-xs text-on-surface-variant">Disponibilidad por sitio y almacén</p>
+        <p className="text-xs text-on-surface-variant">
+          Disponibilidad por sitio y almacén
+        </p>
       </div>
       <Card className="p-4 grid md:grid-cols-2 gap-3">
         <Input
@@ -113,10 +133,13 @@ const InventoryPage: React.FC = () => {
         />
         <Select
           label="Producto"
-          value={product?.itemId ?? ''}
+          value={product?.itemId ?? ""}
           onChange={(e) => selectProduct(e.target.value)}
           options={[
-            { value: '', label: products.isFetching ? 'Buscando...' : 'Seleccionar...' },
+            {
+              value: "",
+              label: products.isFetching ? "Buscando..." : "Seleccionar...",
+            },
             ...products.items.map((x) => ({
               value: x.itemId,
               label: `${x.itemId} - ${x.name}`,
@@ -141,10 +164,15 @@ const InventoryPage: React.FC = () => {
               setPage(1);
             }}
             options={[
-              { value: '', label: variants.isFetching ? 'Cargando...' : 'Seleccionar variante...' },
+              {
+                value: "",
+                label: variants.isFetching
+                  ? "Cargando..."
+                  : "Seleccionar variante...",
+              },
               ...(variants.data?.items ?? []).map((x) => ({
                 value: x.displayProductNumber,
-                label: `${x.displayProductNumber} - ${[x.configId, x.sizeId, x.colorId].filter(Boolean).join(' / ')}`,
+                label: `${x.displayProductNumber} - ${[x.configId, x.sizeId, x.colorId].filter(Boolean).join(" / ")}`,
               })),
             ]}
           />

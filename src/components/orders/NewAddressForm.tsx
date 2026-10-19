@@ -1,4 +1,4 @@
-import { runUiAction } from '../../core/async/uiAction';
+import { runUiAction } from "../../core/async/uiAction";
 import { useState } from "react";
 import {
   useAddressGeography,
@@ -192,7 +192,10 @@ export const NewAddressForm = ({
         <Button variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button loading={create.isPending} onClick={() => runUiAction(() => submit())}>
+        <Button
+          loading={create.isPending}
+          onClick={() => runUiAction(() => submit())}
+        >
           Crear y seleccionar
         </Button>
       </div>

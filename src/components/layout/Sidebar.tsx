@@ -1,4 +1,4 @@
-import { runUiAction } from '../../core/async/uiAction';
+import { runUiAction } from "../../core/async/uiAction";
 import React from "react";
 import { User } from "../../types";
 import { Icon } from "../ui";
@@ -47,9 +47,10 @@ interface NavLinkProps {
   onClick: () => void;
 }
 const navLinkStyle = (active: boolean, danger?: boolean): string => {
-  if (active) return 'bg-primary/10 text-primary font-semibold border-l-2 border-primary';
-  if (danger) return 'text-error hover:bg-red-50';
-  return 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface';
+  if (active)
+    return "bg-primary/10 text-primary font-semibold border-l-2 border-primary";
+  if (danger) return "text-error hover:bg-red-50";
+  return "text-on-surface-variant hover:bg-surface-container hover:text-on-surface";
 };
 /** Opción reutilizable de navegación para las variantes desktop y móvil. */
 const NavLink: React.FC<NavLinkProps> = ({
@@ -61,9 +62,10 @@ const NavLink: React.FC<NavLinkProps> = ({
 }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${
-      navLinkStyle(isActive, danger)
-    }`}
+    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${navLinkStyle(
+      isActive,
+      danger,
+    )}`}
   >
     <Icon name={icon} size={18} className={isActive ? "text-primary" : ""} />
     <span>{label}</span>
