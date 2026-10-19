@@ -1,3 +1,5 @@
+import { inventoryIdentity } from "../../features/catalogs/inventoryIdentity";
+import { runUiAction } from '../../core/async/uiAction';
 import React, { useState } from 'react';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useInfiniteProducts, useInventory, useVariants } from '../../features/catalogs/hooks';
@@ -6,6 +8,82 @@ import { Badge, Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 /** Pantalla de consulta de existencias por producto, variante y ubicación. */
 const InventoryPage: React.FC = () => {
+  const renderInventory = () => {
+    if (!product || (product.requiresVariant && !variant)) {
+      return (
+        <EmptyState
+          icon="inventory_2"
+          title={product?.requiresVariant ? 'Selecciona una variante' : 'Selecciona un producto'}
+          subtitle="La disponibilidad se consultará en Dynamics."
+        />
+      );
+    }
+    if (stock.isPending) {
+      return <LoadingState message="Consultando inventario..." />;
+    }
+    if (stock.isError) {
+      return (
+        <ErrorState
+          message="No fue posible consultar el inventario."
+          onRetry={() => runUiAction(() => stock.refetch())}
+        />
+      );
+    }
+    if (!stock.data.items.length) {
+      return <EmptyState title="Sin inventario disponible" />;
+    }
+    return (
+      <>
+        <div className="overflow-x-auto bg-white rounded-xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-container text-left">
+              <tr>
+                <th className="p-3">Producto</th>
+                <th className="p-3">Sitio</th>
+                <th className="p-3">Almacén</th>
+                <th className="p-3 text-right">Físico</th>
+                <th className="p-3 text-right">Disponible</th>
+                <th className="p-3">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stock.data.items.map((x) => (
+                <tr key={inventoryIdentity(x)} className="border-t">
+                  <td className="p-3">
+                    <strong>{x.displayProductNumber || x.itemId}</strong>
+                    <span className="block text-xs text-on-surface-variant">{x.productName}</span>
+                  </td>
+                  <td className="p-3">{x.siteId || 'N/A'}</td>
+                  <td className="p-3">{x.warehouseId || 'N/A'}</td>
+                  <td className="p-3 text-right">{x.physical}</td>
+                  <td className="p-3 text-right font-semibold">{x.totalAvailable}</td>
+                  <td className="p-3">
+                    <Badge
+                      label={x.totalAvailable > 0 ? 'DISPONIBLE' : 'SIN EXISTENCIA'}
+                      variant={x.totalAvailable > 0 ? 'success' : 'blocked'}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" disabled={page <= 1} onClick={() => setPage((x) => x - 1)}>
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            disabled={page >= stock.data.pagination.totalPages}
+            onClick={() => setPage((x) => x + 1)}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </>
+    );
+  };
+
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search);
   const [product, setProduct] = useState<Product | null>(null);
@@ -49,7 +127,7 @@ const InventoryPage: React.FC = () => {
           <Button
             variant="outline"
             loading={products.isFetchingNextPage}
-            onClick={() => void products.fetchNextPage()}
+            onClick={() => runUiAction(() => products.fetchNextPage())}
           >
             Cargar más productos
           </Button>
@@ -72,71 +150,7 @@ const InventoryPage: React.FC = () => {
           />
         )}
       </Card>
-      {!product || (product.requiresVariant && !variant) ? (
-        <EmptyState
-          icon="inventory_2"
-          title={product?.requiresVariant ? 'Selecciona una variante' : 'Selecciona un producto'}
-          subtitle="La disponibilidad se consultará en Dynamics."
-        />
-      ) : stock.isPending ? (
-        <LoadingState message="Consultando inventario..." />
-      ) : stock.isError ? (
-        <ErrorState
-          message="No fue posible consultar el inventario."
-          onRetry={() => void stock.refetch()}
-        />
-      ) : !stock.data.items.length ? (
-        <EmptyState title="Sin inventario disponible" />
-      ) : (
-        <>
-          <div className="overflow-x-auto bg-white rounded-xl border">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-container text-left">
-                <tr>
-                  <th className="p-3">Producto</th>
-                  <th className="p-3">Sitio</th>
-                  <th className="p-3">Almacén</th>
-                  <th className="p-3 text-right">Físico</th>
-                  <th className="p-3 text-right">Disponible</th>
-                  <th className="p-3">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stock.data.items.map((x, i) => (
-                  <tr key={`${x.siteId}-${x.warehouseId}-${i}`} className="border-t">
-                    <td className="p-3">
-                      <strong>{x.displayProductNumber || x.itemId}</strong>
-                      <span className="block text-xs text-on-surface-variant">{x.productName}</span>
-                    </td>
-                    <td className="p-3">{x.siteId || 'N/A'}</td>
-                    <td className="p-3">{x.warehouseId || 'N/A'}</td>
-                    <td className="p-3 text-right">{x.physical}</td>
-                    <td className="p-3 text-right font-semibold">{x.totalAvailable}</td>
-                    <td className="p-3">
-                      <Badge
-                        label={x.totalAvailable > 0 ? 'DISPONIBLE' : 'SIN EXISTENCIA'}
-                        variant={x.totalAvailable > 0 ? 'success' : 'blocked'}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" disabled={page <= 1} onClick={() => setPage((x) => x - 1)}>
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              disabled={page >= stock.data.pagination.totalPages}
-              onClick={() => setPage((x) => x + 1)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </>
-      )}
+      {renderInventory()}
     </div>
   );
 };

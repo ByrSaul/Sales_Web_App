@@ -1,3 +1,4 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useForecast } from '../../features/forecast/forecastQueries';
@@ -6,6 +7,78 @@ import { Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 /** Pantalla de consulta del pronóstico comercial del vendedor activo. */
 const ForecastPage = () => {
+  const renderForecast = () => {
+    if (q.isLoading) {
+      return <LoadingState />;
+    }
+    if (q.isError) {
+      return (
+        <ErrorState
+          message="No se pudo consultar el forecast."
+          onRetry={() => runUiAction(() => q.refetch())}
+        />
+      );
+    }
+    if (!q.data?.items.length) {
+      return <EmptyState title="No hay forecast para estos filtros" />;
+    }
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full bg-white text-sm">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Variante</th>
+                <th>Cliente</th>
+                <th>Venta</th>
+                <th>Presupuesto</th>
+                <th>Proyección</th>
+              </tr>
+            </thead>
+            <tbody>
+              {q.data.items.map((x) => (
+                <tr
+                  className="border-t"
+                  key={JSON.stringify([x.salesGroup, x.customer, x.itemId, x.variant])}
+                >
+                  <td>{x.itemId}</td>
+                  <td>{x.variant}</td>
+                  <td>{x.customer}</td>
+                  <td>{x.salesQuantity ?? x.salesAmount ?? x.salesVolume ?? '—'}</td>
+                  <td>{x.budgetQuantity ?? x.budgetAmount ?? x.budgetVolume ?? '—'}</td>
+                  <td>{x.projectionQuantity ?? x.projectionAmount ?? x.projectionVolume ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-between">
+          <span>{q.data.pagination.totalRecords} registros</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={f.page <= 1}
+              onClick={() => apply({ ...f, page: f.page - 1 })}
+            >
+              Anterior
+            </Button>
+            <span className="p-2">
+              {f.page}/{Math.max(1, q.data.pagination.totalPages)}
+            </span>
+            <Button
+              variant="outline"
+              disabled={f.page >= q.data.pagination.totalPages}
+              onClick={() => apply({ ...f, page: f.page + 1 })}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const [p, setP] = useSearchParams();
   const f: ForecastFilters = {
     from: p.get('from') ?? '',
@@ -83,66 +156,7 @@ const ForecastPage = () => {
           Consultar
         </Button>
       </Card>
-      {q.isLoading ? (
-        <LoadingState />
-      ) : q.isError ? (
-        <ErrorState message="No se pudo consultar el forecast." onRetry={() => q.refetch()} />
-      ) : !q.data?.items.length ? (
-        <EmptyState title="No hay forecast para estos filtros" />
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full bg-white text-sm">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Variante</th>
-                  <th>Cliente</th>
-                  <th>Venta</th>
-                  <th>Presupuesto</th>
-                  <th>Proyección</th>
-                </tr>
-              </thead>
-              <tbody>
-                {q.data.items.map((x, i) => (
-                  <tr className="border-t" key={`${x.itemId}-${x.variant}-${x.customer}-${i}`}>
-                    <td>{x.itemId}</td>
-                    <td>{x.variant}</td>
-                    <td>{x.customer}</td>
-                    <td>{x.salesQuantity ?? x.salesAmount ?? x.salesVolume ?? '—'}</td>
-                    <td>{x.budgetQuantity ?? x.budgetAmount ?? x.budgetVolume ?? '—'}</td>
-                    <td>
-                      {x.projectionQuantity ?? x.projectionAmount ?? x.projectionVolume ?? '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-between">
-            <span>{q.data.pagination.totalRecords} registros</span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={f.page <= 1}
-                onClick={() => apply({ ...f, page: f.page - 1 })}
-              >
-                Anterior
-              </Button>
-              <span className="p-2">
-                {f.page}/{Math.max(1, q.data.pagination.totalPages)}
-              </span>
-              <Button
-                variant="outline"
-                disabled={f.page >= q.data.pagination.totalPages}
-                onClick={() => apply({ ...f, page: f.page + 1 })}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+      {renderForecast()}
     </div>
   );
 };

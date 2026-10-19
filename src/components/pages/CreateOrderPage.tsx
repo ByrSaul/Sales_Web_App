@@ -1,5 +1,6 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useSession } from '../../app/providers/SessionProvider';
 import {
@@ -131,7 +132,7 @@ const CreateOrderPage = () => {
         {!draft.customer && isCustomerSearchApplied && customers.isError && (
           <p className="text-xs text-error">
             No fue posible consultar clientes.{' '}
-            <button className="underline" onClick={() => void customers.refetch()}>Reintentar</button>
+            <button className="underline" onClick={() => runUiAction(() => customers.refetch())}>Reintentar</button>
           </p>
         )}
         {isCustomerSearchApplied && !customers.isError && !draft.customer && customers.items.length > 0 && (
@@ -173,7 +174,7 @@ const CreateOrderPage = () => {
                 size="sm"
                 variant="outline"
                 loading={customers.isFetchingNextPage}
-                onClick={() => void customers.fetchNextPage()}
+                onClick={() => runUiAction(() => customers.fetchNextPage())}
               >
                 Cargar más clientes
               </Button>

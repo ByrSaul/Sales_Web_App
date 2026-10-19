@@ -123,11 +123,10 @@ export const mapExistingLine = (j: Json): ExistingSalesLine => ({
 });
 /** Extrae y mapea líneas persistidas desde las variantes conocidas de respuesta. */
 export const mapExistingLines = (raw: unknown): ExistingSalesLine[] => {
-  const value = Array.isArray(raw)
-    ? raw
-    : raw && typeof raw === 'object' && Array.isArray((raw as Json)['@odata'])
-      ? ((raw as Json)['@odata'] as unknown[])
-      : [];
+  let value: unknown[] = [];
+  if (Array.isArray(raw)) value = raw;
+  else if (raw && typeof raw === 'object' && Array.isArray((raw as Json)['@odata']))
+    value = (raw as Json)['@odata'] as unknown[];
   return value.filter((v) => v && typeof v === 'object').map((v) => mapExistingLine(v as Json));
 };
 /** Determina si una línea local corresponde a una línea ya persistida. */

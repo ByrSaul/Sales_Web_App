@@ -16,6 +16,10 @@ export default defineConfig(({ command, mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
+      coverage: {
+        // Count production files even when no test imports them yet.
+        include: ['src/**/*.{ts,tsx}'],
+      },
     },
   };
 });

@@ -1,5 +1,7 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useReportService, useStatement } from '../../features/billing/billingQueries';
 import { openPdfReport } from '../../features/billing/billingService';
 import { userErrorMessage } from '../../core/api/errors';
@@ -101,13 +103,13 @@ const FinancialDocumentPage = () => {
         </p>
       )}
       <div className="flex gap-2">
-        <Button loading={loading} disabled={!doc.internalInvoice} onClick={() => pdf('open')}>
+        <Button loading={loading} disabled={!doc.internalInvoice} onClick={() => runUiAction(() => pdf('open'))}>
           Abrir PDF
         </Button>
         <Button
           variant="outline"
           disabled={loading || !doc.internalInvoice}
-          onClick={() => pdf('download')}
+          onClick={() => runUiAction(() => pdf('download'))}
         >
           Descargar PDF
         </Button>

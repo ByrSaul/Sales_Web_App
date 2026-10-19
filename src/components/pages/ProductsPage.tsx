@@ -1,3 +1,4 @@
+import { runUiAction } from '../../core/async/uiAction';
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
@@ -7,6 +8,50 @@ import { Badge, Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 /** Pantalla de consulta de productos y sus variantes disponibles. */
 const ProductsPage: React.FC = () => {
+  const renderProducts = () => {
+    if (products.isError) {
+      return (
+        <ErrorState
+          message="No fue posible cargar productos."
+          onRetry={() => runUiAction(() => products.refetch())}
+        />
+      );
+    }
+    if (!products.data?.items.length) {
+      return <EmptyState title="No se encontraron productos" />;
+    }
+    return (
+      <div className="grid md:grid-cols-2 gap-3">
+        {products.data.items.map((p) => (
+          <Card key={p.itemId} hover className="p-4" onClick={() => setSelected(p)}>
+            <div className="flex justify-between">
+              <strong>{p.itemId}</strong>
+              {p.requiresVariant && <Badge label="REQUIERE VARIANTE" variant="info" />}
+            </div>
+            <p className="text-sm mt-1">{p.name}</p>
+            <p className="text-xs text-on-surface-variant mt-2">
+              {p.productType} · {p.dimensionGroup}
+            </p>
+            {selected?.itemId === p.itemId && p.requiresVariant && (
+              <div className="mt-3 border-t pt-3">
+                {variants.isPending
+                  ? 'Cargando variantes...'
+                  : variants.data?.items.map((v) => (
+                      <div key={v.displayProductNumber} className="text-xs py-1">
+                        <strong>{v.displayProductNumber}</strong> —{' '}
+                        {[v.configId, v.sizeId, v.colorId, v.styleId, v.versionId]
+                          .filter(Boolean)
+                          .join(' / ')}
+                      </div>
+                    ))}
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
   const [params, setParams] = useSearchParams();
   const page = Number(params.get('page') ?? 1);
   const [search, setSearch] = useState(params.get('search') ?? '');
@@ -35,43 +80,7 @@ const ProductsPage: React.FC = () => {
           placeholder="Código o nombre..."
         />
       </div>
-      {products.isError ? (
-        <ErrorState
-          message="No fue posible cargar productos."
-          onRetry={() => void products.refetch()}
-        />
-      ) : !products.data.items.length ? (
-        <EmptyState title="No se encontraron productos" />
-      ) : (
-        <div className="grid md:grid-cols-2 gap-3">
-          {products.data.items.map((p) => (
-            <Card key={p.itemId} hover className="p-4" onClick={() => setSelected(p)}>
-              <div className="flex justify-between">
-                <strong>{p.itemId}</strong>
-                {p.requiresVariant && <Badge label="REQUIERE VARIANTE" variant="info" />}
-              </div>
-              <p className="text-sm mt-1">{p.name}</p>
-              <p className="text-xs text-on-surface-variant mt-2">
-                {p.productType} · {p.dimensionGroup}
-              </p>
-              {selected?.itemId === p.itemId && p.requiresVariant && (
-                <div className="mt-3 border-t pt-3">
-                  {variants.isPending
-                    ? 'Cargando variantes...'
-                    : variants.data?.items.map((v) => (
-                        <div key={v.displayProductNumber} className="text-xs py-1">
-                          <strong>{v.displayProductNumber}</strong> —{' '}
-                          {[v.configId, v.sizeId, v.colorId, v.styleId, v.versionId]
-                            .filter(Boolean)
-                            .join(' / ')}
-                        </div>
-                      ))}
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
+      {renderProducts()}
       <div className="flex justify-end gap-2">
         <Button
           variant="outline"

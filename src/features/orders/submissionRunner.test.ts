@@ -9,6 +9,7 @@ import type {
   OrderSubmissionGateway,
   SalesHeaderResponse,
 } from './types';
+import type { OrderAttachment } from '../attachments/attachmentTypes';
 
 let counter = 0;
 beforeEach(() => {
@@ -68,6 +69,73 @@ const gateway = () =>
   }) as OrderSubmissionGateway;
 const lineKeys = (g: OrderSubmissionGateway) =>
   vi.mocked(g.createNormalLine).mock.calls.map((call) => call[1]);
+
+describe('SubmissionRunner · attachments and payment prerequisites', () => {
+  const input = () => ({ localId: 'attachment-1', file: new File(['receipt'], 'receipt.PNG', { type: 'image/png' }), description: ' pago ' });
+  const persisted = (overrides: Partial<OrderAttachment> = {}): OrderAttachment => ({
+    companyId: 'CO', salesOrderNumber: 'OV-1', documentId: 'DOC', fileName: 'receipt', fileType: 'png',
+    description: 'pago', contentBase64: '', attachmentType: 'Imagen', ...overrides,
+  });
+
+  it('uploads sequentially once, persists the local IDs and skips confirmed attachments on resume', async () => {
+    const g = gateway();
+    g.uploadAttachment = vi.fn().mockResolvedValue(persisted());
+    const runner = new SubmissionRunner(g);
+    const attachment = input();
+    const first = await runner.submit(validDraft(), null, [attachment]);
+    expect(first.completed).toBe(true);
+    expect(first.submission.createdAttachmentIds).toEqual([attachment.localId]);
+    await runner.submit(first.submission.snapshot, first.submission, [attachment]);
+    expect(g.uploadAttachment).toHaveBeenCalledExactlyOnceWith('CO', 'OV-1', attachment.file, attachment.description);
+    expect(g.createNormalLine).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['receipt', 'RECEIPT.PNG'])('confirms a timed-out upload by remote name %s and trimmed description without reuploading', async (fileName) => {
+    const g = gateway();
+    g.uploadAttachment = vi.fn().mockRejectedValue(timeout());
+    g.listAttachments = vi.fn().mockResolvedValue([persisted({ fileName })]);
+    const result = await new SubmissionRunner(g).submit(validDraft(), null, [input()]);
+    expect(result.completed).toBe(true);
+    expect(g.uploadAttachment).toHaveBeenCalledTimes(1);
+    expect(g.listAttachments).toHaveBeenCalledExactlyOnceWith('CO', 'OV-1');
+    expect(result.submission.createdAttachmentIds).toEqual(['attachment-1']);
+  });
+
+  it.each(['unavailable', 'missing', 'different-description', 'unsupported'])('blocks lines after an uncertain upload when verification is %s', async (mode) => {
+    const g = gateway();
+    g.uploadAttachment = vi.fn().mockRejectedValue(timeout());
+    if (mode === 'unavailable') g.listAttachments = vi.fn().mockRejectedValue(new Error('lookup failed'));
+    if (mode === 'missing') g.listAttachments = vi.fn().mockResolvedValue([]);
+    if (mode === 'different-description') g.listAttachments = vi.fn().mockResolvedValue([persisted({ description: 'other' })]);
+    const runner = new SubmissionRunner(g);
+    const result = await runner.submit(validDraft(), null, [input()]);
+    expect(result.completed).toBe(false);
+    expect(result.submission).toMatchObject({ status: 'partial-failure', attachmentRetryAllowed: false });
+    expect(result.submission.attachmentError).toContain('no se crearon líneas ni se reenvió el archivo');
+    expect(g.createNormalLine).not.toHaveBeenCalled();
+    expect(g.uploadAttachment).toHaveBeenCalledTimes(1);
+    await runner.verifyPending(result.submission);
+    expect(g.uploadAttachment).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['missing', 'unavailable', 'valid'])('requires remote payment evidence (%s) before sending cash-customer lines', async (mode) => {
+    const g = gateway();
+    g.uploadAttachment = vi.fn().mockResolvedValue(persisted());
+    g.listAttachments = vi.fn().mockResolvedValue(mode === 'valid' ? [persisted()] : []);
+    if (mode === 'unavailable') vi.mocked(g.listAttachments).mockRejectedValue(new Error('lookup unavailable'));
+    const draft = validDraft();
+    draft.customer!.account = 'MOST-000001';
+    const result = await new SubmissionRunner(g).submit(draft, null, [input()]);
+    expect(result.completed).toBe(mode === 'valid');
+    expect(g.uploadAttachment).toHaveBeenCalledTimes(1);
+    if (mode === 'valid') expect(g.createNormalLine).toHaveBeenCalledTimes(1);
+    else {
+      expect(g.createNormalLine).not.toHaveBeenCalled();
+      expect(result.submission.attachmentRetryAllowed).toBe(false);
+      expect(result.submission.attachmentError).toContain('hasta confirmar el comprobante');
+    }
+  });
+});
 
 describe('SubmissionRunner · encabezado', () => {
   it('1. crea el encabezado y las líneas una sola vez cada uno', async () => {

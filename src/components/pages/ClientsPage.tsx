@@ -1,3 +1,4 @@
+import { runUiAction } from '../../core/async/uiAction';
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -31,6 +32,36 @@ const CustomerDetail = ({
   close: () => void;
   onStatement: () => void;
 }) => {
+  const renderAddresses = () => {
+    if (addresses.isPending) {
+      return <LoadingState message="Cargando direcciones..." />;
+    }
+    if (addresses.isError) {
+      return (
+        <ErrorState
+          message="No fue posible cargar las direcciones."
+          onRetry={() => runUiAction(() => addresses.refetch())}
+        />
+      );
+    }
+    if (addresses.data?.length) {
+      return (
+        <div className="max-h-64 space-y-2 overflow-x-hidden overflow-y-auto pr-1">
+          {addresses.data.map((x) => (
+            <Card key={x.recId} className="min-w-0 p-3">
+              <strong className="block break-words text-sm">{x.description}</strong>
+              <p className="mt-1 break-words text-xs">{x.formattedAddress}</p>
+              <p className="mt-1 break-words text-[11px] text-on-surface-variant">
+                {x.roles} · {x.countryId} · {x.locationId}
+              </p>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+    return <EmptyState title="Sin direcciones" />;
+  };
+
   const queryClient = useQueryClient();
   const { context } = useSession();
   const [showNewAddress, setShowNewAddress] = useState(false);
@@ -85,33 +116,12 @@ const CustomerDetail = ({
             onCancel={() => setShowNewAddress(false)}
             onCreated={() => {
               setShowNewAddress(false);
-              void queryClient.invalidateQueries({ queryKey: addressQueryKey });
+              runUiAction(() => queryClient.invalidateQueries({ queryKey: addressQueryKey }));
             }}
           />
         </div>
       )}
-      {addresses.isPending ? (
-        <LoadingState message="Cargando direcciones..." />
-      ) : addresses.isError ? (
-        <ErrorState
-          message="No fue posible cargar las direcciones."
-          onRetry={() => void addresses.refetch()}
-        />
-      ) : addresses.data?.length ? (
-        <div className="max-h-64 space-y-2 overflow-x-hidden overflow-y-auto pr-1">
-          {addresses.data.map((x) => (
-            <Card key={x.recId} className="min-w-0 p-3">
-              <strong className="block break-words text-sm">{x.description}</strong>
-              <p className="mt-1 break-words text-xs">{x.formattedAddress}</p>
-              <p className="mt-1 break-words text-[11px] text-on-surface-variant">
-                {x.roles} · {x.countryId} · {x.locationId}
-              </p>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <EmptyState title="Sin direcciones" />
-      )}
+      {renderAddresses()}
       {showNif && (
         <section className="mt-5 min-w-0 space-y-3 border-t border-outline-variant pt-4">
           <h3 className="text-sm font-semibold">NIF</h3>
@@ -170,6 +180,94 @@ const CustomerDetail = ({
 const ClientsPage: React.FC<{ onEstadoCuenta?: (customerAccount: string) => void }> = ({
   onEstadoCuenta = () => undefined,
 }) => {
+  const renderCustomers = () => {
+    if (!debounced.trim()) {
+      return <EmptyState icon="search" title="Escriba una cuenta o nombre para buscar clientes" />;
+    }
+    if (query.isPending) {
+      return <p className="text-xs text-on-surface-variant">Buscando clientes...</p>;
+    }
+    if (query.isError) {
+      return (
+        <ErrorState
+          message="No fue posible cargar los clientes."
+          onRetry={() => runUiAction(() => query.refetch())}
+        />
+      );
+    }
+    if (!query.data || query.data.items.length === 0) {
+      return <EmptyState icon="group" title="No se encontraron clientes" />;
+    }
+    return (
+      <>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {query.data.items.map((customer) => {
+            const customerCardClass = () => {
+              if (selected) {
+                if (isSelected) {
+                  return 'opacity-100 md:relative md:z-20 md:border-primary md:shadow-lg md:ring-1 md:ring-primary/20';
+                }
+                return 'opacity-50 blur-[1px]';
+              }
+              return '';
+            };
+
+            const isSelected =
+              selected?.companyId === customer.companyId && selected.account === customer.account;
+
+            return (
+              <Card
+                key={`${customer.companyId}-${customer.account}`}
+                hover
+                onClick={() => setSelected(customer)}
+                className={`p-4 transition-[opacity,filter,box-shadow,border-color] duration-200 ${customerCardClass()}`}
+              >
+                <div className="flex justify-between">
+                  <div>
+                    <strong className="text-sm">{customer.name}</strong>
+                    <p className="text-xs text-on-surface-variant">
+                      {customer.account} · {customer.currency}
+                    </p>
+                  </div>
+                  <Badge
+                    label={customer.blocked !== 0 ? 'BLOQUEADO' : 'ACTIVO'}
+                    variant={customer.blocked !== 0 ? 'blocked' : 'success'}
+                  />
+                </div>
+                <div className="flex justify-between mt-3 text-xs">
+                  <span>Crédito disponible</span>
+                  <strong>USD {customer.creditAvailableUsd.toFixed(2)}</strong>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span>{query.data.pagination.totalRecords} registros</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={query.data.pagination.currentPage <= 1}
+              onClick={() => changePage(query.data.pagination.currentPage - 1)}
+            >
+              Anterior
+            </Button>
+            <span className="whitespace-nowrap p-2">
+              Página {query.data.pagination.currentPage} de {query.data.pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              disabled={query.data.pagination.currentPage >= query.data.pagination.totalPages}
+              onClick={() => changePage(query.data.pagination.currentPage + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const [params, setParams] = useSearchParams();
   const rawSearch = params.get('search') ?? '';
   const page = Number(params.get('page') ?? 1);
@@ -204,85 +302,7 @@ const ClientsPage: React.FC<{ onEstadoCuenta?: (customerAccount: string) => void
           className="md:w-80"
         />
       </div>
-      {!debounced.trim() ? (
-        <EmptyState icon="search" title="Escriba una cuenta o nombre para buscar clientes" />
-      ) : query.isPending ? (
-        <p className="text-xs text-on-surface-variant">Buscando clientes...</p>
-      ) : query.isError ? (
-        <ErrorState
-          message="No fue posible cargar los clientes."
-          onRetry={() => void query.refetch()}
-        />
-      ) : !query.data || query.data.items.length === 0 ? (
-        <EmptyState icon="group" title="No se encontraron clientes" />
-      ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {query.data.items.map((customer) => {
-              const isSelected =
-                selected?.companyId === customer.companyId &&
-                selected.account === customer.account;
-
-              return (
-                <Card
-                  key={`${customer.companyId}-${customer.account}`}
-                  hover
-                  onClick={() => setSelected(customer)}
-                  className={`p-4 transition-[opacity,filter,box-shadow,border-color] duration-200 ${
-                    selected
-                      ? isSelected
-                        ? 'opacity-100 md:relative md:z-20 md:border-primary md:shadow-lg md:ring-1 md:ring-primary/20'
-                        : 'opacity-50 blur-[1px]'
-                      : ''
-                  }`}
-                >
-                  <div className="flex justify-between">
-                    <div>
-                      <strong className="text-sm">{customer.name}</strong>
-                      <p className="text-xs text-on-surface-variant">
-                        {customer.account} · {customer.currency}
-                      </p>
-                    </div>
-                    <Badge
-                      label={customer.blocked !== 0 ? 'BLOQUEADO' : 'ACTIVO'}
-                      variant={customer.blocked !== 0 ? 'blocked' : 'success'}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-3 text-xs">
-                    <span>Crédito disponible</span>
-                    <strong>USD {customer.creditAvailableUsd.toFixed(2)}</strong>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span>{query.data.pagination.totalRecords} registros</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                disabled={query.data.pagination.currentPage <= 1}
-                onClick={() => changePage(query.data.pagination.currentPage - 1)}
-              >
-                Anterior
-              </Button>
-              <span className="whitespace-nowrap p-2">
-                Página {query.data.pagination.currentPage} de{' '}
-                {query.data.pagination.totalPages}
-              </span>
-              <Button
-                variant="outline"
-                disabled={
-                  query.data.pagination.currentPage >= query.data.pagination.totalPages
-                }
-                onClick={() => changePage(query.data.pagination.currentPage + 1)}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+      {renderCustomers()}
       {selected && (
         <div
           aria-hidden="true"

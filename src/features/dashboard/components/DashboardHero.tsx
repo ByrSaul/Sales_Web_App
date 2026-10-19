@@ -1,5 +1,5 @@
 import AgricultureIcon from '@mui/icons-material/Agriculture';
-import { Card, Icon } from '../../../components/ui';
+import { Card } from '../../../components/ui';
 
 type Props = {
   userName: string;

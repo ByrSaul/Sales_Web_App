@@ -1,6 +1,8 @@
+import { inventoryIdentity } from "../../features/catalogs/inventoryIdentity";
+import { runUiAction } from '../../core/async/uiAction';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
 import { useSession } from '../../app/providers/SessionProvider';
 import { catalogService } from '../../features/catalogs/catalogService';
@@ -14,7 +16,7 @@ import { catalogKeys } from '../../features/catalogs/queryKeys';
 import type { InventoryItem, Product, ProductVariant } from '../../features/catalogs/types';
 import { buildDraftLines } from '../../features/orderDraft/domain';
 import { useOrderDraft } from '../../features/orderDraft/OrderDraftProvider';
-import { validateDraftLine } from '../../features/orderDraft/validation';
+import { validateLineSelection } from '../../features/orderDraft/selectionValidation';
 import { canEditPrice } from '../../features/orders/orderRules';
 import { Button, Card, Input, Select, Toggle } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
@@ -32,6 +34,16 @@ import { ErrorState, LoadingState } from '../ui/PageState';
  * - Catálogos de productos, variantes e inventario.
  */
 const AddOrderLinePage = () => {
+  const displayedPrice = () => {
+    if (priceOverride !== '') {
+      return priceOverride;
+    }
+    if (price.data) {
+      return String(price.data.price);
+    }
+    return '';
+  };
+
   const navigate = useNavigate();
   const { api, context } = useSession();
   const { draft, update, addLines, removeLine } = useOrderDraft();
@@ -138,8 +150,8 @@ const AddOrderLinePage = () => {
     [product, stock, variant, quantity, independent, effectivePrice, promotion, selectedAgreement],
   );
   const errors = selection
-    ? buildDraftLines(draft, selection).flatMap(validateDraftLine)
-    : [{ message: 'Seleccione producto e inventario.' }];
+    ? validateLineSelection(buildDraftLines(draft, selection))
+    : [{ key: 'selection-required', message: 'Seleccione producto e inventario.' }];
   const reset = () => {
     setProduct(null);
     setVariant(null);
@@ -195,7 +207,7 @@ const AddOrderLinePage = () => {
           {!product && isProductSearchApplied && products.isError && (
             <p className="text-xs text-error">
               No fue posible consultar productos.{' '}
-              <button className="underline" onClick={() => void products.refetch()}>Reintentar</button>
+              <button className="underline" onClick={() => runUiAction(() => products.refetch())}>Reintentar</button>
             </p>
           )}
           {!product && isProductSearchApplied && !products.isError && products.items.length > 0 && (
@@ -220,7 +232,7 @@ const AddOrderLinePage = () => {
                   fullWidth
                   variant="outline"
                   loading={products.isFetchingNextPage}
-                  onClick={() => void products.fetchNextPage()}
+                  onClick={() => runUiAction(() => products.fetchNextPage())}
                 >
                   Cargar más productos
                 </Button>
@@ -326,7 +338,7 @@ const AddOrderLinePage = () => {
               {price.isError && (
                 <p className="text-xs text-error">
                   Error al consultar precio.{' '}
-                  <button className="underline" onClick={() => price.refetch()}>
+                  <button className="underline" onClick={() => runUiAction(() => price.refetch())}>
                     Reintentar
                   </button>
                 </p>
@@ -339,7 +351,7 @@ const AddOrderLinePage = () => {
                 type="number"
                 step="any"
                 value={
-                  priceOverride !== '' ? priceOverride : price.data ? String(price.data.price) : ''
+                  displayedPrice()
                 }
                 disabled={!pricePermission || !price.data}
                 onChange={(e) => setPriceOverride(e.target.value)}
@@ -364,16 +376,16 @@ const AddOrderLinePage = () => {
           {inventory.isError && (
             <ErrorState
               message="No se pudo consultar inventario."
-              onRetry={() => inventory.refetch()}
+              onRetry={() => runUiAction(() => inventory.refetch())}
             />
           )}
           {inventory.data && !inventory.data.items.length && (
             <p className="text-sm">Sin inventario para la selección.</p>
           )}
           <div className="max-h-96 w-full max-w-full space-y-2 overflow-x-hidden overflow-y-auto">
-            {inventory.data?.items.map((item, i) => (
+            {inventory.data?.items.map((item) => (
               <button
-                key={`${item.siteId}-${item.warehouseId}-${i}`}
+                key={inventoryIdentity(item)}
                 onClick={() => setStock(item)}
                 className={`w-full min-w-0 max-w-full break-words text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}
               >
@@ -394,8 +406,8 @@ const AddOrderLinePage = () => {
           )}
           {errors.length > 0 && (
             <ul role="alert" className="text-sm text-error list-disc pl-5">
-              {errors.map((e, i) => (
-                <li key={i}>{e.message}</li>
+              {errors.map((e) => (
+                <li key={e.key}>{e.message}</li>
               ))}
             </ul>
           )}

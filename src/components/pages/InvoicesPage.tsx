@@ -1,3 +1,4 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useInvoices, useReportService } from '../../features/billing/billingQueries';
@@ -24,6 +25,101 @@ const money = (value: number, currency: string) => {
  * - Queries de facturación.
  */
 const InvoicesPage = () => {
+  const renderInvoices = () => {
+    if (query.isLoading) {
+      return <LoadingState message="Consultando facturas..." />;
+    }
+    if (query.isError) {
+      return (
+        <ErrorState
+          message="No se pudieron consultar las facturas."
+          onRetry={() => runUiAction(() => query.refetch())}
+        />
+      );
+    }
+    if (!query.data?.items.length) {
+      return (
+        <EmptyState
+          title={
+            filters.customer
+              ? 'El cliente no tiene facturas para estos filtros'
+              : 'La consulta no devolvió facturas'
+          }
+        />
+      );
+    }
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full bg-white text-sm">
+            <thead>
+              <tr>
+                <th className="p-2 text-left">Factura</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th>Vence</th>
+                <th>Estado</th>
+                <th>Importe</th>
+                <th>Saldo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {query.data.items.map((x) => (
+                <tr key={`${x.invoiceId}-${x.customerAccount}`} className="border-t">
+                  <td className="p-2">
+                    <strong>{x.invoiceId}</strong>
+                    <small className="block">Pedido {x.salesId}</small>
+                  </td>
+                  <td>
+                    {x.customerAccount}
+                    <small className="block">{x.customerName}</small>
+                  </td>
+                  <td>{x.invoiceDate}</td>
+                  <td>{x.dueDate}</td>
+                  <td>{x.status}</td>
+                  <td className="text-right">{money(x.invoiceAmount, x.currency)}</td>
+                  <td className="text-right">{money(x.balance, x.currency)}</td>
+                  <td className="p-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => runUiAction(() => pdf(x.invoiceId, x.companyName))}
+                    >
+                      PDF
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span>{query.data.pagination.totalRecords} facturas</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={filters.page <= 1}
+              onClick={() => apply({ ...filters, page: filters.page - 1 })}
+            >
+              Anterior
+            </Button>
+            <span className="p-2">
+              {filters.page} / {Math.max(1, query.data.pagination.totalPages)}
+            </span>
+            <Button
+              variant="outline"
+              disabled={filters.page >= query.data.pagination.totalPages}
+              onClick={() => apply({ ...filters, page: filters.page + 1 })}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const [params, setParams] = useSearchParams();
   const filters: InvoiceFilters = {
     customer: params.get('customer') ?? '',
@@ -117,91 +213,7 @@ const InvoicesPage = () => {
           Error generando PDF: {pdfError}
         </p>
       )}
-      {query.isLoading ? (
-        <LoadingState message="Consultando facturas..." />
-      ) : query.isError ? (
-        <ErrorState
-          message="No se pudieron consultar las facturas."
-          onRetry={() => query.refetch()}
-        />
-      ) : !query.data?.items.length ? (
-        <EmptyState
-          title={
-            filters.customer
-              ? 'El cliente no tiene facturas para estos filtros'
-              : 'La consulta no devolvió facturas'
-          }
-        />
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full bg-white text-sm">
-              <thead>
-                <tr>
-                  <th className="p-2 text-left">Factura</th>
-                  <th>Cliente</th>
-                  <th>Fecha</th>
-                  <th>Vence</th>
-                  <th>Estado</th>
-                  <th>Importe</th>
-                  <th>Saldo</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {query.data.items.map((x) => (
-                  <tr key={`${x.invoiceId}-${x.customerAccount}`} className="border-t">
-                    <td className="p-2">
-                      <strong>{x.invoiceId}</strong>
-                      <small className="block">Pedido {x.salesId}</small>
-                    </td>
-                    <td>
-                      {x.customerAccount}
-                      <small className="block">{x.customerName}</small>
-                    </td>
-                    <td>{x.invoiceDate}</td>
-                    <td>{x.dueDate}</td>
-                    <td>{x.status}</td>
-                    <td className="text-right">{money(x.invoiceAmount, x.currency)}</td>
-                    <td className="text-right">{money(x.balance, x.currency)}</td>
-                    <td className="p-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => pdf(x.invoiceId, x.companyName)}
-                      >
-                        PDF
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>{query.data.pagination.totalRecords} facturas</span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={filters.page <= 1}
-                onClick={() => apply({ ...filters, page: filters.page - 1 })}
-              >
-                Anterior
-              </Button>
-              <span className="p-2">
-                {filters.page} / {Math.max(1, query.data.pagination.totalPages)}
-              </span>
-              <Button
-                variant="outline"
-                disabled={filters.page >= query.data.pagination.totalPages}
-                onClick={() => apply({ ...filters, page: filters.page + 1 })}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+      {renderInvoices()}
     </div>
   );
 };

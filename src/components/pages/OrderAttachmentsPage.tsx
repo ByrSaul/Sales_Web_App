@@ -1,5 +1,7 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { userErrorMessage } from '../../core/api/errors';
 import { openAttachment } from '../../features/attachments/attachmentService';
 import {
@@ -10,7 +12,13 @@ import type { PendingAttachment } from '../../features/attachments/attachmentTyp
 import { extensionOf, validateAttachment } from '../../features/attachments/attachmentValidation';
 import { Button, Card, EmptyState, Input } from '../ui';
 
-const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+let attachmentIdCounter = 0;
+
+const newId = (): string => {
+  attachmentIdCounter += 1;
+
+  return `attachment-${Date.now()}-${attachmentIdCounter}`;
+};
 /**
  * Pantalla de consulta y carga de adjuntos para un pedido persistido.
  *
@@ -56,10 +64,44 @@ const OrderAttachmentsPage = () => {
         attempts: 0,
       },
     ]);
+  const confirmPersisted = async (item: PendingAttachment): Promise<boolean> => {
+    try {
+      const confirmation = await existing.refetch();
+      if (confirmation.isError) return false;
+      const baseName = item.fileName.slice(0, -(item.extension.length + 1));
+      return confirmation.data?.some(
+        (attachment) =>
+          [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
+            (name) =>
+              name.toLowerCase() === item.fileName.toLowerCase() ||
+              name.toLowerCase() === baseName.toLowerCase(),
+          ) && attachment.description.trim() === item.description.trim(),
+      ) ?? false;
+    } catch {
+      // Una consulta fallida no demuestra que el upload no tuvo efectos.
+      return false;
+    }
+  };
+  const verifyPending = async (item: PendingAttachment) => {
+    if (locks.current.has(item.localId)) return;
+    locks.current.add(item.localId);
+    patchItem(item.localId, { status: 'verifying' });
+    try {
+      if (await confirmPersisted(item))
+        setPending((current) => current.filter((value) => value.localId !== item.localId));
+      else
+        patchItem(item.localId, {
+          status: 'ambiguous',
+          error: 'Dynamics todavía no permite confirmar si el archivo fue persistido. No se reenviará automáticamente.',
+        });
+    } finally {
+      locks.current.delete(item.localId);
+    }
+  };
   const send = async (id: string) => {
     if (locks.current.has(id)) return;
     const item = pending.find((value) => value.localId === id);
-    if (!item || item.status === 'success') return;
+    if (!item || (item.status !== 'pending' && item.status !== 'failed')) return;
     const validation = validateAttachment(item.file, item.description);
     if (validation) {
       patchItem(id, { status: 'failed', error: validation });
@@ -71,16 +113,7 @@ const OrderAttachmentsPage = () => {
       patchItem(id, { status: 'uploading' });
       await uploader.upload(item.file, item.description);
       await uploader.refresh();
-      const confirmation = await existing.refetch();
-      const baseName = item.fileName.slice(0, -(item.extension.length + 1));
-      const persisted = confirmation.data?.some(
-        (attachment) =>
-          [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
-            (name) =>
-              name.toLowerCase() === item.fileName.toLowerCase() ||
-              name.toLowerCase() === baseName.toLowerCase(),
-          ) && attachment.description.trim() === item.description.trim(),
-      );
+      const persisted = await confirmPersisted(item);
       if (persisted) setPending((current) => current.filter((value) => value.localId !== id));
       else
         patchItem(id, {
@@ -89,22 +122,13 @@ const OrderAttachmentsPage = () => {
         });
     } catch (error) {
       patchItem(id, { status: 'verifying', error: userErrorMessage(error) });
-      const verification = await existing.refetch();
-      const expectedBaseName = item.fileName.slice(0, -(item.extension.length + 1));
-      const persisted = verification.data?.some(
-        (attachment) =>
-          [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
-            (name) =>
-              name.toLowerCase() === item.fileName.toLowerCase() ||
-              name.toLowerCase() === expectedBaseName.toLowerCase(),
-          ) && attachment.description.trim() === item.description.trim(),
-      );
+      const persisted = await confirmPersisted(item);
       if (persisted) setPending((current) => current.filter((value) => value.localId !== id));
       else
         patchItem(id, {
-              status: 'ambiguous',
-              error: `${userErrorMessage(error)} Se consultó nuevamente Dynamics, pero todavía no puede confirmarse el resultado. No se reenviará automáticamente.`,
-            });
+          status: 'ambiguous',
+          error: `${userErrorMessage(error)} No fue posible confirmar el resultado al consultar Dynamics. No se reenviará automáticamente.`,
+        });
     } finally {
       locks.current.delete(id);
     }
@@ -178,7 +202,7 @@ const OrderAttachmentsPage = () => {
               placeholder="Descripción"
             />
             <div className="flex items-center gap-2">
-              <span role="status" className="text-xs">
+              <output aria-live="polite" aria-atomic="true" className="text-xs">
                 {
                   {
                     pending: 'Pendiente',
@@ -190,9 +214,9 @@ const OrderAttachmentsPage = () => {
                     failed: 'Falló',
                   }[item.status]
                 }
-              </span>
+              </output>
               {item.status === 'failed' && (
-                <Button size="sm" onClick={() => send(item.localId)}>
+                <Button size="sm" onClick={() => runUiAction(() => send(item.localId))}>
                   Reintentar
                 </Button>
               )}
@@ -200,28 +224,7 @@ const OrderAttachmentsPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={async () => {
-                    patchItem(item.localId, { status: 'verifying' });
-                    const verification = await existing.refetch();
-                    const baseName = item.fileName.slice(0, -(item.extension.length + 1));
-                    const persisted = verification.data?.some(
-                      (attachment) =>
-                        [attachment.fileName, `${attachment.fileName}.${attachment.fileType}`].some(
-                          (name) =>
-                            name.toLowerCase() === item.fileName.toLowerCase() ||
-                            name.toLowerCase() === baseName.toLowerCase(),
-                        ) && attachment.description.trim() === item.description.trim(),
-                    );
-                    if (persisted)
-                      setPending((current) =>
-                        current.filter((value) => value.localId !== item.localId),
-                      );
-                    else
-                      patchItem(item.localId, {
-                            status: 'ambiguous',
-                            error: 'Dynamics todavía no permite confirmar si el archivo fue persistido. No se reenviará automáticamente.',
-                          });
-                  }}
+                  onClick={() => runUiAction(() => verifyPending(item))}
                 >
                   Verificar nuevamente
                 </Button>
@@ -246,7 +249,7 @@ const OrderAttachmentsPage = () => {
         {!!pending.length && (
           <Button
             disabled={uploading || !pending.some((item) => item.status === 'pending')}
-            onClick={sendPending}
+            onClick={() => runUiAction(() => sendPending())}
           >
             Subir pendientes
           </Button>
@@ -260,7 +263,7 @@ const OrderAttachmentsPage = () => {
         {existing.isError && (
           <p className="text-sm text-error">
             No fue posible consultar los adjuntos.{' '}
-            <button className="underline" onClick={() => void existing.refetch()}>
+            <button className="underline" onClick={() => runUiAction(() => existing.refetch())}>
               Reintentar consulta
             </button>
           </p>

@@ -26,12 +26,11 @@ import type {
 type Json = Record<string, unknown>;
 type Signal = { signal?: AbortSignal };
 const paging = (page: number, perpage: number) => ({ page, perpage });
-const inventoryList = (value: unknown) =>
-  Array.isArray(value)
-    ? (value as Json[])
-    : value && typeof value === 'object'
-      ? [value as Json]
-      : [];
+const inventoryList = (value: unknown): Json[] => {
+  if (Array.isArray(value)) return value as Json[];
+  if (value && typeof value === 'object') return [value as Json];
+  return [];
+};
 
 /**
  * Servicio central de catálogos comerciales, clientes, productos y geografía.

@@ -1,4 +1,5 @@
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { NewAddressForm } from '../orders/NewAddressForm';
 import { Button, Card } from '../ui';
 

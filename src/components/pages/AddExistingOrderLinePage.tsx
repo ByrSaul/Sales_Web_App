@@ -1,74 +1,45 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useDebouncedValue } from '../../core/hooks/useDebouncedValue';
-import { useSession } from '../../app/providers/SessionProvider';
+import { useExistingOrderLinePrice } from "../../features/orders/useExistingOrderLinePrice";
+import { inventoryIdentity } from "../../features/catalogs/inventoryIdentity";
+import { OrderProductSearchResults } from "../orders/OrderProductSearchResults";
+import { PendingOrderLines } from "../orders/PendingOrderLines";
+import { usePendingOrderLines, type PendingOrderLine as PendingLine } from "../../features/orders/usePendingOrderLines";
+import { runUiAction } from '../../core/async/uiAction';
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
+import { useDebouncedValue } from "../../core/hooks/useDebouncedValue";
+import { useSession } from "../../app/providers/SessionProvider";
 import {
   useInventory,
   useInfiniteProducts,
   useReferenceCatalogs,
   useVariants,
-} from '../../features/catalogs/hooks';
-import { catalogService } from '../../features/catalogs/catalogService';
-import { catalogKeys } from '../../features/catalogs/queryKeys';
-import type { InventoryItem, Product, ProductVariant } from '../../features/catalogs/types';
-import { buildDraftLines, removeDraftLine } from '../../features/orderDraft/domain';
-import { validateDraftLine } from '../../features/orderDraft/validation';
-import type { NewLineSelection, OrderDraftLine } from '../../features/orderDraft/types';
+} from "../../features/catalogs/hooks";
+import type {
+  InventoryItem,
+  Product,
+  ProductVariant,
+} from "../../features/catalogs/types";
 import {
-  canRetryWithNewKey,
-  classifyCreationError,
-  creationOutcomeMessage,
-  newIdempotencyKey,
-} from '../../features/orders/idempotency';
-import { mutationErrorMessage } from '../../features/orders/mutationOutcome';
-import { assessNewRequest } from '../../features/orders/operationTracking';
+  buildDraftLines,
+  removeDraftLine,
+} from "../../features/orderDraft/domain";
+import { validateLineSelection } from "../../features/orderDraft/selectionValidation";
+import type { NewLineSelection } from "../../features/orderDraft/types";
+import { newIdempotencyKey } from "../../features/orders/idempotency";
+import { useOrderDetail } from "../../features/orders/orderQueries";
 import {
-  orderKeys,
-  useOrderDetail,
-} from '../../features/orders/orderQueries';
-import { canAddOrderLine, canEditPrice } from '../../features/orders/orderRules';
-import { statusLabel } from '../../features/orders/orderMappers';
+  canAddOrderLine,
+  canEditPrice,
+} from "../../features/orders/orderRules";
+import { statusLabel } from "../../features/orders/orderMappers";
+import { Button, Card, Input, Select, Toggle } from "../ui";
+import { ErrorState, LoadingState } from "../ui/PageState";
+import { useOrderAttachments } from "../../features/attachments/attachmentQueries";
 import {
-  mapAgreementLineRequest,
-  mapNormalLineRequest,
-} from '../../features/orders/orderSubmissionMapper';
-import { orderSubmissionService } from '../../features/orders/orderSubmissionService';
-import { Button, Card, Input, Select, Toggle } from '../ui';
-import { ErrorState, LoadingState } from '../ui/PageState';
-import { useOrderAttachments } from '../../features/attachments/attachmentQueries';
-import { hasValidPaymentAttachment, requiresPaymentAttachment } from '../../features/attachments/attachmentValidation';
-
-// This does NOT create another OrderDraft/order header — the order already exists.
-// Each POST /d365/sales/line request carries the existing SalesOrderNumber directly.
-type PendingLine = OrderDraftLine & {
-  submissionStatus: 'pending' | 'submitting' | 'failed' | 'ambiguous';
-  submissionError: string | null;
-  /**
-   * `Idempotency-Key` de la creación de esta línea. Se genera al agregarla a pendientes y se
-   * persiste en sessionStorage antes del POST; se conserva mientras el resultado no esté confirmado
-   * y solo se renueva cuando el Backend confirmó `Failed` o un rechazo 4xx.
-   */
-  idempotencyKey: string;
-};
-
-/**
- * Restaura pendientes guardados. Los registros anteriores a la idempotencia reciben una clave y
- * una línea que estaba enviándose al recargar queda pendiente de confirmación: nunca se reenvía sola.
- */
-const restorePendingLines = (raw: string | null): PendingLine[] =>
-  raw
-    ? (JSON.parse(raw) as PendingLine[]).map((line) => {
-        const withKey = line.idempotencyKey ? line : { ...line, idempotencyKey: newIdempotencyKey() };
-        return withKey.submissionStatus === 'submitting'
-          ? {
-              ...withKey,
-              submissionStatus: 'ambiguous',
-              submissionError: creationOutcomeMessage({ kind: 'unknown' }),
-            }
-          : withKey;
-      })
-    : [];
+  hasValidPaymentAttachment,
+  requiresPaymentAttachment,
+} from "../../features/attachments/attachmentValidation";
 
 /**
  * Pantalla para agregar o editar líneas de un pedido ya persistido.
@@ -84,111 +55,54 @@ const restorePendingLines = (raw: string | null): PendingLine[] =>
  * - Catálogos de inventario.
  */
 const AddExistingOrderLinePage = () => {
-  const { salesOrderNumber = '' } = useParams();
+  const { salesOrderNumber = "" } = useParams();
   const navigate = useNavigate();
   const { api, context } = useSession();
   const data = useOrderDetail(salesOrderNumber);
-  const queryClient = useQueryClient();
   const order = data.header.data;
   const paymentRequired = requiresPaymentAttachment(order?.customerAccount);
   const attachments = useOrderAttachments(salesOrderNumber, paymentRequired);
   const hasPayment = hasValidPaymentAttachment(attachments.data ?? []);
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [product, setProduct] = useState<Product | null>(null);
   const [variant, setVariant] = useState<ProductVariant | null>(null);
   const [stock, setStock] = useState<InventoryItem | null>(null);
-  const [quantity, setQuantity] = useState('1');
-  const [promotionId, setPromotionId] = useState('');
+  const [quantity, setQuantity] = useState("1");
+  const [promotionId, setPromotionId] = useState("");
   const [independent, setIndependent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [priceOverride, setPriceOverride] = useState('');
   const [forceRegisterVariant, setForceRegisterVariant] = useState(false);
-  const [pendingLines, setPendingLines] = useState<PendingLine[]>([]);
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  // Bloqueo síncrono contra doble clic: `submitting` no se actualiza hasta el siguiente render
-  // y la validación del comprobante ocurre antes de activarlo.
-  const submitInFlight = useRef(false);
-  const deliveryCountryRegionId = order?.deliveryCountryRegionId ?? '';
-  const pendingStorageKey = `sales4app.existingOrderPendingLines.v1:${context.accountId}:${order?.companyId ?? ''}:${salesOrderNumber}`;
-
-  useEffect(() => {
-    try {
-      setPendingLines(restorePendingLines(sessionStorage.getItem(pendingStorageKey)));
-    } catch {
-      setPendingLines([]);
-    }
-  }, [pendingStorageKey]);
-  useEffect(() => {
-    sessionStorage.setItem(pendingStorageKey, JSON.stringify(pendingLines));
-  }, [pendingLines, pendingStorageKey]);
-  useEffect(() => {
-    if (!pendingLines.length) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [pendingLines.length]);
+  const deliveryCountryRegionId = order?.deliveryCountryRegionId ?? "";
 
   const debouncedSearch = useDebouncedValue(search, 1000);
   const products = useInfiniteProducts(debouncedSearch);
-  const isProductSearchApplied =
-    debouncedSearch.trim().length >= 1 && debouncedSearch.trim() === search.trim();
   const variants = useVariants(product, {
     forceRegistry: forceRegisterVariant,
     regionId: forceRegisterVariant ? deliveryCountryRegionId : undefined,
   });
-  const inventory = useInventory(product, variant?.displayProductNumber ?? '', 1);
-  const refs = useReferenceCatalogs('', '', {
+  const inventory = useInventory(
+    product,
+    variant?.displayProductNumber ?? "",
+    1,
+  );
+  const refs = useReferenceCatalogs("", "", {
     delivery: false,
     origins: false,
     agreements: false,
     documents: false,
   });
-  const price = useQuery({
-    queryKey: catalogKeys.price(
-      order?.companyId ?? '',
-      order?.customerAccount ?? '',
-      order?.currencyCode ?? '',
-      product?.itemId ?? '',
-      variant,
-    ),
-    queryFn: ({ signal }) =>
-      catalogService(api).getPrice({
-        company: order!.companyId,
-        currency: order!.currencyCode,
-        customerAccount: order!.customerAccount,
-        itemId: product!.itemId,
-        configId: variant?.configId,
-        colorId: variant?.colorId,
-        sizeId: variant?.sizeId,
-        styleId: variant?.styleId,
-        versionId: variant?.versionId,
-        signal,
-      }),
-    enabled: Boolean(order && product && (!product.requiresVariant || variant)),
-  });
-  // A new product/variant/customer/currency invalidates any manual price override and the previous DebugMessage.
-  useEffect(() => {
-    if (!editingPendingId) setPriceOverride('');
-  }, [
-    editingPendingId,
-    product?.itemId,
-    variant?.displayProductNumber,
-    order?.customerAccount,
-    order?.currencyCode,
-  ]);
+  const { price, setPriceOverride, effectivePrice, displayedPrice } = useExistingOrderLinePrice(api, order, product, variant, editingPendingId);
   useEffect(() => {
     if (!forceRegisterVariant) return;
     setVariant(null);
     setStock(null);
-    setPriceOverride('');
+    setPriceOverride("");
   }, [deliveryCountryRegionId, forceRegisterVariant]);
   const pricePermission = canEditPrice(context.permissions);
-  const effectivePrice = price.data
-    ? { ...price.data, price: priceOverride !== '' ? Number(priceOverride) || 0 : price.data.price }
-    : null;
-  const promotion = refs.promotions.data?.find((x) => x.groupId === promotionId) ?? null;
+  const promotion =
+    refs.promotions.data?.find((x) => x.groupId === promotionId) ?? null;
 
   const selection: NewLineSelection | null = useMemo(
     () =>
@@ -215,52 +129,60 @@ const AddExistingOrderLinePage = () => {
     () =>
       order
         ? {
-            id: '',
+            id: "",
             accountId: context.accountId,
             dataAreaId: order.companyId,
-            vendorId: context.vendor?.id ?? '',
-            languageId: context.user?.language ?? '',
-            personnelnumber: context.user?.personnelnumber ?? '',
+            vendorId: context.vendor?.id ?? "",
+            languageId: context.user?.language ?? "",
+            personnelnumber: context.user?.personnelnumber ?? "",
             customer: null,
             currencyCode: order.currencyCode,
             deliveryMode: null,
             deliveryAddress: null,
-            requestedShippingDate: '',
-            customerReference: '',
-            observations: '',
+            requestedShippingDate: "",
+            customerReference: "",
+            observations: "",
             salesOrigin: null,
             agreement: null,
             taxExemptNumber: null,
             lines: [],
-            updatedAt: '',
+            updatedAt: "",
           }
         : null,
     [order, context.accountId, context.vendor, context.user],
   );
-  const generatedLines = shellDraft && selection ? buildDraftLines(shellDraft, selection) : [];
+  const { pendingLines, setPendingLines, submitting, submitPending, verifyPendingLines } = usePendingOrderLines({
+    api, accountId: context.accountId, companyId: order?.companyId ?? '', salesOrderNumber,
+    draft: shellDraft, paymentRequired,
+    verifyPayment: async () => hasValidPaymentAttachment((await attachments.refetch()).data ?? []),
+    onMessage: setMessage,
+    onCompleted: () => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`),
+  });
+  const generatedLines =
+    shellDraft && selection ? buildDraftLines(shellDraft, selection) : [];
   const errors = generatedLines.length
-    ? generatedLines.flatMap(validateDraftLine)
-    : [{ message: 'Seleccione producto e inventario.' }];
+    ? validateLineSelection(generatedLines)
+    : [{ key: 'selection-required', message: "Seleccione producto e inventario." }];
 
   const reset = () => {
     setProduct(null);
     setVariant(null);
     setStock(null);
-    setSearch('');
-    setQuantity('1');
-    setPromotionId('');
+    setSearch("");
+    setQuantity("1");
+    setPromotionId("");
     setIndependent(false);
-    setPriceOverride('');
+    setPriceOverride("");
   };
 
   const addToPending = () => {
     if (!generatedLines.length || errors.length) return;
     const nextLines = generatedLines.map((line) => ({
-        ...line,
-        submissionStatus: 'pending' as const,
-        submissionError: null,
-        idempotencyKey: newIdempotencyKey(),
-      }));
+      ...line,
+      submissionStatus: "pending" as const,
+      submissionError: null,
+      idempotencyKey: newIdempotencyKey(),
+    }));
     setPendingLines((current) => [
       ...(editingPendingId
         ? (removeDraftLine(current, editingPendingId) as PendingLine[])
@@ -269,142 +191,18 @@ const AddExistingOrderLinePage = () => {
     ]);
     setMessage(
       editingPendingId
-        ? 'Línea pendiente actualizada localmente.'
-        : 'Línea agregada a pendientes. Todavía no se envió al Backend.',
+        ? "Línea pendiente actualizada localmente."
+        : "Línea agregada a pendientes. Todavía no se envió al Backend.",
     );
     setEditingPendingId(null);
     reset();
   };
 
-  const submitPending = async () => {
-    if (!shellDraft || !order || !pendingLines.length || submitting || submitInFlight.current)
-      return;
-    submitInFlight.current = true;
-    try {
-      await sendPendingLines(shellDraft, order.companyId);
-    } finally {
-      submitInFlight.current = false;
-    }
-  };
-
-  /**
-   * Envía las líneas pendientes en orden, una sola vez cada una, con su `Idempotency-Key`
-   * persistida. En modo `verify` solo consulta las líneas sin resultado confirmado reenviando la
-   * misma clave y el mismo body (el Backend devuelve el resultado registrado sin duplicar).
-   * Se detiene en la primera línea que no quede creada: las siguientes pueden depender de ella.
-   */
-  const sendPendingLines = async (
-    draft: NonNullable<typeof shellDraft>,
-    companyId: string,
-    mode: 'send' | 'verify' = 'send',
-    source: PendingLine[] = pendingLines,
-  ): Promise<PendingLine[] | null> => {
-    if (mode === 'send' && paymentRequired) {
-      const refreshed = await attachments.refetch();
-      if (!hasValidPaymentAttachment(refreshed.data ?? [])) {
-        setMessage('Debe adjuntar un comprobante de pago en formato imagen antes de enviar líneas. No se realizó ningún POST de línea.');
-        return null;
-      }
-    }
-    setSubmitting(true);
-    setMessage(null);
-    const gateway = orderSubmissionService(api);
-    const working = source.map((line) => ({ ...line }));
-    // Se persiste de forma síncrona antes de cada POST: una recarga a mitad de envío conserva el estado.
-    const commit = () => {
-      sessionStorage.setItem(pendingStorageKey, JSON.stringify(working));
-      setPendingLines(working.map((line) => ({ ...line })));
-    };
-    const created = new Set<string>();
-    for (const line of working) {
-      const eligible =
-        mode === 'verify' ? line.submissionStatus === 'ambiguous' : line.submissionStatus !== 'ambiguous';
-      if (!eligible) {
-        if (mode === 'send') break;
-        continue;
-      }
-      // Nueva solicitud tras un error: solo se usa otra clave si el Backend confirma que el intento
-      // anterior no produjo efectos. Con efectos confirmados la línea ya existe y no se duplica; sin
-      // evidencia el envío queda bloqueado. Una consulta (`verify`) nunca genera claves.
-      if (mode === 'send' && line.submissionStatus === 'failed') {
-        const evidence = await assessNewRequest(gateway, companyId, line.idempotencyKey);
-        if (evidence.decision === 'created') {
-          created.add(line.localId);
-          continue;
-        }
-        if (evidence.decision === 'blocked') {
-          line.submissionError = evidence.reason;
-          commit();
-          break;
-        }
-        line.idempotencyKey = newIdempotencyKey();
-      }
-      line.submissionStatus = 'submitting';
-      line.submissionError = null;
-      commit();
-      try {
-        if (line.source === 'agreement')
-          await gateway.createAgreementLine(
-            mapAgreementLineRequest(draft, line, salesOrderNumber),
-            line.idempotencyKey,
-          );
-        else
-          await gateway.createNormalLine(
-            mapNormalLineRequest(draft, line, salesOrderNumber),
-            line.idempotencyKey,
-          );
-        created.add(line.localId);
-      } catch (error) {
-        const outcome = classifyCreationError(error);
-        const retryable = canRetryWithNewKey(outcome);
-        line.submissionStatus = retryable ? 'failed' : 'ambiguous';
-        line.submissionError = retryable
-          ? `${creationOutcomeMessage(outcome)} ${mutationErrorMessage(error)}`
-          : creationOutcomeMessage(outcome);
-        // La clave se conserva siempre aquí. Solo un `Failed` o rechazo confirmado habilita que el
-        // siguiente envío explícito use otra; desconocido, `Processing` u otro body bloquean.
-        commit();
-        if (mode === 'send') break;
-      }
-    }
-    const remainingLines = working.filter((line) => !created.has(line.localId));
-    working.splice(0, working.length, ...remainingLines);
-    commit();
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(companyId, salesOrderNumber) }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.lines(companyId, salesOrderNumber) }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.officialLines(companyId, salesOrderNumber) }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.all(companyId) }),
-    ]);
-    setSubmitting(false);
-    if (!remainingLines.length) {
-      sessionStorage.removeItem(pendingStorageKey);
-      navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`);
-      return remainingLines;
-    }
-    setMessage(`${created.size} creada(s); ${remainingLines.length} pendiente(s). Las exitosas no se reenviarán.`);
-    return remainingLines;
-  };
-  /**
-   * Consulta las líneas sin resultado confirmado con su mismo POST, clave y body. Si todas quedan
-   * `Completed`, continúa con las líneas pendientes que aún no se enviaron (primeras ejecuciones).
-   */
-  const verifyPendingLines = async () => {
-    if (!shellDraft || !order || submitting || submitInFlight.current) return;
-    submitInFlight.current = true;
-    try {
-      const remaining = await sendPendingLines(shellDraft, order.companyId, 'verify');
-      if (remaining?.length && remaining.every((line) => line.submissionStatus === 'pending'))
-        await sendPendingLines(shellDraft, order.companyId, 'send', remaining);
-    } finally {
-      submitInFlight.current = false;
-    }
-  };
-
   const beginPendingEdit = (line: PendingLine) => {
     const linkedBonus = line.parentLineId
       ? pendingLines.find(
-          (item) => item.parentLineId === line.parentLineId && item.isBonification,
+          (item) =>
+            item.parentLineId === line.parentLineId && item.isBonification,
         )
       : undefined;
     setEditingPendingId(line.localId);
@@ -412,7 +210,7 @@ const AddExistingOrderLinePage = () => {
       itemId: line.itemId,
       name: line.itemName,
       productType: line.productType,
-      dimensionGroup: '',
+      dimensionGroup: "",
       requiresVariant: Boolean(line.presentationCode),
     });
     setVariant(
@@ -421,7 +219,7 @@ const AddExistingOrderLinePage = () => {
             itemId: line.itemId,
             displayProductNumber: line.presentationCode,
             name: line.presentationName ?? line.itemName,
-            dimensionGroup: '',
+            dimensionGroup: "",
             configId: line.dimensions.configId,
             colorId: line.dimensions.colorId,
             sizeId: line.dimensions.sizeId,
@@ -431,34 +229,49 @@ const AddExistingOrderLinePage = () => {
         : null,
     );
     setStock({
-      companyId: order?.companyId ?? '', itemId: line.itemId,
-      displayProductNumber: line.presentationCode ?? '', productName: line.itemName,
-      itemGroupId: '', activeIngredientId: '', siteId: line.siteId,
-      warehouseId: line.warehouseId, physical: 0, availablePhysical: line.availablePhysical,
-      onOrder: 0, reservedOrdered: 0, ordered: 0, availableOrdered: 0,
-      totalAvailable: line.availablePhysical, ...line.dimensions,
+      companyId: order?.companyId ?? "",
+      itemId: line.itemId,
+      displayProductNumber: line.presentationCode ?? "",
+      productName: line.itemName,
+      itemGroupId: "",
+      activeIngredientId: "",
+      siteId: line.siteId,
+      warehouseId: line.warehouseId,
+      physical: 0,
+      availablePhysical: line.availablePhysical,
+      onOrder: 0,
+      reservedOrdered: 0,
+      ordered: 0,
+      availableOrdered: 0,
+      totalAvailable: line.availablePhysical,
+      ...line.dimensions,
     });
     setSearch(`${line.itemId} · ${line.itemName}`);
     setQuantity(String(line.quantity));
     setPriceOverride(String(line.price));
     setIndependent(line.isBonification && !line.promotion);
-    setPromotionId(linkedBonus?.promotion?.groupId ?? line.promotion?.groupId ?? '');
+    setPromotionId(
+      linkedBonus?.promotion?.groupId ?? line.promotion?.groupId ?? "",
+    );
   };
   const returnToDetail = () => {
     if (
       pendingLines.length &&
-      !window.confirm('Tienes líneas pendientes que todavía no se han enviado. ¿Salir del flujo?')
+      !window.confirm(
+        "Tienes líneas pendientes que todavía no se han enviado. ¿Salir del flujo?",
+      )
     )
       return;
     navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`);
   };
 
-  if (data.header.isLoading) return <LoadingState message="Cargando pedido..." />;
+  if (data.header.isLoading)
+    return <LoadingState message="Cargando pedido..." />;
   if (data.header.isError)
     return (
       <ErrorState
         message="No se pudo cargar el encabezado."
-        onRetry={() => data.header.refetch()}
+        onRetry={() => runUiAction(() => data.header.refetch())}
       />
     );
   if (!order)
@@ -472,15 +285,17 @@ const AddExistingOrderLinePage = () => {
       <div className="space-y-4">
         <button
           className="text-sm text-primary"
-          onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`)}
+          onClick={() =>
+            navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`)
+          }
         >
           ← Volver al pedido
         </button>
         <Card className="p-4">
           <strong>No es posible agregar líneas</strong>
           <p className="text-sm mt-1">
-            El pedido {salesOrderNumber} está en estado "{statusLabel(order.status)}" y no admite
-            nuevas líneas.
+            El pedido {salesOrderNumber} está en estado "
+            {statusLabel(order.status)}" y no admite nuevas líneas.
           </p>
         </Card>
       </div>
@@ -488,11 +303,30 @@ const AddExistingOrderLinePage = () => {
   if (paymentRequired && !hasPayment)
     return (
       <div className="space-y-4">
-        <Button variant="outline" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`)}>Volver al pedido</Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}`)
+          }
+        >
+          Volver al pedido
+        </Button>
         <Card className="border-amber-300 bg-amber-50 p-4">
           <strong>Comprobante de pago requerido</strong>
-          <p className="mt-1 text-sm">Para agregar líneas debe cargar primero una imagen JPG, JPEG o PNG con descripción “pago”.</p>
-          <Button className="mt-3" onClick={() => navigate(`/pedidos/${encodeURIComponent(salesOrderNumber)}/adjuntos`)}>Agregar comprobante</Button>
+          <p className="mt-1 text-sm">
+            Para agregar líneas debe cargar primero una imagen JPG, JPEG o PNG
+            con descripción “pago”.
+          </p>
+          <Button
+            className="mt-3"
+            onClick={() =>
+              navigate(
+                `/pedidos/${encodeURIComponent(salesOrderNumber)}/adjuntos`,
+              )
+            }
+          >
+            Agregar comprobante
+          </Button>
         </Card>
       </div>
     );
@@ -501,22 +335,21 @@ const AddExistingOrderLinePage = () => {
     <div className="space-y-4 pb-12">
       <div className="flex flex-wrap justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold">Agregar línea · {salesOrderNumber}</h1>
+          <h1 className="text-xl font-bold">
+            Agregar línea · {salesOrderNumber}
+          </h1>
           <p className="text-xs">
             {order.customerAccount} · {order.currencyCode}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={returnToDetail}
-        >
+        <Button variant="outline" onClick={returnToDetail}>
           Volver al detalle
         </Button>
       </div>
       {message && (
-        <div role="status" className="p-3 bg-amber-50 border rounded text-sm">
+        <output aria-live="polite" aria-atomic="true" className="block p-3 bg-amber-50 border rounded text-sm">
           {message}
-        </div>
+        </output>
       )}
       <div className="grid lg:grid-cols-2 gap-4">
         <Card className="p-4 space-y-3">
@@ -529,83 +362,49 @@ const AddExistingOrderLinePage = () => {
               setProduct(null);
               setVariant(null);
               setStock(null);
-              setPriceOverride('');
+              setPriceOverride("");
             }}
             icon="search"
           />
-          {!product && isProductSearchApplied && products.isFetching && !products.isFetchingNextPage && (
-            <p className="text-xs text-on-surface-variant">Buscando productos...</p>
-          )}
-          {!product && isProductSearchApplied && products.isError && (
-            <p className="text-xs text-error">
-              No fue posible consultar productos.{' '}
-              <button className="underline" onClick={() => void products.refetch()}>Reintentar</button>
-            </p>
-          )}
-          {!product && isProductSearchApplied && !products.isError && products.items.length > 0 && (
-            <div className="max-h-40 w-full max-w-full overflow-x-hidden overflow-y-auto rounded border">
-              {products.items.map((p) => (
-                <button
-                  key={p.itemId}
-                  className="block w-full min-w-0 max-w-full break-words border-b p-2 text-left text-sm hover:bg-surface-container"
-                  onClick={() => {
-                    setProduct(p);
-                    setVariant(null);
-                    setStock(null);
-                    setPriceOverride('');
-                    setSearch(`${p.itemId} · ${p.name}`);
-                  }}
-                >
-                  {p.itemId} · {p.name} <small>{p.productType}</small>
-                </button>
-              ))}
-              {products.hasNextPage && (
-                <Button
-                  fullWidth
-                  variant="outline"
-                  loading={products.isFetchingNextPage}
-                  onClick={() => void products.fetchNextPage()}
-                >
-                  Cargar más productos
-                </Button>
-              )}
-            </div>
-          )}
-          {!product && isProductSearchApplied && !products.isFetching && !products.isError && products.items.length === 0 && (
-            <p className="text-xs text-on-surface-variant">No se encontraron productos.</p>
-          )}
+          {!product && <OrderProductSearchResults products={products} search={search} debouncedSearch={debouncedSearch}
+            onSelect={(selected) => { setProduct(selected); setVariant(null); setStock(null); setPriceOverride(''); setSearch(`${selected.itemId} · ${selected.name}`); }} />}
           {product?.requiresVariant && (
             <div className="space-y-3">
               <Toggle
-                  label="Forzar registro"
-                  checked={forceRegisterVariant}
-                  disabled={!deliveryCountryRegionId}
-                  onChange={(value) => {
-                    setForceRegisterVariant(value);
-                    setVariant(null);
-                    setStock(null);
-                    setPriceOverride('');
-                  }}
+                label="Forzar registro"
+                checked={forceRegisterVariant}
+                disabled={!deliveryCountryRegionId}
+                onChange={(value) => {
+                  setForceRegisterVariant(value);
+                  setVariant(null);
+                  setStock(null);
+                  setPriceOverride("");
+                }}
               />
               {!deliveryCountryRegionId && (
                 <p className="text-xs text-amber-700">
-                  El encabezado del pedido no contiene el CountryRegionId de la dirección.
+                  El encabezado del pedido no contiene el CountryRegionId de la
+                  dirección.
                 </p>
               )}
               <Select
                 label="Variante obligatoria"
-                value={variant?.displayProductNumber ?? ''}
+                value={variant?.displayProductNumber ?? ""}
                 disabled={forceRegisterVariant && !deliveryCountryRegionId}
                 onChange={(e) => {
                   setVariant(
-                    variants.data?.items.find((v) => v.displayProductNumber === e.target.value) ??
-                      null,
+                    variants.data?.items.find(
+                      (v) => v.displayProductNumber === e.target.value,
+                    ) ?? null,
                   );
                   setStock(null);
-                  setPriceOverride('');
+                  setPriceOverride("");
                 }}
                 options={[
-                  { value: '', label: variants.isLoading ? 'Cargando...' : 'Seleccione...' },
+                  {
+                    value: "",
+                    label: variants.isLoading ? "Cargando..." : "Seleccione...",
+                  },
                   ...(variants.data?.items ?? []).map((v) => ({
                     value: v.displayProductNumber,
                     label: `${v.displayProductNumber} · ${v.name}`,
@@ -613,7 +412,9 @@ const AddExistingOrderLinePage = () => {
                 ]}
               />
               {variants.isFetching && (
-                <p className="text-xs text-on-surface-variant">Buscando variantes...</p>
+                <p className="text-xs text-on-surface-variant">
+                  Buscando variantes...
+                </p>
               )}
             </div>
           )}
@@ -626,12 +427,12 @@ const AddExistingOrderLinePage = () => {
             onChange={(e) => setQuantity(e.target.value)}
           />
           <Toggle
-              label="Bonificación independiente"
-              checked={independent}
-              onChange={(v) => {
-                setIndependent(v);
-                if (v) setPromotionId('');
-              }}
+            label="Bonificación independiente"
+            checked={independent}
+            onChange={(v) => {
+              setIndependent(v);
+              if (v) setPromotionId("");
+            }}
           />
           {!independent && (
             <Select
@@ -639,7 +440,7 @@ const AddExistingOrderLinePage = () => {
               value={promotionId}
               onChange={(e) => setPromotionId(e.target.value)}
               options={[
-                { value: '', label: 'Sin promoción' },
+                { value: "", label: "Sin promoción" },
                 ...(refs.promotions.data ?? []).map((p) => ({
                   value: p.groupId,
                   label: `${p.groupId} · ${p.name} (${p.forecastDiscount}%)`,
@@ -653,24 +454,30 @@ const AddExistingOrderLinePage = () => {
             </div>
           ) : (
             <div className="space-y-1">
-              {price.isLoading && <p className="text-xs">Calculando precio...</p>}
+              {price.isLoading && (
+                <p className="text-xs">Calculando precio...</p>
+              )}
               {price.isError && (
                 <p className="text-xs text-error">
-                  Error al consultar precio.{' '}
-                  <button className="underline" onClick={() => price.refetch()}>
+                  Error al consultar precio.{" "}
+                  <button className="underline" onClick={() => runUiAction(() => price.refetch())}>
                     Reintentar
                   </button>
                 </p>
               )}
-              {price.data && price.data.price === 0 && price.data.debugMessage.trim() && (
-                <p className="text-xs text-amber-700">{price.data.debugMessage}</p>
-              )}
+              {price.data &&
+                price.data.price === 0 &&
+                price.data.debugMessage.trim() && (
+                  <p className="text-xs text-amber-700">
+                    {price.data.debugMessage}
+                  </p>
+                )}
               <Input
-                label={`Precio${price.data ? ` (${price.data.currency})` : ''}`}
+                label={`Precio${price.data ? ` (${price.data.currency})` : ""}`}
                 type="number"
                 step="any"
                 value={
-                  priceOverride !== '' ? priceOverride : price.data ? String(price.data.price) : ''
+                  displayedPrice()
                 }
                 disabled={!pricePermission || !price.data}
                 onChange={(e) => setPriceOverride(e.target.value)}
@@ -681,36 +488,40 @@ const AddExistingOrderLinePage = () => {
                 </p>
               )}
               {price.data && (
-                <p className="text-xs text-on-surface-variant">PriceUnit {price.data.priceUnit}</p>
+                <p className="text-xs text-on-surface-variant">
+                  PriceUnit {price.data.priceUnit}
+                </p>
               )}
             </div>
           )}
         </Card>
         <Card className="p-4 space-y-3">
           <h2 className="font-bold">Inventario, sitio y almacén</h2>
-          {inventory.isLoading && <LoadingState message="Consultando inventario..." />}
+          {inventory.isLoading && (
+            <LoadingState message="Consultando inventario..." />
+          )}
           {inventory.isError && (
             <ErrorState
               message="No se pudo consultar inventario."
-              onRetry={() => inventory.refetch()}
+              onRetry={() => runUiAction(() => inventory.refetch())}
             />
           )}
           {inventory.data && !inventory.data.items.length && (
             <p className="text-sm">Sin inventario para la selección.</p>
           )}
           <div className="max-h-96 w-full max-w-full space-y-2 overflow-x-hidden overflow-y-auto">
-            {inventory.data?.items.map((item, i) => (
+            {inventory.data?.items.map((item) => (
               <button
-                key={`${item.siteId}-${item.warehouseId}-${i}`}
+                key={inventoryIdentity(item)}
                 onClick={() => setStock(item)}
-                className={`w-full min-w-0 max-w-full break-words text-left border rounded-lg p-3 ${stock === item ? 'border-primary bg-primary/5' : ''}`}
+                className={`w-full min-w-0 max-w-full break-words text-left border rounded-lg p-3 ${stock === item ? "border-primary bg-primary/5" : ""}`}
               >
                 <strong>
                   {item.siteId} · {item.warehouseId}
                 </strong>
                 <p className="text-xs">
-                  Físico: {item.physical} · Disponible físico: {item.availablePhysical} · Total:{' '}
-                  {item.totalAvailable}
+                  Físico: {item.physical} · Disponible físico:{" "}
+                  {item.availablePhysical} · Total: {item.totalAvailable}
                 </p>
               </button>
             ))}
@@ -722,89 +533,33 @@ const AddExistingOrderLinePage = () => {
           )}
           {errors.length > 0 && (
             <ul role="alert" className="text-sm text-error list-disc pl-5">
-              {errors.map((e, i) => (
-                <li key={i}>{e.message}</li>
+              {errors.map((e) => (
+                <li key={e.key}>{e.message}</li>
               ))}
             </ul>
           )}
           <Button
             fullWidth
-            disabled={!generatedLines.length || errors.length > 0 || price.isLoading || submitting}
+            disabled={
+              !generatedLines.length ||
+              errors.length > 0 ||
+              price.isLoading ||
+              submitting
+            }
             onClick={addToPending}
           >
-            {editingPendingId ? 'Guardar cambios locales' : 'Agregar a pendientes'}
+            {editingPendingId
+              ? "Guardar cambios locales"
+              : "Agregar a pendientes"}
           </Button>
         </Card>
       </div>
-      <Card className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 p-3">
-          <div>
-            <h2 className="font-bold">Líneas pendientes ({pendingLines.length})</h2>
-            <p className="text-xs text-on-surface-variant">Temporales hasta su envío explícito.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {pendingLines.some((line) => line.submissionStatus === 'ambiguous') && (
-              <Button variant="outline" loading={submitting} disabled={submitting} onClick={() => void verifyPendingLines()}>
-                Consultar estado
-              </Button>
-            )}
-            <Button
-              loading={submitting}
-              disabled={submitting || !pendingLines.length || pendingLines.some((line) => line.submissionStatus === 'ambiguous')}
-              onClick={() => void submitPending()}
-            >
-              Enviar {pendingLines.length} línea{pendingLines.length === 1 ? '' : 's'}
-            </Button>
-          </div>
-        </div>
-        {pendingLines.some((line) => line.submissionStatus === 'ambiguous') && (
-          <p role="status" className="border-t bg-amber-50 p-3 text-xs">
-            Hay líneas sin resultado confirmado. El envío queda bloqueado hasta consultar su estado: la
-            consulta reenvía la misma operación con su misma clave y el Backend devuelve el resultado
-            registrado sin crear duplicados.
-          </p>
-        )}
-        {!pendingLines.length && <p className="border-t p-3 text-sm">No hay líneas pendientes.</p>}
-        {pendingLines.length > 0 && (
-          <div className="max-h-72 overflow-auto border-t">
-            <table className="w-full min-w-[620px] text-sm">
-              <thead className="sticky top-0 z-10 bg-surface-container">
-                <tr><th className="p-2 text-left">Producto</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Estado / acciones</th></tr>
-              </thead>
-              <tbody>
-                {(editingPendingId ? pendingLines.filter((line) => line.localId === editingPendingId) : pendingLines).map((line) => (
-                  <tr key={line.localId} className="border-t">
-                    <td className="p-2"><strong>{line.itemId}</strong><small className="block">{line.itemName}</small></td>
-                    <td className="text-center">{line.quantity}</td>
-                    <td className="text-center">{line.currency} {line.price.toFixed(2)}</td>
-                    <td className="text-center">{line.currency} {(line.quantity * line.price).toFixed(2)}</td>
-                    <td className="p-2">
-                      {line.submissionError && <p className="mb-1 text-xs text-error">{line.submissionError}</p>}
-                      {line.submissionStatus === 'submitting' ? <span className="text-xs font-semibold text-primary">Enviando...</span> : line.submissionStatus === 'ambiguous' ? <span className="text-xs font-semibold text-amber-700">Esperando confirmación · reintento bloqueado</span> : editingPendingId ? <span className="text-xs font-semibold text-primary">Editando localmente</span> : (
-                        <div className="flex gap-1">
-                          {/* Editar generaría otra clave: una línea fallida solo se reenvía tras la evidencia del Backend. */}
-                          {line.submissionStatus !== 'failed' && (
-                            <Button size="sm" variant="outline" onClick={() => beginPendingEdit(line)}>Editar</Button>
-                          )}
-                          <Button size="sm" variant="danger" onClick={() => setPendingLines((current) => removeDraftLine(current, line.localId) as PendingLine[])}>Eliminar</Button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {editingPendingId && (
-          <div className="flex items-center justify-between gap-2 border-t p-3 text-sm">
-            <span>Modifique la selección en el formulario y guarde los cambios locales.</span>
-            <Button variant="outline" onClick={() => { setEditingPendingId(null); reset(); }}>
-              Cancelar edición
-            </Button>
-          </div>
-        )}
-      </Card>
+      <PendingOrderLines
+        pendingLines={pendingLines} editingPendingId={editingPendingId} submitting={submitting}
+        submitPending={submitPending} verifyPendingLines={verifyPendingLines} beginPendingEdit={beginPendingEdit}
+        onRemove={(localId) => setPendingLines((current) => removeDraftLine(current, localId) as PendingLine[])}
+        onCancelEdit={() => { setEditingPendingId(null); reset(); }}
+      />
     </div>
   );
 };

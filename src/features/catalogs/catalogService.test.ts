@@ -121,16 +121,20 @@ describe('catalogService', () => {
     );
     expect(result.price).toBe(12);
   });
-  it('builds geographic GET bodies with parent filters', async () => {
-    const client = api({}, { '@odata': [] });
-    await catalogService(client).cities('GT', 'GUA', '0101');
-    expect(client.get).toHaveBeenCalledWith(
+  it('queries cities through POST with all parent filters and the cancellation signal', async () => {
+    const client = api({ '@odata': [{ Name: 'Guatemala', Description: 'Capital' }] });
+    const { signal } = new AbortController();
+    const result = await catalogService(client).cities('GT', 'GUA', '0101', { signal });
+    expect(client.post).toHaveBeenCalledWith(
       '/d365/address/cities',
-      expect.objectContaining({
-        body: expect.objectContaining({
-          filters: { CountryRegionId: ['GT'], StateId: ['GUA'], CountyId: ['0101'] },
-        }),
-      }),
+      {
+        filters: { CountryRegionId: ['GT'], StateId: ['GUA'], CountyId: ['0101'] },
+        page: 1,
+        perpage: 100,
+      },
+      { signal },
     );
+    expect(client.get).not.toHaveBeenCalled();
+    expect(result).toEqual([{ id: 'Guatemala', description: 'Capital' }]);
   });
 });

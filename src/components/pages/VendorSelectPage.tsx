@@ -1,5 +1,7 @@
+import { runUiAction } from '../../core/async/uiAction';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useSession } from '../../app/providers/SessionProvider';
 import type { Vendor } from '../../core/session/types';
 import { userErrorMessage } from '../../core/api/errors';
@@ -29,12 +31,12 @@ const VendorSelectPage: React.FC = () => {
     }
   }, [api, context.company]);
   useEffect(() => {
-    void load();
+    runUiAction(() => load());
   }, [load]);
   if (!context.company) return <Navigate to="/company" replace />;
   if (loading) return <LoadingState message="Cargando vendedores..." />;
   if (error && vendors.length === 0)
-    return <ErrorState message={error} onRetry={() => void load()} />;
+    return <ErrorState message={error} onRetry={() => runUiAction(() => load())} />;
   const submit = async () => {
     const vendor = vendors.find((item) => item.id === selected);
     if (!vendor) return;
@@ -87,7 +89,7 @@ const VendorSelectPage: React.FC = () => {
             disabled={!selected}
             icon="arrow_forward"
             iconPosition="right"
-            onClick={() => void submit()}
+            onClick={() => runUiAction(() => submit())}
           >
             Continuar
           </Button>

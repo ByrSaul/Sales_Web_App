@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useSession } from '../../app/providers/SessionProvider';
 import { DashboardHero } from '../../features/dashboard/components/DashboardHero';
 import { DashboardHighlightCard } from '../../features/dashboard/components/DashboardHighlightCard';

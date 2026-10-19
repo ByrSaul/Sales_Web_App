@@ -1,3 +1,4 @@
+let fixtureId = 0;
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bonusQuantity,
@@ -8,7 +9,7 @@ import {
 } from './domain';
 import { validateDraftLine, validateOrderDraft } from './validation';
 import type { Customer, Price, Product, PromotionGroup } from '../catalogs/types';
-beforeEach(() => vi.stubGlobal('crypto', { randomUUID: vi.fn(() => `id-${Math.random()}`) }));
+beforeEach(() => vi.stubGlobal('crypto', { randomUUID: vi.fn(() => `id-${++fixtureId}`) }));
 const customer: Customer = {
   account: 'C1',
   name: 'Cliente',

@@ -1,5 +1,7 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import BlockIcon from '@mui/icons-material/Block';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -24,6 +26,7 @@ import {
   persistedLineDisabledReason,
 } from '../../features/orders/orderRules';
 import type { OfficialSalesOrderLine } from '../../features/orders/orderTypes';
+import type { ConfirmationResult } from '../../features/orders/orderTypes';
 import { Button, Card, EmptyState, Input } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 import { useOrderAttachments } from '../../features/attachments/attachmentQueries';
@@ -35,6 +38,12 @@ type PendingLineSummary = {
   quantity: number;
   price: number;
   currency: string;
+};
+const confirmationMessage = (result: ConfirmationResult): string => {
+  if (!result.success) return result.errorMessage || 'Dynamics rechazó la solicitud.';
+  if (!result.confirmed) return `Solicitud aceptada, pero el pedido continúa pendiente. ${result.debugMessage}`;
+  const document = result.documentNumber ? ` · documento ${result.documentNumber}` : '';
+  return `Pedido confirmado${document}.`;
 };
 /**
  * Pantalla de detalle y mantenimiento de un pedido persistido.
@@ -275,13 +284,7 @@ const OrderDetailPage = () => {
     locks.current.confirm = true;
     try {
       const result = await mutations.confirm.mutateAsync();
-      setMessage(
-        !result.success
-          ? result.errorMessage || 'Dynamics rechazó la solicitud.'
-          : result.confirmed
-            ? `Pedido confirmado${result.documentNumber ? ` · documento ${result.documentNumber}` : ''}.`
-            : `Solicitud aceptada, pero el pedido continúa pendiente. ${result.debugMessage}`,
-      );
+      setMessage(confirmationMessage(result));
     } catch (e) {
       setMessage(
         `${userErrorMessage(e)} No fue posible verificar el resultado de la confirmación.`,
@@ -295,7 +298,7 @@ const OrderDetailPage = () => {
     return (
       <ErrorState
         message="No se pudo cargar el encabezado."
-        onRetry={() => data.header.refetch()}
+        onRetry={() => runUiAction(() => data.header.refetch())}
       />
     );
   if (!order) return <EmptyState title="Pedido no encontrado" />;
@@ -390,9 +393,9 @@ const OrderDetailPage = () => {
       )}
       {paymentRequired && hasPayment && <p className="text-xs text-primary">✓ Comprobante de pago registrado</p>}
       {message && (
-        <div role="status" className="p-3 bg-amber-50 border rounded text-sm">
+        <output aria-live="polite" aria-atomic="true" className="block p-3 bg-amber-50 border rounded text-sm">
           {message}
-        </div>
+        </output>
       )}
       <Card className="overflow-hidden">
         <div className="p-3 flex items-center justify-between gap-2">
@@ -402,7 +405,7 @@ const OrderDetailPage = () => {
               loading={mutations.confirm.isPending}
               disabled={Boolean(editing)}
               title={editing ? 'Finalice la edición antes de confirmar el pedido.' : undefined}
-              onClick={confirm}
+              onClick={() => runUiAction(() => confirm())}
             >
               Confirmar pedido
             </Button>
@@ -412,7 +415,7 @@ const OrderDetailPage = () => {
         {data.lines.isError && (
           <ErrorState
             message="No se pudieron consultar las líneas mediante POST /d365/sales/line/query."
-            onRetry={() => data.lines.refetch()}
+            onRetry={() => runUiAction(() => data.lines.refetch())}
           />
         )}{' '}
         {!data.lines.isLoading && !lines.length && <EmptyState title="Sin líneas disponibles" />}
@@ -492,7 +495,7 @@ const OrderDetailPage = () => {
                             color="warning"
                             aria-label={`Cancelar línea ${line.lineNumber}`}
                             disabled={rowBusy || Boolean(cancelReason)}
-                            onClick={() => cancel(line)}
+                            onClick={() => runUiAction(() => cancel(line))}
                           >
                             {pendingAction === 'cancel' ? <CircularProgress size={18} /> : <BlockIcon fontSize="small" />}
                           </IconButton>
@@ -505,7 +508,7 @@ const OrderDetailPage = () => {
                             color="error"
                             aria-label={`Eliminar línea ${line.lineNumber}`}
                             disabled={rowBusy || Boolean(deleteReason)}
-                            onClick={() => deleteLine(line)}
+                            onClick={() => runUiAction(() => deleteLine(line))}
                           >
                             {pendingAction === 'delete' ? <CircularProgress size={18} /> : <DeleteIcon fontSize="small" />}
                           </IconButton>
@@ -589,7 +592,7 @@ const OrderDetailPage = () => {
               {locations.isError && (
                 <p className="text-xs text-error">
                   No fue posible consultar los almacenes disponibles.{' '}
-                  <button className="underline" onClick={() => void locations.refetch()}>
+                  <button className="underline" onClick={() => runUiAction(() => locations.refetch())}>
                     Reintentar
                   </button>
                 </p>
@@ -624,7 +627,7 @@ const OrderDetailPage = () => {
                       size="sm"
                       variant="outline"
                       loading={locations.isFetchingNextPage}
-                      onClick={() => void locations.fetchNextPage()}
+                      onClick={() => runUiAction(() => locations.fetchNextPage())}
                     >
                       Cargar más almacenes
                     </Button>
@@ -664,7 +667,7 @@ const OrderDetailPage = () => {
               loading={mutations.update.isPending}
               disabled={!canSubmitPersistedLineUpdate(order, editing) || !hasChanges}
               title={!hasChanges ? 'No hay cambios para guardar.' : undefined}
-              onClick={save}
+              onClick={() => runUiAction(() => save())}
             >
               Guardar
             </Button>

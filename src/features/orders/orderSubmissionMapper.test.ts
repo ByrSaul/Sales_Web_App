@@ -1,3 +1,4 @@
+let fixtureId = 0;
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isDraftLineAlreadyCreated,
@@ -8,7 +9,7 @@ import {
   mapNormalLineRequest,
 } from './orderSubmissionMapper';
 import { validDraft } from './testFixtures';
-beforeEach(() => vi.stubGlobal('crypto', { randomUUID: () => `id-${Math.random()}` }));
+beforeEach(() => vi.stubGlobal('crypto', { randomUUID: () => `id-${++fixtureId}` }));
 describe('transactional mappers', () => {
   it('maps the exact Mobile header casing and date format', () => {
     const d = validDraft();

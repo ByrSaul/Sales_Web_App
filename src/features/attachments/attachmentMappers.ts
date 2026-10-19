@@ -11,10 +11,12 @@ export const mapAttachment = (dto: AttachmentDto): OrderAttachment => ({
   attachmentType: text(dto.DocumentAttachmentTypeCode),
   contentBase64: text(dto.Attachment),
 });
-export const mapAttachmentList = (value: unknown): OrderAttachment[] =>
-  (Array.isArray(value)
-    ? value
-    : Array.isArray((value as Record<string, unknown> | null)?.['@odata'])
-      ? ((value as Record<string, unknown>)['@odata'] as unknown[])
-      : []
-  ).map((item) => mapAttachment(item as AttachmentDto));
+export const mapAttachmentList = (value: unknown): OrderAttachment[] => {
+  let records: unknown[] = [];
+  if (Array.isArray(value)) records = value;
+  else {
+    const wrapped = (value as Record<string, unknown> | null)?.['@odata'];
+    if (Array.isArray(wrapped)) records = wrapped;
+  }
+  return records.map((item) => mapAttachment(item as AttachmentDto));
+};

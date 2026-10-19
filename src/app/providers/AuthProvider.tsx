@@ -39,6 +39,12 @@ type AuthContextValue = {
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const loginFailureMessage = (code: string): string => {
+  if (code === BrowserAuthErrorCodes.userCancelled) return 'Inicio de sesión cancelado.';
+  const detail = code ? ` (${code})` : '';
+  return `No fue posible iniciar sesión con Microsoft${detail}.`;
+};
+
 /**
  * Proveedor del estado de autenticación y del token consumido por el API.
  *
@@ -104,11 +110,7 @@ export const AuthProvider = ({
     } catch (cause) {
       // Solo se muestra el código de MSAL; el mensaje completo puede incluir datos de la solicitud.
       const code = cause instanceof AuthError ? cause.errorCode : '';
-      setError(
-        code === BrowserAuthErrorCodes.userCancelled
-          ? 'Inicio de sesión cancelado.'
-          : `No fue posible iniciar sesión con Microsoft${code ? ` (${code})` : ''}.`,
-      );
+      setError(loginFailureMessage(code));
       setStatus('unauthenticated');
     }
   }, [activateAccount, activateDevToken, instance]);

@@ -18,6 +18,16 @@ export const DashboardMetricCard = ({
   error,
   accent = 'primary',
 }: Props) => {
+  const renderMetricValue = () => {
+    if (loading) {
+      return <div className="mt-3 h-9 w-20 animate-pulse rounded bg-surface-container" />;
+    }
+    if (error || value === undefined) {
+      return <p className="mt-3 text-sm text-on-surface-variant">No disponible</p>;
+    }
+    return <p className={`mt-2 text-4xl font-black leading-none ${text}`}>{value}</p>;
+  };
+
   const text = accent === 'secondary' ? 'text-secondary' : 'text-primary';
   const background = accent === 'secondary' ? 'bg-secondary/10' : 'bg-primary/10';
   return (
@@ -30,13 +40,7 @@ export const DashboardMetricCard = ({
           <Icon name={icon} size={18} className={text} />
         </div>
       </div>
-      {loading ? (
-        <div className="mt-3 h-9 w-20 animate-pulse rounded bg-surface-container" />
-      ) : error || value === undefined ? (
-        <p className="mt-3 text-sm text-on-surface-variant">No disponible</p>
-      ) : (
-        <p className={`mt-2 text-4xl font-black leading-none ${text}`}>{value}</p>
-      )}
+      {renderMetricValue()}
     </Card>
   );
 };

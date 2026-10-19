@@ -16,9 +16,14 @@ const read = (key: string): string => (import.meta.env[key] as string | undefine
 const flag = (key: string): boolean => read(key) === 'true';
 
 const e2e = import.meta.env.MODE === 'e2e';
+const resolveAuthMode = (): AppConfig['authMode'] => {
+  if (e2e) return 'e2e-mock';
+  if (read('VITE_AUTH_MODE') === 'dev-token') return 'dev-token';
+  return 'msal';
+};
 export const appConfig: AppConfig = {
   apiBaseUrl: (e2e ? 'http://127.0.0.1:4173/api' : read('VITE_API_BASE_URL')).replace(/\/$/, ''),
-  authMode: e2e ? 'e2e-mock' : read('VITE_AUTH_MODE') === 'dev-token' ? 'dev-token' : 'msal',
+  authMode: resolveAuthMode(),
   devAccessToken: read('VITE_DEV_ACCESS_TOKEN'),
   tenantId: read('VITE_AZURE_TENANT_ID'),
   clientId: read('VITE_AZURE_CLIENT_ID'),

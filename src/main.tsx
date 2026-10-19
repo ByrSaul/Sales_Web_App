@@ -1,3 +1,4 @@
+import { runUiAction } from './core/async/uiAction';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -38,4 +39,4 @@ const start = async () => {
     </React.StrictMode>,
   );
 };
-void start();
+runUiAction(() => start());

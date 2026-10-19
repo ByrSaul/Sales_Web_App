@@ -33,13 +33,10 @@ const restoreLine = (line: SubmissionLine): SubmissionLine => {
  */
 const normalize = (s: OrderSubmission): OrderSubmission => {
   const lines = s.lines.map(restoreLine);
-  const headerTracking: OperationTracking =
-    s.headerTracking ??
-    (s.salesOrderNumber
-      ? 'completed'
-      : s.headerAmbiguous || s.status === 'creating-header'
-        ? 'awaiting-confirmation'
-        : 'not-sent');
+  let headerTracking: OperationTracking = 'not-sent';
+  if (s.salesOrderNumber) headerTracking = 'completed';
+  else if (s.headerAmbiguous || s.status === 'creating-header') headerTracking = 'awaiting-confirmation';
+  headerTracking = s.headerTracking ?? headerTracking;
   const restored: OrderSubmission = {
     ...s,
     headerIdempotencyKey: s.headerIdempotencyKey ?? null,

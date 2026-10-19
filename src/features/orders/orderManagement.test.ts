@@ -70,8 +70,10 @@ describe('existing order mapping and rules', () => {
       { linenum: 2, itemid: 'I', salesqty: 1.5, lineamount: 15, salesprice: 10, item_name: 'Item' },
     ]);
     expect(result.quantity).toBe(1.5);
-    expect(result.inventoryLotId).toBe('');
-    expect(result.status).toBe('');
+    expect(result.inventoryLotId).toBeUndefined();
+    expect(result.status).toBeUndefined();
+    expect(canEditOrderLine(order, result)).toBe(false);
+    expect(canCancelOrderLine(order, result)).toBe(false);
   });
   it('translates only confirmed Dynamics statuses', () => {
     expect(statusLabel('Backorder')).toBe('Orden Abierta');
@@ -147,14 +149,20 @@ describe('existing order service contracts', () => {
       { signal: undefined },
     );
   });
-  it('uses POST /sales/details instead of incompatible GET-body', async () => {
+  it('queries official lines through POST with company/order filters and cancellation signal', async () => {
     const api = fake();
     api.post.mockResolvedValue([]);
-    await orderQueryService(api as unknown as ApiClient).lines('CO', 'OV');
+    const { signal } = new AbortController();
+    await orderQueryService(api as unknown as ApiClient).lines('CO', 'OV', signal);
     expect(api.post).toHaveBeenCalledWith(
-      '/sales/details',
-      { company: 'CO', sales_id: 'OV' },
-      { signal: undefined },
+      '/d365/sales/line/query',
+      {
+        filters: { dataAreaId: ['CO'], SalesOrderNumber: ['OV'] },
+        cross_company: true,
+        page: 1,
+        perpage: 1000,
+      },
+      { signal },
     );
   });
   it('maps minimal PATCH payload and preserves decimal quantity', async () => {
@@ -186,7 +194,7 @@ describe('existing order service contracts', () => {
       1,
       '/d365_services/post_cancle_sales_line',
       { dataAreaId: 'CO', InventoryLotId: 'LOT' },
-      { timeoutMs: 60_000 },
+      { timeoutMs: 60_000, retryOnUnauthorized: false },
     );
     expect(api.post).toHaveBeenNthCalledWith(
       2,

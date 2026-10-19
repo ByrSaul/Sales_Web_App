@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { appConfig } from '../config/env';
 import { ApiClient } from '../../core/api/apiClient';
 import { userErrorMessage } from '../../core/api/errors';

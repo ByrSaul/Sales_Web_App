@@ -5,6 +5,45 @@ import { ApiError } from './errors';
 const jsonResponse = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 describe('ApiClient', () => {
+  it.each([
+    [403, '{}', 'forbidden'],
+    [500, '{"detail":"backend detail"}', 'backend'],
+    [502, 'not JSON', 'backend'],
+    [200, 'not JSON', 'invalid-response'],
+  ])('classifies status %s and response %s without retrying', async (status, body, kind) => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, { status }));
+    const api = new ApiClient({ baseUrl: '/api', getToken: async () => 'token', onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.get('/test')).rejects.toMatchObject({ kind, status });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts an empty 204 response and preserves PATCH serialization', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    const api = new ApiClient({ baseUrl: '/api', getToken: async () => 'token', onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.patch('/test', { quantity: 2 })).resolves.toBeUndefined();
+    expect(fetchImpl).toHaveBeenCalledWith('/api/test', expect.objectContaining({ method: 'PATCH', body: '{"quantity":2}' }));
+  });
+
+  it.each([
+    [new DOMException('aborted', 'AbortError'), 'timeout'],
+    [new TypeError('fetch failed'), 'network'],
+    [new Error('unexpected'), 'unknown'],
+  ])('classifies a transport failure as %s', async (error, kind) => {
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(error);
+    const api = new ApiClient({ baseUrl: '/api', getToken: async () => 'token', onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.post('/test', { value: 1 })).rejects.toMatchObject({ kind });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles a failed refresh without starting a second request', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401));
+    const api = new ApiClient({ baseUrl: '/api', getToken: async (force) => {
+      if (force) throw new ApiError('authentication', 'expired');
+      return 'token';
+    }, onUnauthorized: vi.fn(), fetchImpl });
+    await expect(api.get('/test')).rejects.toMatchObject({ kind: 'authentication' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
   it('adds the bearer token', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ok: true }));
     const api = new ApiClient({
@@ -48,6 +87,18 @@ describe('ApiClient', () => {
     await expect(api.get('/test')).rejects.toBeInstanceOf(ApiError);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(onUnauthorized).toHaveBeenCalledOnce();
+  });
+  it.each(['post', 'delete'] as const)('does not refresh or repeat a transactional %s when retryOnUnauthorized is false', async (method) => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401));
+    const getToken = vi.fn().mockResolvedValue('test-token');
+    const onUnauthorized = vi.fn();
+    const api = new ApiClient({ baseUrl: '/api', getToken, onUnauthorized, fetchImpl });
+    await expect(api[method]('/transaction', { id: 'LOT' }, {
+      retryOnUnauthorized: false,
+    })).rejects.toMatchObject({ kind: 'authentication', status: 401 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(getToken).toHaveBeenCalledExactlyOnceWith(false);
+    expect(onUnauthorized).not.toHaveBeenCalled();
   });
   it('does not refresh or retry a 401 in dev-token mode', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, 401));

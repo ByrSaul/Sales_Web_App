@@ -1,3 +1,4 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProduction } from '../../features/production/productionQueries';
@@ -10,6 +11,147 @@ import { Button, Card, EmptyState, Input, Select } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';
 /** Pantalla de consulta de producción por pedido o consolidado diario. */
 const ProductionPage = () => {
+  const renderProduction = () => {
+    if (q.isLoading) {
+      return <LoadingState />;
+    }
+    if (q.isError) {
+      return (
+        <ErrorState
+          message="No se pudo consultar producción."
+          onRetry={() => runUiAction(() => q.refetch())}
+        />
+      );
+    }
+    if (!q.data?.items.length) {
+      return <EmptyState title="No hay registros de producción para estos filtros" />;
+    }
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full bg-white text-sm">
+            <thead>
+              <tr>
+                {f.mode === 'orders' ? (
+                  <>
+                    <th>Pedido</th>
+                    <th>Producción</th>
+                    <th>Cliente</th>
+                    <th>Producto</th>
+                    <th>Estado pedido</th>
+                    <th>Estado producción</th>
+                    <th>Cantidad</th>
+                  </>
+                ) : (
+                  <>
+                    <th>Orden</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Producto</th>
+                    <th>Cliente</th>
+                    <th>Estado</th>
+                    <th>Cantidad</th>
+                    <th>Kilolitros</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {q.data.items.map((row) =>
+                f.mode === 'orders'
+                  ? (() => {
+                      const x = row as SalesProduction;
+                      return (
+                        <tr
+                          className="border-t"
+                          key={JSON.stringify([
+                            x.companyId,
+                            x.salesId,
+                            x.productionId,
+                            x.itemId,
+                            x.bomId,
+                          ])}
+                        >
+                          <td>{x.salesId}</td>
+                          <td>{x.productionId}</td>
+                          <td>{x.customer}</td>
+                          <td>
+                            {x.itemId}
+                            <small className="block">{x.name}</small>
+                          </td>
+                          <td>{x.salesStatus}</td>
+                          <td>
+                            Código {x.productionStatus}
+                            <small className="block">{x.backorderStatus}</small>
+                          </td>
+                          <td>{x.scheduledQuantity}</td>
+                        </tr>
+                      );
+                    })()
+                  : (() => {
+                      const x = row as DailyProduction;
+                      return (
+                        <tr
+                          className="border-t"
+                          key={JSON.stringify([
+                            x.productionId,
+                            x.bomId,
+                            x.itemId,
+                            x.area,
+                            x.line,
+                            x.customerAccount,
+                            x.destination,
+                            x.presentation,
+                            x.year,
+                            x.month,
+                          ])}
+                        >
+                          <td>{x.productionId}</td>
+                          <td>{x.started}</td>
+                          <td>{x.finished}</td>
+                          <td>
+                            {x.itemId}
+                            <small className="block">{x.description}</small>
+                          </td>
+                          <td>
+                            {x.customerAccount} · {x.customerName}
+                          </td>
+                          <td>{x.status}</td>
+                          <td>{x.quantity}</td>
+                          <td>{x.kiloliters}</td>
+                        </tr>
+                      );
+                    })(),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-between">
+          <span>{q.data.pagination.totalRecords} registros</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={f.page <= 1}
+              onClick={() => apply({ ...f, page: f.page - 1 })}
+            >
+              Anterior
+            </Button>
+            <span className="p-2">
+              {f.page}/{Math.max(1, q.data.pagination.totalPages)}
+            </span>
+            <Button
+              variant="outline"
+              disabled={f.page >= q.data.pagination.totalPages}
+              onClick={() => apply({ ...f, page: f.page + 1 })}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const [p, setP] = useSearchParams();
   const f: ProductionFilters = {
     mode: p.get('mode') === 'daily' ? 'daily' : 'orders',
@@ -100,113 +242,7 @@ const ProductionPage = () => {
           Consultar
         </Button>
       </Card>
-      {q.isLoading ? (
-        <LoadingState />
-      ) : q.isError ? (
-        <ErrorState message="No se pudo consultar producción." onRetry={() => q.refetch()} />
-      ) : !q.data?.items.length ? (
-        <EmptyState title="No hay registros de producción para estos filtros" />
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full bg-white text-sm">
-              <thead>
-                <tr>
-                  {f.mode === 'orders' ? (
-                    <>
-                      <th>Pedido</th>
-                      <th>Producción</th>
-                      <th>Cliente</th>
-                      <th>Producto</th>
-                      <th>Estado pedido</th>
-                      <th>Estado producción</th>
-                      <th>Cantidad</th>
-                    </>
-                  ) : (
-                    <>
-                      <th>Orden</th>
-                      <th>Inicio</th>
-                      <th>Fin</th>
-                      <th>Producto</th>
-                      <th>Cliente</th>
-                      <th>Estado</th>
-                      <th>Cantidad</th>
-                      <th>Kilolitros</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {q.data.items.map((row, i) =>
-                  f.mode === 'orders'
-                    ? (() => {
-                        const x = row as SalesProduction;
-                        return (
-                          <tr className="border-t" key={`${x.productionId}-${i}`}>
-                            <td>{x.salesId}</td>
-                            <td>{x.productionId}</td>
-                            <td>{x.customer}</td>
-                            <td>
-                              {x.itemId}
-                              <small className="block">{x.name}</small>
-                            </td>
-                            <td>{x.salesStatus}</td>
-                            <td>
-                              Código {x.productionStatus}
-                              <small className="block">{x.backorderStatus}</small>
-                            </td>
-                            <td>{x.scheduledQuantity}</td>
-                          </tr>
-                        );
-                      })()
-                    : (() => {
-                        const x = row as DailyProduction;
-                        return (
-                          <tr className="border-t" key={`${x.productionId}-${i}`}>
-                            <td>{x.productionId}</td>
-                            <td>{x.started}</td>
-                            <td>{x.finished}</td>
-                            <td>
-                              {x.itemId}
-                              <small className="block">{x.description}</small>
-                            </td>
-                            <td>
-                              {x.customerAccount} · {x.customerName}
-                            </td>
-                            <td>{x.status}</td>
-                            <td>{x.quantity}</td>
-                            <td>{x.kiloliters}</td>
-                          </tr>
-                        );
-                      })(),
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-between">
-            <span>{q.data.pagination.totalRecords} registros</span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={f.page <= 1}
-                onClick={() => apply({ ...f, page: f.page - 1 })}
-              >
-                Anterior
-              </Button>
-              <span className="p-2">
-                {f.page}/{Math.max(1, q.data.pagination.totalPages)}
-              </span>
-              <Button
-                variant="outline"
-                disabled={f.page >= q.data.pagination.totalPages}
-                onClick={() => apply({ ...f, page: f.page + 1 })}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+      {renderProduction()}
     </div>
   );
 };

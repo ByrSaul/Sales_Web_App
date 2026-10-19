@@ -1,8 +1,9 @@
-import React from 'react';
-import { User } from '../../types';
-import { Icon } from '../ui';
-import { useSession } from '../../app/providers/SessionProvider';
-import { appConfig } from '../../app/config/env';
+import { runUiAction } from '../../core/async/uiAction';
+import React from "react";
+import { User } from "../../types";
+import { Icon } from "../ui";
+import { useSession } from "../../app/providers/SessionProvider";
+import { appConfig } from "../../app/config/env";
 
 interface SidebarProps {
   activeRoute: string;
@@ -13,24 +14,28 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Mis pedidos de venta', icon: 'receipt_long', href: '/pedidos' },
-  { label: 'Mis clientes', icon: 'group', href: '/clientes' },
-  { label: 'Consulta de Inventario', icon: 'inventory_2', href: '/inventario' },
-  { label: 'Crear pedidos de venta', icon: 'add_shopping_cart', href: '/crear-pedido' },
-  { label: 'Facturas de venta', icon: 'description', href: '/facturas' },
+  { label: "Mis pedidos de venta", icon: "receipt_long", href: "/pedidos" },
+  { label: "Mis clientes", icon: "group", href: "/clientes" },
+  { label: "Consulta de Inventario", icon: "inventory_2", href: "/inventario" },
+  {
+    label: "Crear pedidos de venta",
+    icon: "add_shopping_cart",
+    href: "/crear-pedido",
+  },
+  { label: "Facturas de venta", icon: "description", href: "/facturas" },
   // Producción/Forecast ya están implementados; solo ocultos temporalmente vía feature flag (fail closed).
   ...(appConfig.featureProduction
-    ? [{ label: 'Producción', icon: 'factory', href: '/produccion' }]
+    ? [{ label: "Producción", icon: "factory", href: "/produccion" }]
     : []),
   ...(appConfig.featureForecast
-    ? [{ label: 'Forecast de ventas', icon: 'monitoring', href: '/forecast' }]
+    ? [{ label: "Forecast de ventas", icon: "monitoring", href: "/forecast" }]
     : []),
-  { label: 'Soporte Técnico', icon: 'headset_mic', href: '/soporte' },
+  { label: "Soporte Técnico", icon: "headset_mic", href: "/soporte" },
 ];
 
 const BOTTOM_ITEMS = [
-  { label: 'Cambiar Empresa', icon: 'business', href: '/company' },
-  { label: 'Cerrar Sesión', icon: 'logout', href: '/logout', danger: true },
+  { label: "Cambiar Empresa", icon: "business", href: "/company" },
+  { label: "Cerrar Sesión", icon: "logout", href: "/logout", danger: true },
 ];
 
 interface NavLinkProps {
@@ -41,19 +46,26 @@ interface NavLinkProps {
   danger?: boolean;
   onClick: () => void;
 }
+const navLinkStyle = (active: boolean, danger?: boolean): string => {
+  if (active) return 'bg-primary/10 text-primary font-semibold border-l-2 border-primary';
+  if (danger) return 'text-error hover:bg-red-50';
+  return 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface';
+};
 /** Opción reutilizable de navegación para las variantes desktop y móvil. */
-const NavLink: React.FC<NavLinkProps> = ({ label, icon, isActive, danger, onClick }) => (
+const NavLink: React.FC<NavLinkProps> = ({
+  label,
+  icon,
+  isActive,
+  danger,
+  onClick,
+}) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${
-      isActive
-        ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary'
-        : danger
-          ? 'text-error hover:bg-red-50'
-          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+      navLinkStyle(isActive, danger)
     }`}
   >
-    <Icon name={icon} size={18} className={isActive ? 'text-primary' : ''} />
+    <Icon name={icon} size={18} className={isActive ? "text-primary" : ""} />
     <span>{label}</span>
   </button>
 );
@@ -73,8 +85,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
   const handleBottomNav = (href: string) => {
     onMobileClose?.();
-    if (href === '/company') changeCompany();
-    else if (href === '/logout') void logout();
+    if (href === "/company") changeCompany();
+    else if (href === "/logout") runUiAction(() => logout());
   };
 
   const content = (
@@ -129,8 +141,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={onMobileClose} />
-          <div className="relative w-64 bg-surface h-full shadow-xl overflow-y-auto">{content}</div>
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            className="absolute inset-0 bg-black/40"
+            onClick={onMobileClose}
+          />
+          <div className="relative w-64 bg-surface h-full shadow-xl overflow-y-auto">
+            {content}
+          </div>
         </div>
       )}
     </>

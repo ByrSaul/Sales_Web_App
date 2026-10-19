@@ -1,5 +1,7 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useSession } from '../../app/providers/SessionProvider';
 import { statusLabel } from '../../features/orders/orderMappers';
 import { useOrders } from '../../features/orders/orderQueries';
@@ -158,7 +160,7 @@ const OrdersPage = () => {
       )}
       {query.isLoading && <LoadingState message="Cargando pedidos..." />}
       {query.isError && (
-        <ErrorState message="No se pudo consultar el historial." onRetry={() => query.refetch()} />
+        <ErrorState message="No se pudo consultar el historial." onRetry={() => runUiAction(() => query.refetch())} />
       )}{' '}
       {query.data && !query.data.items.length && (
         <EmptyState

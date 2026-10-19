@@ -1,5 +1,6 @@
+import { runUiAction } from '../../core/async/uiAction';
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useSession } from '../../app/providers/SessionProvider';
 import type { Company } from '../../core/session/types';
 import { userErrorMessage } from '../../core/api/errors';
@@ -27,10 +28,10 @@ const CompanySelectPage: React.FC = () => {
     }
   }, [api]);
   useEffect(() => {
-    void load();
+    runUiAction(() => load());
   }, [load]);
   if (loading) return <LoadingState message="Cargando empresas..." />;
-  if (error) return <ErrorState message={error} onRetry={() => void load()} />;
+  if (error) return <ErrorState message={error} onRetry={() => runUiAction(() => load())} />;
   return (
     <main className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-2xl mx-auto">

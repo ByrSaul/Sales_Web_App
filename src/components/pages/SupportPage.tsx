@@ -1,5 +1,6 @@
+import { runUiAction } from '../../core/async/uiAction';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { useSession } from '../../app/providers/SessionProvider';
 import { userErrorMessage } from '../../core/api/errors';
@@ -21,7 +22,7 @@ const SupportPage = () => {
   const supportUserEmail =
     auth.account?.username?.trim() || context.user?.networkAlias.trim() || '';
   const [body, setBody] = useState(''),
-    [files, setFiles] = useState<File[]>([]),
+    [files, setFiles] = useState<{ localId: string; file: File }[]>([]),
     [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle'),
     [message, setMessage] = useState('');
   const lock = useRef(false);
@@ -38,7 +39,7 @@ const SupportPage = () => {
   };
   const send = async () => {
     if (lock.current) return;
-    const error = validateSupport(body, files);
+    const error = validateSupport(body, files.map((entry) => entry.file));
     if (error) {
       setStatus('error');
       setMessage(error);
@@ -49,7 +50,7 @@ const SupportPage = () => {
     setStatus('sending');
     setMessage('');
     try {
-      const r = await mutation.mutateAsync({ email: supportUserEmail, body, files });
+      const r = await mutation.mutateAsync({ email: supportUserEmail, body, files: files.map((entry) => entry.file) });
       if (!r.success) throw new Error(r.errorMessage || 'Dynamics no confirmó el envío.');
       setBody('');
       setFiles([]);
@@ -104,12 +105,12 @@ const SupportPage = () => {
             multiple
             disabled={status === 'sending'}
             onChange={(e) =>
-              setFiles((current) => [...current, ...Array.from(e.target.files ?? [])])
+              setFiles((current) => [...current, ...Array.from(e.target.files ?? [], (file) => ({ localId: crypto.randomUUID(), file }))])
             }
           />
         </label>
-        {files.map((f, i) => (
-          <div key={`${f.name}-${i}`} className="flex justify-between text-sm border-t pt-2">
+        {files.map(({ localId, file: f }) => (
+          <div key={localId} className="flex justify-between text-sm border-t pt-2">
             <span>
               {f.name} · {(f.size / 1024).toFixed(1)} KB
             </span>
@@ -117,19 +118,19 @@ const SupportPage = () => {
               size="sm"
               variant="danger"
               disabled={status === 'sending'}
-              onClick={() => setFiles((x) => x.filter((_, n) => n !== i))}
+              onClick={() => setFiles((x) => x.filter((entry) => entry.localId !== localId))}
             >
               Eliminar
             </Button>
           </div>
         ))}
         {message && (
-          <p role="status" className={status === 'success' ? 'text-primary' : 'text-error'}>
+          <output aria-live="polite" aria-atomic="true" className={'block ' + (status === 'success' ? 'text-primary' : 'text-error')}>
             {message}
-          </p>
+          </output>
         )}
         <div className="flex gap-2">
-          <Button loading={status === 'sending'} onClick={send}>
+          <Button loading={status === 'sending'} onClick={() => runUiAction(() => send())}>
             Enviar al soporte técnico
           </Button>
           <Button variant="outline" disabled={status === 'sending'} onClick={leave}>

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient } from '../../core/api/apiClient';
 import { attachmentKeys } from './attachmentQueries';
 import {
@@ -12,6 +12,12 @@ import {
   MAX_ATTACHMENT_BYTES,
   validateAttachment,
 } from './attachmentValidation';
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('attachment contracts', () => {
   it('segregates query keys by company and order', () =>
@@ -54,7 +60,7 @@ describe('attachment contracts', () => {
     await service.upload('CO', 'OV-1', new File(['%PDF'], 'recibo.pdf'), ' pago ');
     expect(post).toHaveBeenCalledWith(
       '/d365/sales_header_documents_atachments',
-      expect.objectContaining({
+      {
         dataAreaId: 'CO',
         AttachmentDescription: 'pago',
         SalesOrderNumber: 'OV-1',
@@ -62,7 +68,7 @@ describe('attachment contracts', () => {
         DocumentAttachmentTypeCode: 'Archivo',
         FileName: 'recibo',
         Attachment: 'JVBERg==',
-      }),
+      },
       { timeoutMs: 120000 },
     );
   });

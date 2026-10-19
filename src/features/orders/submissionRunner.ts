@@ -294,75 +294,95 @@ export class SubmissionRunner {
     state.createdAttachmentIds ??= [];
     for (const attachment of attachments) {
       if (state.createdAttachmentIds.includes(attachment.localId)) continue;
-      state.status = 'uploading-attachments';
-      state.attachmentError = null;
-      state.attachmentRetryAllowed = false;
+      if (!(await this.uploadAttachment(state, attachment))) return false;
+    }
+    return this.verifyPaymentAttachment(state);
+  }
+
+  private async uploadAttachment(
+    state: OrderSubmission,
+    attachment: SubmissionAttachmentInput,
+  ): Promise<boolean> {
+    state.status = 'uploading-attachments';
+    state.attachmentError = null;
+    state.attachmentRetryAllowed = false;
+    this.publish(state, true);
+    try {
+      if (!this.gateway.uploadAttachment) throw new Error('El gateway no permite subir adjuntos.');
+      await this.gateway.uploadAttachment(
+        state.companyId,
+        state.salesOrderNumber!,
+        attachment.file,
+        attachment.description,
+      );
+      state.createdAttachmentIds!.push(attachment.localId);
       this.publish(state, true);
-      try {
-        if (!this.gateway.uploadAttachment)
-          throw new Error('El gateway no permite subir adjuntos.');
-        await this.gateway.uploadAttachment(
-          state.companyId,
-          state.salesOrderNumber!,
-          attachment.file,
-          attachment.description,
-        );
-        state.createdAttachmentIds.push(attachment.localId);
+    } catch (error) {
+      const confirmed = await this.attachmentExists(state, attachment);
+      if (confirmed) {
+        state.createdAttachmentIds!.push(attachment.localId);
         this.publish(state, true);
-      } catch (error) {
-        const extension = attachment.file.name.split('.').pop()?.toLowerCase() ?? '';
-        const baseName = attachment.file.name.slice(0, -(extension.length + 1));
-        let confirmed = false;
-        try {
-          if (!this.gateway.listAttachments)
-            throw new Error('El gateway no permite verificar adjuntos.');
-          const existing = await this.gateway.listAttachments(
-            state.companyId,
-            state.salesOrderNumber!,
-          );
-          confirmed = existing.some(
-            (item) =>
-              [item.fileName, `${item.fileName}.${item.fileType}`].some(
-                (name) =>
-                  name.toLowerCase() === attachment.file.name.toLowerCase() ||
-                  name.toLowerCase() === baseName.toLowerCase(),
-              ) && item.description.trim() === attachment.description.trim(),
-          );
-        } catch {
-          // La verificación fallida conserva el resultado ambiguo y evita crear líneas.
-        }
-        if (confirmed) {
-          state.createdAttachmentIds.push(attachment.localId);
-          this.publish(state, true);
-          continue;
-        }
-        state.status = 'partial-failure';
-        state.attachmentRetryAllowed = !isAmbiguousError(error);
-        state.attachmentError = `${friendly(error)} No fue posible confirmar el adjunto; no se crearon líneas ni se reenvió el archivo.`;
-        state.error = state.attachmentError;
-        this.publish(state, true);
-        return false;
+        return true;
       }
+      state.status = 'partial-failure';
+      state.attachmentRetryAllowed = !isAmbiguousError(error);
+      state.attachmentError = `${friendly(error)} No fue posible confirmar el adjunto; no se crearon líneas ni se reenvió el archivo.`;
+      state.error = state.attachmentError;
+      this.publish(state, true);
+      return false;
     }
-    if (requiresPaymentAttachment(state.snapshot.customer?.account)) {
-      try {
-        if (!this.gateway.listAttachments)
-          throw new Error('El gateway no permite verificar adjuntos.');
-        const persisted = await this.gateway.listAttachments(
-          state.companyId,
-          state.salesOrderNumber!,
-        );
-        if (!hasValidPaymentAttachment(persisted))
-          throw new Error('Dynamics todavía no devuelve un comprobante de pago válido.');
-      } catch (error) {
-        state.status = 'partial-failure';
-        state.attachmentRetryAllowed = false;
-        state.attachmentError = `${friendly(error)} El pedido fue creado, pero las líneas no serán enviadas hasta confirmar el comprobante de pago.`;
-        state.error = state.attachmentError;
-        this.publish(state, true);
-        return false;
-      }
+    return true;
+  }
+
+  private async attachmentExists(
+    state: OrderSubmission,
+    attachment: SubmissionAttachmentInput,
+  ): Promise<boolean> {
+    const extension = attachment.file.name.split('.').pop()?.toLowerCase() ?? '';
+    const baseName = attachment.file.name.slice(0, -(extension.length + 1));
+
+    try {
+      if (!this.gateway.listAttachments)
+        throw new Error('El gateway no permite verificar adjuntos.');
+      const existing = await this.gateway.listAttachments(state.companyId, state.salesOrderNumber!);
+      return existing.some(
+        (item) =>
+          [item.fileName, `${item.fileName}.${item.fileType}`].some(
+            (name) =>
+              name.toLowerCase() === attachment.file.name.toLowerCase() ||
+              name.toLowerCase() === baseName.toLowerCase(),
+          ) && item.description.trim() === attachment.description.trim(),
+      );
+    } catch {
+      // An unavailable lookup cannot confirm persistence; it never triggers another upload.
     }
+
+    return false;
+  }
+
+  private async verifyPaymentAttachment(state: OrderSubmission): Promise<boolean> {
+    if (!requiresPaymentAttachment(state.snapshot.customer?.account)) {
+      state.attachmentError = null;
+      return true;
+    }
+    try {
+      if (!this.gateway.listAttachments)
+        throw new Error('El gateway no permite verificar adjuntos.');
+      const persisted = await this.gateway.listAttachments(
+        state.companyId,
+        state.salesOrderNumber!,
+      );
+      if (!hasValidPaymentAttachment(persisted))
+        throw new Error('Dynamics todavía no devuelve un comprobante de pago válido.');
+    } catch (error) {
+      state.status = 'partial-failure';
+      state.attachmentRetryAllowed = false;
+      state.attachmentError = `${friendly(error)} El pedido fue creado, pero las líneas no serán enviadas hasta confirmar el comprobante de pago.`;
+      state.error = state.attachmentError;
+      this.publish(state, true);
+      return false;
+    }
+
     state.attachmentError = null;
     return true;
   }

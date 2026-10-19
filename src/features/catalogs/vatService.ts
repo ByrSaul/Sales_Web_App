@@ -38,7 +38,10 @@ export const vatService = (api: ApiClient) => ({
   async create(input: CreateVatInput): Promise<VatNumber> {
     const response = await api.post<unknown>('/d365/vat_num', { dataAreaId: input.company, CountryRegionId: input.countryId, VATNum: input.vatNumber, Name: input.name, DocumentTypeIdentificationId: input.documentType, CS_FEL_TaxpayerType_PA: input.taxpayerType, CS_FEL_PersonType_SV: input.personType });
     const envelope = response as Json;
-    const raw = (Array.isArray(response) ? response[0] : Array.isArray(envelope['@odata']) ? envelope['@odata'][0] : response) as Json | undefined;
+    let record: unknown = response;
+    if (Array.isArray(response)) record = response[0];
+    else if (Array.isArray(envelope['@odata'])) record = envelope['@odata'][0];
+    const raw = record as Json | undefined;
     return { companyId: text(raw?.dataAreaId ?? input.company), vatNumber: text(raw?.VATNum ?? input.vatNumber), countryId: text(raw?.CountryRegionId ?? input.countryId), name: text(raw?.Name ?? input.name), documentType: text(raw?.DocumentTypeIdentificationId ?? input.documentType), taxVatAddress: text(raw?.CSFATaxVatAddress), taxpayerTypePanama: text(raw?.CS_FEL_TaxpayerType_PA ?? input.taxpayerType), rucCheckerPanama: text(raw?.CS_FEL_RUCChecker_PA), personTypeElSalvador: text(raw?.CS_FEL_PersonType_SV ?? input.personType) };
   },
 });

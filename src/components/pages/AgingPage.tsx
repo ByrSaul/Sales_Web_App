@@ -1,4 +1,5 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from '../../core/hooks/useSafeNavigate';
 import { useStatement } from '../../features/billing/billingQueries';
 import { Button, Card, EmptyState } from '../ui';
 import { ErrorState, LoadingState } from '../ui/PageState';

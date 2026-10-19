@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useSafeNavigate as useNavigate } from './core/hooks/useSafeNavigate';
 import { appConfig } from './app/config/env';
 import { RequireAuthentication, RequireCompany, RequireCompleteContext } from './app/router/guards';
 import ProtectedLayout from './app/router/ProtectedLayout';

@@ -1,8 +1,12 @@
 import type { ApiClient } from '../../core/api/apiClient';
 import type { ForecastFilters, ForecastRow } from './forecastTypes';
 type J = Record<string, unknown>;
-const s = (v: unknown) => (v == null ? '' : String(v)),
-  maybe = (v: unknown) => (v == null ? null : typeof v === 'number' ? v : Number(v) || 0);
+const s = (v: unknown) => (v == null ? '' : String(v));
+const maybe = (v: unknown): number | null => {
+  if (v == null) return null;
+  if (typeof v === 'number') return v;
+  return Number(v) || 0;
+};
 /** Convierte una fila sin tipar del API en una fila de pronóstico de dominio. */
 export const mapForecast = (j: J): ForecastRow => ({
   salesGroup: s(j.commisssalesgroup),

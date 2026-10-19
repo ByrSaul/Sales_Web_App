@@ -1,3 +1,4 @@
+import { runUiAction } from '../../core/async/uiAction';
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { getConfigurationErrors } from '../../app/config/env';
@@ -48,7 +49,7 @@ const LoginPage: React.FC = () => {
           fullWidth
           size="lg"
           icon="login"
-          onClick={() => void login()}
+          onClick={() => runUiAction(() => login())}
           disabled={configErrors.length > 0}
         >
           {mode === 'msal'

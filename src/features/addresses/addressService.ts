@@ -47,11 +47,9 @@ export const addressService = (api: ApiClient) => ({
   async create(company: string, form: AddressForm): Promise<CustomerAddress> {
     const response = await api.post<unknown>('/d365/address', mapCreateAddress(company, form));
     const envelope = response as Record<string, unknown>;
-    const candidates = Array.isArray(response)
-      ? response
-      : Array.isArray(envelope['@odata'])
-        ? envelope['@odata']
-        : [response];
+    let candidates = [response];
+    if (Array.isArray(response)) candidates = response;
+    else if (Array.isArray(envelope['@odata'])) candidates = envelope['@odata'];
     const item = candidates[0] as Record<string, unknown> | undefined;
     if (!item || !String(item.AddressLocationId ?? '').trim())
       throw new Error('La respuesta no contiene AddressLocationId.');

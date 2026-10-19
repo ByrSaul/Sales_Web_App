@@ -128,14 +128,18 @@ interface CardProps {
   hover?: boolean;
 }
 /** Contenedor visual reutilizable para agrupar contenido relacionado. */
-export const Card: React.FC<CardProps> = ({ children, className = '', onClick, hover }) => (
-  <div
-    onClick={onClick}
-    className={`bg-white rounded-xl border border-outline-variant/60 shadow-sm ${hover ? 'cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5' : ''} ${onClick ? 'cursor-pointer' : ''} ${className}`}
-  >
-    {children}
-  </div>
-);
+export const Card: React.FC<CardProps> = ({ children, className = '', onClick, hover }) => {
+  const Element = onClick ? 'button' : 'div';
+  return (
+    <Element
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`bg-white rounded-xl border border-outline-variant/60 shadow-sm ${hover ? 'cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5' : ''} ${onClick ? 'block w-full cursor-pointer text-left' : ''} ${className}`}
+    >
+      {children}
+    </Element>
+  );
+};
 
 // ─── Input ─────────────────────────────────────────────────────────────────────
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -151,33 +155,43 @@ export const Input: React.FC<InputProps> = ({
   rightIcon,
   onRightIconClick,
   className = '',
+  id,
   ...props
-}) => (
-  <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
-    {label && <label className="text-xs text-on-surface-variant font-medium">{label}</label>}
-    <div className="relative flex min-w-0 max-w-full items-center">
-      {icon && (
-        <span
-          className="absolute left-2.5 material-symbols-outlined text-on-surface-variant"
-          style={{ fontSize: 16 }}
-        >
-          {icon}
-        </span>
+}) => {
+  const generatedId = React.useId();
+  const controlId = id ?? generatedId;
+  return (
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
+      {label && (
+        <label htmlFor={controlId} className="text-xs text-on-surface-variant font-medium">
+          {label}
+        </label>
       )}
-      <input
-        className={`box-border min-w-0 max-w-full w-full py-2 px-3 ${icon ? 'pl-8' : ''} ${rightIcon ? 'pr-8' : ''} rounded-lg border border-outline-variant bg-white text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all ${className}`}
-        {...props}
-      />
-      {rightIcon && (
-        <button onClick={onRightIconClick} className="absolute right-2.5 text-primary">
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-            {rightIcon}
+      <div className="relative flex min-w-0 max-w-full items-center">
+        {icon && (
+          <span
+            className="absolute left-2.5 material-symbols-outlined text-on-surface-variant"
+            style={{ fontSize: 16 }}
+          >
+            {icon}
           </span>
-        </button>
-      )}
+        )}
+        <input
+          id={controlId}
+          className={`box-border min-w-0 max-w-full w-full py-2 px-3 ${icon ? 'pl-8' : ''} ${rightIcon ? 'pr-8' : ''} rounded-lg border border-outline-variant bg-white text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all ${className}`}
+          {...props}
+        />
+        {rightIcon && (
+          <button onClick={onRightIconClick} className="absolute right-2.5 text-primary">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+              {rightIcon}
+            </span>
+          </button>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Select ────────────────────────────────────────────────────────────────────
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
@@ -185,21 +199,30 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   options: { value: string; label: string }[];
 }
 /** Selector nativo etiquetado construido desde opciones tipadas. */
-export const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => (
-  <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
-    {label && <label className="text-xs text-on-surface-variant font-medium">{label}</label>}
-    <select
-      className={`box-border min-w-0 max-w-full w-full py-2 px-3 rounded-lg border border-outline-variant bg-white text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all appearance-none ${className}`}
-      {...props}
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+export const Select: React.FC<SelectProps> = ({ label, options, className = '', id, ...props }) => {
+  const generatedId = React.useId();
+  const controlId = id ?? generatedId;
+  return (
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-1">
+      {label && (
+        <label htmlFor={controlId} className="text-xs text-on-surface-variant font-medium">
+          {label}
+        </label>
+      )}
+      <select
+        id={controlId}
+        className={`box-border min-w-0 max-w-full w-full py-2 px-3 rounded-lg border border-outline-variant bg-white text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all appearance-none ${className}`}
+        {...props}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 // ─── Toggle ────────────────────────────────────────────────────────────────────
 interface ToggleProps {
@@ -241,12 +264,14 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ open, onClose, title, 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <button type="button" aria-label="Cerrar panel" className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-outline-variant/40">
           <div className="w-10 h-1 bg-outline-variant rounded-full absolute top-2 left-1/2 -translate-x-1/2 md:hidden" />
           <h2 className="text-base font-bold text-on-surface">{title}</h2>
           <button
+            type="button"
+            aria-label="Cerrar panel"
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container"
           >

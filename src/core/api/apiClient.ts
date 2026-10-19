@@ -2,6 +2,7 @@ import { ApiError } from './errors';
 
 type TokenProvider = (forceRefresh: boolean) => Promise<string>;
 type UnauthorizedHandler = () => Promise<void> | void;
+type ApiRequestInit = RequestInit & { timeoutMs?: number; retryOnUnauthorized?: boolean };
 
 /** Configuración de autenticación, transporte y tiempos límite del cliente HTTP. */
 export type ApiClientOptions = {
@@ -107,25 +108,14 @@ export class ApiClient {
    */
   private async request<T>(
     path: string,
-    init: RequestInit & { timeoutMs?: number; retryOnUnauthorized?: boolean } = {},
+    init: ApiRequestInit = {},
     retried = false,
   ): Promise<T> {
     // Token acquisition is classified on its own: a failure here means fetch() never runs,
     // so it must never surface as a 'network' error. Providers that already know the precise
     // cause (e.g. dev-token config/identity failures) throw a typed ApiError; anything else
     // falls back to 'configuration' rather than being miscategorized as connectivity.
-    let token: string;
-    try {
-      token = await this.options.getToken(false);
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        'configuration',
-        error instanceof Error
-          ? error.message
-          : 'No fue posible obtener el token de autenticación.',
-      );
-    }
+    const token = await this.acquireToken();
     const controller = new AbortController();
     const externalSignal = init.signal;
     const { timeoutMs, retryOnUnauthorized, ...fetchInit } = init;
@@ -144,45 +134,10 @@ export class ApiClient {
         },
       });
       if (response.status === 401) {
-        if (retryOnUnauthorized === false)
-          throw new ApiError(
-            'authentication',
-            'La sesi\u00f3n fue rechazada; la operaci\u00f3n no se repiti\u00f3 autom\u00e1ticamente.',
-            401,
-          );
-        if (this.options.refreshOnUnauthorized === false) {
-          await this.options.onUnauthorized();
-          throw new ApiError(
-            'authentication',
-            'El token de desarrollo fue rechazado o puede haber expirado.',
-            401,
-          );
-        }
-        if (retried) {
-          await this.options.onUnauthorized();
-          throw new ApiError(
-            'authentication',
-            'No fue posible renovar la sesión. Inicia sesión nuevamente.',
-            401,
-          );
-        }
-        await this.refreshToken();
+        await this.prepareUnauthorizedRetry(init, retried);
         return this.request<T>(path, init, true);
       }
-      if (response.status === 403) throw new ApiError('forbidden', 'Forbidden', 403);
-      if (!response.ok)
-        throw new ApiError(
-          'backend',
-          'Backend request failed',
-          response.status,
-          await this.safeBody(response),
-        );
-      if (response.status === 204) return undefined as T;
-      try {
-        return (await response.json()) as T;
-      } catch (error) {
-        throw new ApiError('invalid-response', 'Invalid JSON response', response.status, error);
-      }
+      return await this.decodeResponse<T>(response);
     } catch (error) {
       if (error instanceof ApiError) throw error;
       if (error instanceof DOMException && error.name === 'AbortError')
@@ -192,6 +147,45 @@ export class ApiClient {
     } finally {
       window.clearTimeout(timeout);
       externalSignal?.removeEventListener('abort', abortFromExternal);
+    }
+  }
+
+  private async acquireToken(): Promise<string> {
+    try {
+      return await this.options.getToken(false);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'configuration',
+        error instanceof Error ? error.message : 'No fue posible obtener el token de autenticación.',
+      );
+    }
+  }
+
+  /** Keeps the existing single 401 retry, including its explicit transactional opt-out. */
+  private async prepareUnauthorizedRetry(init: ApiRequestInit, retried: boolean): Promise<void> {
+    if (init.retryOnUnauthorized === false)
+      throw new ApiError('authentication', 'La sesión fue rechazada; la operación no se repitió automáticamente.', 401);
+    if (this.options.refreshOnUnauthorized === false) {
+      await this.options.onUnauthorized();
+      throw new ApiError('authentication', 'El token de desarrollo fue rechazado o puede haber expirado.', 401);
+    }
+    if (retried) {
+      await this.options.onUnauthorized();
+      throw new ApiError('authentication', 'No fue posible renovar la sesión. Inicia sesión nuevamente.', 401);
+    }
+    await this.refreshToken();
+  }
+
+  private async decodeResponse<T>(response: Response): Promise<T> {
+    if (response.status === 403) throw new ApiError('forbidden', 'Forbidden', 403);
+    if (!response.ok)
+      throw new ApiError('backend', 'Backend request failed', response.status, await this.safeBody(response));
+    if (response.status === 204) return undefined as T;
+    try {
+      return (await response.json()) as T;
+    } catch (error) {
+      throw new ApiError('invalid-response', 'Invalid JSON response', response.status, error);
     }
   }
 

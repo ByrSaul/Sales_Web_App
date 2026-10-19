@@ -14,15 +14,10 @@ export const isAmbiguousError = (error: unknown): boolean =>
     : true;
 
 /** Obtiene un mensaje estable para registrar el resultado fallido de una mutación. */
-export const mutationErrorMessage = (error: unknown): string =>
-  error instanceof ApiError
-    ? error.kind === 'timeout'
-      ? 'La operación agotó el tiempo de espera; su resultado es ambiguo.'
-      : error.kind === 'network'
-        ? 'Se perdió la conexión; es necesario verificar Dynamics.'
-        : error.status
-          ? `Backend rechazó la operación (${error.status}).`
-          : 'No fue posible comunicarse con el Backend.'
-    : error instanceof Error
-      ? error.message
-      : 'Error inesperado.';
+export const mutationErrorMessage = (error: unknown): string => {
+  if (!(error instanceof ApiError)) return error instanceof Error ? error.message : 'Error inesperado.';
+  if (error.kind === 'timeout') return 'La operación agotó el tiempo de espera; su resultado es ambiguo.';
+  if (error.kind === 'network') return 'Se perdió la conexión; es necesario verificar Dynamics.';
+  if (error.status) return `Backend rechazó la operación (${error.status}).`;
+  return 'No fue posible comunicarse con el Backend.';
+};
