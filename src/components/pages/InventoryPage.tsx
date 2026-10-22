@@ -1,6 +1,7 @@
 import { inventoryIdentity } from "../../features/catalogs/inventoryIdentity";
 import { runUiAction } from "../../core/async/uiAction";
 import React, { useState } from "react";
+import { useSession } from "../../app/providers/SessionProvider";
 import { useDebouncedValue } from "../../core/hooks/useDebouncedValue";
 import {
   useInfiniteProducts,
@@ -11,7 +12,7 @@ import type { Product } from "../../features/catalogs/types";
 import { Badge, Button, Card, EmptyState, Input, Select } from "../ui";
 import { ErrorState, LoadingState } from "../ui/PageState";
 /** Pantalla de consulta de existencias por producto, variante y ubicación. */
-const InventoryPage: React.FC = () => {
+const InventoryContent: React.FC = () => {
   const renderInventory = () => {
     if (!product || (product.requiresVariant && !variant)) {
       return (
@@ -27,7 +28,15 @@ const InventoryPage: React.FC = () => {
       );
     }
     if (stock.isPending) {
-      return <LoadingState message="Consultando inventario..." />;
+      return (
+        <section
+          aria-label="Estado de la consulta de inventario"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <LoadingState message="Consultando inventario..." />
+        </section>
+      );
     }
     if (stock.isError) {
       return (
@@ -181,5 +190,10 @@ const InventoryPage: React.FC = () => {
       {renderInventory()}
     </div>
   );
+};
+const InventoryPage: React.FC = () => {
+  const { context } = useSession();
+  const companyIdentity = (context.company?.id ?? "").trim().toLowerCase();
+  return <InventoryContent key={companyIdentity} />;
 };
 export default InventoryPage;

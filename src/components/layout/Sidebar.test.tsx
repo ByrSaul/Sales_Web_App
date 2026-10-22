@@ -62,26 +62,22 @@ describe("Sidebar", () => {
     [false, true],
     [true, true],
   ])(
-    "includes only enabled production/forecast modules (%s/%s)",
+    "keeps removed production/forecast entries hidden regardless of feature flags (%s/%s)",
     async (production, forecast) => {
       mocks.config.featureProduction = production;
       mocks.config.featureForecast = forecast;
       const view = await mount();
       expect(
         Boolean(screen.queryByRole("button", { name: /Producción/ })),
-      ).toBe(production);
+      ).toBe(false);
       expect(
         Boolean(screen.queryByRole("button", { name: /Forecast de ventas/ })),
-      ).toBe(forecast);
-      if (production)
-        fireEvent.click(screen.getByRole("button", { name: /Producción/ }));
-      if (forecast)
-        fireEvent.click(
-          screen.getByRole("button", { name: /Forecast de ventas/ }),
-        );
-      expect(view.props.onNavigate).toHaveBeenCalledWith(
-        forecast ? "/forecast" : "/produccion",
+      ).toBe(false);
+      fireEvent.click(
+        screen.getByRole("button", { name: /Consulta de Inventario/ }),
       );
+      expect(view.props.onNavigate).toHaveBeenCalledWith("/inventario");
+      expect(view.props.onMobileClose).toHaveBeenCalledTimes(1);
     },
   );
   it("changes company and logs out through the session instead of ordinary navigation", async () => {

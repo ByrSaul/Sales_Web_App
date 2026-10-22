@@ -12,6 +12,9 @@ import * as map from "../../features/catalogs/mappers";
 import ProductsPage from "./ProductsPage";
 import InventoryPage from "./InventoryPage";
 import CustomerAddressesPage from "./CustomerAddressesPage";
+vi.mock("../../app/providers/SessionProvider", () => ({
+  useSession: () => ({ context: { company: { id: "CO" } } }),
+}));
 
 const mocks = vi.hoisted(() => ({
   products: vi.fn(),

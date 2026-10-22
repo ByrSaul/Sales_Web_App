@@ -3,7 +3,6 @@ import React from "react";
 import { User } from "../../types";
 import { Icon } from "../ui";
 import { useSession } from "../../app/providers/SessionProvider";
-import { appConfig } from "../../app/config/env";
 
 interface SidebarProps {
   activeRoute: string;

@@ -195,7 +195,7 @@ export const useInventory = (
     vendor = context.vendor?.id ?? "";
   return useQuery({
     queryKey: catalogKeys.inventory(
-      company,
+      company.trim().toLowerCase(),
       vendor,
       product?.itemId ?? "",
       variantNumber,
@@ -224,7 +224,6 @@ export const useInventory = (
       product &&
       (!product.requiresVariant || variantNumber),
     ),
-    placeholderData: keepPreviousData,
   });
 };
 /** Proporciona consulta infinita de inventario para seleccionar almacén y ubicación. */
